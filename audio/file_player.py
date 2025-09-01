@@ -15,7 +15,7 @@ class SoundFile(Enum):
 
 
 class SoundFilePlayer(LoggingMixin):
-    SUPPORTED_FORMATS = {".mp3"}  # Set für einfache Erweiterung
+    SUPPORTED_FORMATS = {".mp3"}
 
     def __init__(self):
         self.volume = 1.0
@@ -29,7 +29,6 @@ class SoundFilePlayer(LoggingMixin):
     def play_sound(self, sound_name: str) -> bool:
         """Play a sound file asynchronously (non-blocking)."""
         try:
-            # Validate format first
             self._validate_audio_format(sound_name)
 
             sound_path = self._get_sound_path(sound_name)
@@ -131,26 +130,3 @@ class SoundFilePlayer(LoggingMixin):
         """Get the full path to a sound file."""
         filename = sound_name if sound_name.endswith(".mp3") else f"{sound_name}.mp3"
         return os.path.join(self.sounds_dir, filename)
-
-
-if __name__ == "__main__":
-    player = SoundFilePlayer()
-
-    # Test valid formats
-    try:
-        player.play_sound("startup")  # Should work
-        print("✓ MP3 playback works")
-    except Exception as e:
-        print(f"✗ MP3 test failed: {e}")
-
-    # Test invalid formats
-    invalid_formats = ["test.wav", "sound.ogg", "music.flac"]
-
-    for invalid_file in invalid_formats:
-        try:
-            player.play_sound(invalid_file)
-            print(f"✗ Should have failed for {invalid_file}")
-        except ValueError as e:
-            print(f"✓ Correctly rejected {invalid_file}: {e}")
-        except Exception as e:
-            print(f"? Unexpected error for {invalid_file}: {e}")

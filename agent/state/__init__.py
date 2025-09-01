@@ -1,16 +1,8 @@
-from .base import State, VoiceAssistantContext, VoiceAssistantEvent
+from .base import AssistantState, VoiceAssistantContext, VoiceAssistantEvent
 
-from .error import ErrorState
-from .idle import IdleState
-from .listening import ListeningState
-from .responding import RespondingState
 
 __all__ = [
-    "State",
+    "AssistantState",
     "VoiceAssistantContext",
     "VoiceAssistantEvent",
-    "ErrorState",
-    "IdleState",
-    "ListeningState",
-    "RespondingState"
 ]
