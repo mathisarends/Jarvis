@@ -2,7 +2,6 @@ import os
 from enum import Enum
 from textwrap import dedent
 
-import pyaudio
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -41,8 +40,4 @@ SYSTEM_MESSAGE = dedent(
 )
 VOICE = RealtimeVoice.ALLOY
 
-CHUNK = 4096
-FORMAT = pyaudio.paInt16
-CHANNELS = 1
-RATE = 24000
 TEMPERATURE = 0.8

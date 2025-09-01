@@ -15,6 +15,8 @@ class SoundFile(Enum):
 
 
 class SoundFilePlayer(LoggingMixin):
+    SUPPORTED_FORMATS = {".mp3"}  # Set für einfache Erweiterung
+
     def __init__(self):
         self.volume = 1.0
         self.sounds_dir = os.path.join(os.path.dirname(__file__), "res")
@@ -24,15 +26,33 @@ class SoundFilePlayer(LoggingMixin):
         )
         self._init_mixer()
 
-    def _init_mixer(self):
-        """Initialize pygame mixer if not already done."""
-        if not pygame.mixer.get_init():
-            try:
-                pygame.mixer.init()
-                self.logger.debug("Pygame mixer initialized in __init__")
-            except (RuntimeError, OSError) as e:
-                self.logger.error("Failed to init pygame.mixer in __init__: %s", e)
-                raise  # Oder handle es anders, z.B. mit einem Flag
+    def play_sound(self, sound_name: str) -> bool:
+        """Play a sound file asynchronously (non-blocking)."""
+        try:
+            # Validate format first
+            self._validate_audio_format(sound_name)
+
+            sound_path = self._get_sound_path(sound_name)
+
+            if not os.path.exists(sound_path):
+                self.logger.warning("Sound file not found: %s", sound_path)
+                return False
+
+            sound = pygame.mixer.Sound(sound_path)
+            sound.set_volume(self.volume)
+            sound.play()
+            self.logger.debug("Playing sound: %s", sound_name)
+            return True
+
+        except (RuntimeError, MemoryError, UnicodeDecodeError) as e:
+            self.logger.error("Error while playing %s: %s", sound_name, e)
+            return False
+        except ValueError as e:
+            self.logger.error("Format validation failed: %s", e)
+            raise  # Re-raise to let caller handle it
+        except OSError as e:
+            self.logger.error("File access error for %s: %s", sound_name, e)
+            return False
 
     def stop_sound(self) -> None:
         """Stop the currently playing sound."""
@@ -47,28 +67,6 @@ class SoundFilePlayer(LoggingMixin):
             self.logger.info("Pygame mixer stopped")
         except (AttributeError, RuntimeError) as e:
             self.logger.warning("Could not stop pygame mixer: %s", e)
-
-    def play_sound(self, sound_name: str) -> bool:
-        """Play a sound file asynchronously (non-blocking)."""
-        sound_path = self._get_sound_path(sound_name)
-
-        if not os.path.exists(sound_path):
-            self.logger.warning("Sound file not found: %s", sound_path)
-            return False
-
-        # Entferne die init-Prüfung hier, da sie bereits in __init__ erfolgt
-        try:
-            sound = pygame.mixer.Sound(sound_path)
-            sound.set_volume(self.volume)
-            sound.play()
-            self.logger.debug("Playing sound: %s", sound_name)
-            return True
-        except (RuntimeError, MemoryError, UnicodeDecodeError) as e:
-            self.logger.error("Error while playing %s: %s", sound_name, e)
-            return False
-        except OSError as e:
-            self.logger.error("File access error for %s: %s", sound_name, e)
-            return False
 
     def play_startup_sound(self) -> bool:
         """Play the startup sound."""
@@ -102,6 +100,33 @@ class SoundFilePlayer(LoggingMixin):
         """Get the current volume level of the audio player."""
         return self.volume
 
+    def _init_mixer(self):
+        """Initialize pygame mixer if not already done."""
+        if not pygame.mixer.get_init():
+            try:
+                pygame.mixer.init()
+                self.logger.debug("Pygame mixer initialized in __init__")
+            except (RuntimeError, OSError) as e:
+                self.logger.error("Failed to init pygame.mixer in __init__: %s", e)
+                raise
+
+    def _validate_audio_format(self, sound_name: str) -> None:
+        """Validate that the audio format is supported (extension-based check only)."""
+        if "." not in sound_name:
+            return  # No extension provided, will default to .mp3
+
+        _, ext = os.path.splitext(sound_name.lower())
+        if ext in self.SUPPORTED_FORMATS:
+            return  # Extension is supported
+
+        # Unsupported extension - raise error
+        supported_list = ", ".join(self.SUPPORTED_FORMATS)
+        raise ValueError(
+            f"Audio format '{ext}' is not supported. "
+            f"Supported formats: {supported_list}. "
+            f"Please convert '{sound_name}' to MP3 format."
+        )
+
     def _get_sound_path(self, sound_name: str) -> str:
         """Get the full path to a sound file."""
         filename = sound_name if sound_name.endswith(".mp3") else f"{sound_name}.mp3"
@@ -110,8 +135,22 @@ class SoundFilePlayer(LoggingMixin):
 
 if __name__ == "__main__":
     player = SoundFilePlayer()
-    player.play_startup_sound()
-    # Optional: Add a delay to let the sound play
-    import time
 
-    time.sleep(2)  # Adjust based on sound length
+    # Test valid formats
+    try:
+        player.play_sound("startup")  # Should work
+        print("✓ MP3 playback works")
+    except Exception as e:
+        print(f"✗ MP3 test failed: {e}")
+
+    # Test invalid formats
+    invalid_formats = ["test.wav", "sound.ogg", "music.flac"]
+
+    for invalid_file in invalid_formats:
+        try:
+            player.play_sound(invalid_file)
+            print(f"✗ Should have failed for {invalid_file}")
+        except ValueError as e:
+            print(f"✓ Correctly rejected {invalid_file}: {e}")
+        except Exception as e:
+            print(f"? Unexpected error for {invalid_file}: {e}")

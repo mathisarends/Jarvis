@@ -7,6 +7,7 @@ requires-python = ">=3.13"
 dependencies = [
     "numpy>=2.3.2",
     "openai[realtime]>=1.102.0",
+    "pvporcupine>=3.0.5",
     "pyaudio>=0.2.14",
     "pygame>=2.6.1",
     "python-dotenv>=1.1.1",
