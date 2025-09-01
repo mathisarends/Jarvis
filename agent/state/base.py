@@ -1,14 +1,12 @@
 """
-State machine for voice assistant - consolidated states (match/case)
+State machine for voice assistant - base classes and enums
 """
-
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import TYPE_CHECKING
 
-from audio import SoundFile
 from shared.logging_mixin import LoggingMixin
 
 if TYPE_CHECKING:
@@ -19,12 +17,19 @@ class VoiceAssistantEvent(Enum):
     """Events that can trigger state transitions"""
 
     WAKE_WORD_DETECTED = "wake_word_detected"
-    USER_INPUT_RECEIVED = "user_input_received"
-    RESPONSE_GENERATED = "response_generated"
-    SESSION_TIMEOUT = "session_timeout"
+    USER_STARTED_SPEAKING = "user_started_speaking"
+    USER_SPEECH_ENDED = "user_speech_ended"
+
+    ASSISTANT_STARTED_RESPONDING = "assistant_started_responding"
+    ASSISTANT_RESPONSE_COMPLETED = "assistant_response_completed"
+    ASSISTANT_SPEECH_INTERRUPTED = "assistant_speech_interrupted"
+
+    ASSISTANT_STARTED_TOOL_CALL = "assistant_started_tool_call"
+    ASSISTANT_RECEIVED_TOOL_CALL_RESULT = "ASSISTANT_RECEIVED_TOOL_CALL_RESULT"
+
+    TIMEOUT_OCCURRED = "timeout_occurred"
+    IDLE_TRANSITION = "idle_transition"
     ERROR_OCCURRED = "error_occurred"
-    SPEECH_DONE = "speech_done"
-    SPEECH_INTERRUPTED = "speech_interrupted"
 
     def __str__(self) -> str:
         return self.value
@@ -34,33 +39,13 @@ class StateType(Enum):
     """Enum for different state types"""
 
     IDLE = "idle"
+    WAITING_FOR_USER_INPUT = "waiting_for_user_input"
     LISTENING = "listening"
     RESPONDING = "responding"
     ERROR = "error"
 
     def __str__(self) -> str:
         return self.value
-
-
-class VoiceAssistantContext:
-    """Context object that holds state and dependencies"""
-
-    def __init__(self, sound_player: SoundFilePlayer):
-        self.state: AssistantState = IdleState()
-        self.session_active = False
-        self.sound_player = sound_player
-
-    async def handle_event(self, event: VoiceAssistantEvent) -> None:
-        """Delegate event to current state"""
-        await self.state.handle(event, self)
-
-    def start_session(self) -> None:
-        """Start a new session"""
-        self.session_active = True
-
-    def end_session(self) -> None:
-        """End the current session"""
-        self.session_active = False
 
 
 class AssistantState(ABC, LoggingMixin):
@@ -79,6 +64,11 @@ class AssistantState(ABC, LoggingMixin):
     async def on_enter(self, context: VoiceAssistantContext) -> None:
         """Called when entering this state"""
         ...
+        
+    @abstractmethod
+    async def on_exit(self, context: VoiceAssistantContext) -> None:
+        """Called when exiting this state"""
+        ...
 
     @abstractmethod
     async def handle(
@@ -88,7 +78,7 @@ class AssistantState(ABC, LoggingMixin):
         ...
 
     async def _transition_to(
-        self, new_state: "AssistantState", context: VoiceAssistantContext
+        self, new_state: AssistantState, context: VoiceAssistantContext
     ) -> None:
         """Transition to a new state"""
         self.logger.info(
@@ -96,98 +86,32 @@ class AssistantState(ABC, LoggingMixin):
             self.__class__.__name__,
             new_state.__class__.__name__,
         )
+        
+        await self.on_exit(context)
+        
         context.state = new_state
         await context.state.on_enter(context)
 
 
-class IdleState(AssistantState):
-    """Initial state - waiting for wake word"""
+class VoiceAssistantContext:
+    """Context object that holds state and dependencies"""
 
-    def __init__(self):
-        super().__init__(StateType.IDLE)
+    def __init__(self, sound_player: SoundFilePlayer):
+        # Import hier statt oben - vermeidet circular import
+        from agent.state.idle import IdleState
+        
+        self.state: AssistantState = IdleState()
+        self.session_active = False
+        self.sound_player = sound_player
 
-    async def on_enter(self, context: VoiceAssistantContext) -> None:
-        self.logger.info("Entering Idle state - waiting for wake word")
-        context.end_session()
+    async def handle_event(self, event: VoiceAssistantEvent) -> None:
+        """Delegate event to current state"""
+        await self.state.handle(event, self)
 
-    async def handle(
-        self, event: VoiceAssistantEvent, context: VoiceAssistantContext
-    ) -> None:
-        match event:
-            case VoiceAssistantEvent.WAKE_WORD_DETECTED:
-                context.start_session()
-                await self._transition_to(ListeningState(), context)
-            case _:
-                self.logger.debug("Ignoring event %s in Idle state", event.value)
+    def start_session(self) -> None:
+        """Start a new session"""
+        self.session_active = True
 
-
-class ListeningState(AssistantState):
-    """State when listening for user input after wake word"""
-
-    def __init__(self):
-        super().__init__(StateType.LISTENING)
-
-    async def on_enter(self, context: VoiceAssistantContext) -> None:
-        self.logger.info("Entering Listening state - ready for user input")
-        # Wake-word sound cue
-        context.sound_player.play_sound_file(SoundFile.WAKE_WORD)
-
-    async def handle(
-        self, event: VoiceAssistantEvent, context: VoiceAssistantContext
-    ) -> None:
-        match event:
-            case VoiceAssistantEvent.USER_INPUT_RECEIVED:
-                await self._transition_to(RespondingState(), context)
-            case VoiceAssistantEvent.SESSION_TIMEOUT:
-                self.logger.info("Session timeout in Listening state")
-                await self._transition_to(IdleState(), context)
-            case VoiceAssistantEvent.ERROR_OCCURRED:
-                await self._transition_to(ErrorState(), context)
-            case _:
-                self.logger.debug("Ignoring event %s in Listening state", event.value)
-
-
-class RespondingState(AssistantState):
-    """State when generating and delivering response to user"""
-
-    def __init__(self):
-        super().__init__(StateType.RESPONDING)
-
-    async def on_enter(self, context: VoiceAssistantContext) -> None:
-        self.logger.info(
-            "Entering Responding state - generating and delivering response"
-        )
-
-    async def handle(
-        self, event: VoiceAssistantEvent, context: VoiceAssistantContext
-    ) -> None:
-        match event:
-            case VoiceAssistantEvent.SPEECH_DONE | VoiceAssistantEvent.SPEECH_INTERRUPTED:
-                await self._transition_to(ListeningState(), context)
-            case VoiceAssistantEvent.SESSION_TIMEOUT:
-                self.logger.info("Session timeout in Responding state")
-                await self._transition_to(IdleState(), context)
-            case VoiceAssistantEvent.ERROR_OCCURRED:
-                await self._transition_to(ErrorState(), context)
-            case _:
-                self.logger.debug("Ignoring event %s in Responding state", event.value)
-
-
-class ErrorState(AssistantState):
-    """Error state - catch-all for handling errors"""
-
-    def __init__(self):
-        super().__init__(StateType.ERROR)
-
-    async def on_enter(self, context: VoiceAssistantContext) -> None:
-        self.logger.error("Entering Error state - handling error condition")
-        context.sound_player.play_sound_file(SoundFile.ERROR)
-
-    async def handle(
-        self, event: VoiceAssistantEvent, context: VoiceAssistantContext
-    ) -> None:
-        match event:
-            case VoiceAssistantEvent.SPEECH_DONE | VoiceAssistantEvent.SESSION_TIMEOUT:
-                await self._transition_to(IdleState(), context)
-            case _:
-                self.logger.debug("Ignoring event %s in Error state", event.value)
+    def end_session(self) -> None:
+        """End the current session"""
+        self.session_active = False
