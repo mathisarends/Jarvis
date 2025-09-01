@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from agent.realtime.views import AssistantVoice, RealtimeModel
-from agent.state.base import VoiceAssistantContext, VoiceAssistantEvent
+from agent.state.base import VoiceAssistantContext, VoiceAssistantEvent, StateType
 from audio import SoundFilePlayer
 from audio.wake_word_listener import WakeWordListener, PorcupineBuiltinKeyword
 from shared.logging_mixin import LoggingMixin
@@ -24,14 +24,14 @@ class VoiceAssistantConfig:
 class VoiceAssistantController(LoggingMixin):
     """Slim controller: boot, wake-word, and state transition (only)."""
 
-    def __init__(self, cfg: Optional[VoiceAssistantConfig] = None):
-        self.cfg = cfg or VoiceAssistantConfig()
+    def __init__(self, config: Optional[VoiceAssistantConfig] = None):
+        self.config = config or VoiceAssistantConfig()
 
         self.sound_player = SoundFilePlayer()
         self.context = VoiceAssistantContext(sound_player=self.sound_player)
         self.wake_word_listener = WakeWordListener(
-            wakeword=self.cfg.wake_word,
-            sensitivity=self.cfg.sensitivity,
+            wakeword=self.config.wake_word,
+            sensitivity=self.config.sensitivity,
         )
 
         # nur ein Task in dieser Minimalversion
@@ -104,10 +104,10 @@ class VoiceAssistantController(LoggingMixin):
 
     async def _update_tasks_for_state(self) -> None:
         """In Minimalversion: Wake-Word nur in Idle laufen lassen."""
-        state_name = type(self.context.state).__name__
-        self.logger.debug("Update tasks for state: %s", state_name)
+        current_state_type = self.context.state.state_type
+        self.logger.debug("Update tasks for state: %s", current_state_type.value)
 
-        if state_name == "IdleState":
+        if current_state_type == StateType.IDLE:
             await self._start_wake_task()
         else:
             # ListeningState / RespondingState / ErrorState -> Wake-Word stoppen
@@ -115,22 +115,25 @@ class VoiceAssistantController(LoggingMixin):
 
     async def _start_wake_task(self) -> None:
         if self._wake_task and not self._wake_task.done():
-            return  # läuft bereits
+            return  
         self.logger.debug("Starting wake-word detection task")
         self._wake_task = asyncio.create_task(self._wake_word_loop(), name="wake_word")
 
     async def _cancel_wake_task(self) -> None:
-        if self._wake_task and not self._wake_task.done():
-            self.logger.debug("Cancelling wake-word task")
-            self._wake_task.cancel()
-            try:
-                await self._wake_task
-            except asyncio.CancelledError:
-                pass
-            except Exception:
-                self.logger.exception("Error while cancelling wake task")
-            finally:
-                self._wake_task = None
+        if not self._wake_task or self._wake_task.done():
+            self.logger.debug("No wake task to cancel or already done")
+            return
+        
+        self.logger.debug("Cancelling wake-word task")
+        self._wake_task.cancel()
+        try:
+            await self._wake_task
+        except asyncio.CancelledError:
+            pass
+        except Exception:
+            self.logger.exception("Error while cancelling wake task")
+        finally:
+            self._wake_task = None
 
     async def _wake_word_loop(self) -> None:
         """Wartet einmalig auf Wake-Word und feuert dann das Event."""
@@ -139,14 +142,11 @@ class VoiceAssistantController(LoggingMixin):
             if detected:
                 await self.handle_event(VoiceAssistantEvent.WAKE_WORD_DETECTED)
 
-                # Demo: (optional) Wake-Word wechseln für die nächste Runde
-                # self.wake_word_listener.set_wakeword(PorcupineBuiltinKeyword.BUMBLEBEE)
         except asyncio.CancelledError:
-            # normales Ende beim Statewechsel/Stop
             raise
         except Exception:
             self.logger.exception("Wake-word loop failed")
-            # In der Minimalversion keine Error-Transition – kannst du später ergänzen.
+            # TODO: Add tranistion to error state here
 
 
 # --- optionaler Entry-Point ---------------------------------------------------

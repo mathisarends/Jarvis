@@ -1,5 +1,5 @@
 """
-State machine for voice assistant - consolidated states
+State machine for voice assistant - consolidated states (match/case)
 """
 
 from __future__ import annotations
@@ -30,6 +30,18 @@ class VoiceAssistantEvent(Enum):
         return self.value
 
 
+class StateType(Enum):
+    """Enum for different state types"""
+
+    IDLE = "idle"
+    LISTENING = "listening"
+    RESPONDING = "responding"
+    ERROR = "error"
+
+    def __str__(self) -> str:
+        return self.value
+
+
 class VoiceAssistantContext:
     """Context object that holds state and dependencies"""
 
@@ -39,7 +51,7 @@ class VoiceAssistantContext:
         self.sound_player = sound_player
 
     async def handle_event(self, event: VoiceAssistantEvent) -> None:
-        """Handle an event by delegating to current state"""
+        """Delegate event to current state"""
         await self.state.handle(event, self)
 
     def start_session(self) -> None:
@@ -54,22 +66,31 @@ class VoiceAssistantContext:
 class AssistantState(ABC, LoggingMixin):
     """Base class for all states"""
 
+    def __init__(self, state_type: StateType):
+        super().__init__()
+        self._state_type = state_type
+
+    @property
+    def state_type(self) -> StateType:
+        """Read-only property that returns the state type"""
+        return self._state_type
+
     @abstractmethod
     async def on_enter(self, context: VoiceAssistantContext) -> None:
         """Called when entering this state"""
-        pass
+        ...
 
     @abstractmethod
     async def handle(
         self, event: VoiceAssistantEvent, context: VoiceAssistantContext
     ) -> None:
         """Handle an event in this state"""
-        pass
+        ...
 
     async def _transition_to(
-        self, new_state: AssistantState, context: VoiceAssistantContext
+        self, new_state: "AssistantState", context: VoiceAssistantContext
     ) -> None:
-        """Helper method to transition to a new state"""
+        """Transition to a new state"""
         self.logger.info(
             "Transitioning from %s to %s",
             self.__class__.__name__,
@@ -82,50 +103,57 @@ class AssistantState(ABC, LoggingMixin):
 class IdleState(AssistantState):
     """Initial state - waiting for wake word"""
 
+    def __init__(self):
+        super().__init__(StateType.IDLE)
+
     async def on_enter(self, context: VoiceAssistantContext) -> None:
-        """Enter idle state"""
         self.logger.info("Entering Idle state - waiting for wake word")
         context.end_session()
 
     async def handle(
         self, event: VoiceAssistantEvent, context: VoiceAssistantContext
     ) -> None:
-        """Handle events in idle state"""
-        if event == VoiceAssistantEvent.WAKE_WORD_DETECTED:
-            context.start_session()
-            await self._transition_to(ListeningState(), context)
-        else:
-            self.logger.debug("Ignoring event %s in Idle state", event.value)
+        match event:
+            case VoiceAssistantEvent.WAKE_WORD_DETECTED:
+                context.start_session()
+                await self._transition_to(ListeningState(), context)
+            case _:
+                self.logger.debug("Ignoring event %s in Idle state", event.value)
 
 
 class ListeningState(AssistantState):
     """State when listening for user input after wake word"""
 
+    def __init__(self):
+        super().__init__(StateType.LISTENING)
+
     async def on_enter(self, context: VoiceAssistantContext) -> None:
-        """Enter listening state"""
         self.logger.info("Entering Listening state - ready for user input")
+        # Wake-word sound cue
         context.sound_player.play_sound_file(SoundFile.WAKE_WORD)
 
     async def handle(
         self, event: VoiceAssistantEvent, context: VoiceAssistantContext
     ) -> None:
-        """Handle events in listening state"""
-        if event == VoiceAssistantEvent.USER_INPUT_RECEIVED:
-            await self._transition_to(RespondingState(), context)
-        elif event == VoiceAssistantEvent.SESSION_TIMEOUT:
-            self.logger.info("Session timeout in Listening state")
-            await self._transition_to(IdleState(), context)
-        elif event == VoiceAssistantEvent.ERROR_OCCURRED:
-            await self._transition_to(ErrorState(), context)
-        else:
-            self.logger.debug("Ignoring event %s in Listening state", event.value)
+        match event:
+            case VoiceAssistantEvent.USER_INPUT_RECEIVED:
+                await self._transition_to(RespondingState(), context)
+            case VoiceAssistantEvent.SESSION_TIMEOUT:
+                self.logger.info("Session timeout in Listening state")
+                await self._transition_to(IdleState(), context)
+            case VoiceAssistantEvent.ERROR_OCCURRED:
+                await self._transition_to(ErrorState(), context)
+            case _:
+                self.logger.debug("Ignoring event %s in Listening state", event.value)
 
 
 class RespondingState(AssistantState):
     """State when generating and delivering response to user"""
 
+    def __init__(self):
+        super().__init__(StateType.RESPONDING)
+
     async def on_enter(self, context: VoiceAssistantContext) -> None:
-        """Enter responding state"""
         self.logger.info(
             "Entering Responding state - generating and delivering response"
         )
@@ -133,39 +161,33 @@ class RespondingState(AssistantState):
     async def handle(
         self, event: VoiceAssistantEvent, context: VoiceAssistantContext
     ) -> None:
-        """Handle events in responding state"""
-        if event == VoiceAssistantEvent.SPEECH_DONE:
-            await self._transition_to(ListeningState(), context)
-        elif event == VoiceAssistantEvent.SPEECH_INTERRUPTED:
-            await self._transition_to(ListeningState(), context)
-        elif event == VoiceAssistantEvent.SESSION_TIMEOUT:
-            self.logger.info("Session timeout in Responding state")
-            await self._transition_to(IdleState(), context)
-        elif event == VoiceAssistantEvent.ERROR_OCCURRED:
-            await self._transition_to(ErrorState(), context)
-        else:
-            self.logger.debug("Ignoring event %s in Responding state", event.value)
+        match event:
+            case VoiceAssistantEvent.SPEECH_DONE | VoiceAssistantEvent.SPEECH_INTERRUPTED:
+                await self._transition_to(ListeningState(), context)
+            case VoiceAssistantEvent.SESSION_TIMEOUT:
+                self.logger.info("Session timeout in Responding state")
+                await self._transition_to(IdleState(), context)
+            case VoiceAssistantEvent.ERROR_OCCURRED:
+                await self._transition_to(ErrorState(), context)
+            case _:
+                self.logger.debug("Ignoring event %s in Responding state", event.value)
 
-# Decide on how to handle errors for good ux
+
 class ErrorState(AssistantState):
     """Error state - catch-all for handling errors"""
 
+    def __init__(self):
+        super().__init__(StateType.ERROR)
+
     async def on_enter(self, context: VoiceAssistantContext) -> None:
-        """Enter error state"""
         self.logger.error("Entering Error state - handling error condition")
-        # Play error sound when entering error state
         context.sound_player.play_sound_file(SoundFile.ERROR)
 
     async def handle(
         self, event: VoiceAssistantEvent, context: VoiceAssistantContext
     ) -> None:
-        """Handle events in error state"""
-        if event == VoiceAssistantEvent.SPEECH_DONE:
-            # After error message is delivered, return to idle
-            await self._transition_to(IdleState(), context)
-        elif event == VoiceAssistantEvent.SESSION_TIMEOUT:
-            # Timeout during error handling
-            self.logger.info("Session timeout in Error state")
-            await self._transition_to(IdleState(), context)
-        else:
-            self.logger.debug("Ignoring event %s in Error state", event.value)
+        match event:
+            case VoiceAssistantEvent.SPEECH_DONE | VoiceAssistantEvent.SESSION_TIMEOUT:
+                await self._transition_to(IdleState(), context)
+            case _:
+                self.logger.debug("Ignoring event %s in Error state", event.value)
