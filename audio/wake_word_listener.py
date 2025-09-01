@@ -14,6 +14,7 @@ from shared.logging_mixin import LoggingMixin
 
 load_dotenv()
 
+
 class PorcupineBuiltinKeyword(Enum):
     ALEXA = "alexa"
     AMERICANO = "americano"

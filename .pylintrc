@@ -1,2 +1,5 @@
 [MESSAGES CONTROL]
 disable=missing-docstring
+
+[MESSAGES CONTROL]
+disable=R0903
