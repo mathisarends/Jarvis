@@ -1,16 +1,14 @@
 """
 State machine for voice assistant - base classes and enums
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import TYPE_CHECKING
 
+from agent.state.context import VoiceAssistantContext
 from shared.logging_mixin import LoggingMixin
-
-if TYPE_CHECKING:
-    from audio import SoundFilePlayer
 
 
 class VoiceAssistantEvent(Enum):
@@ -39,7 +37,7 @@ class StateType(Enum):
     """Enum for different state types"""
 
     IDLE = "idle"
-    WAITING_FOR_USER_INPUT = "waiting_for_user_input"
+    TIMEOUT = "timeout"
     LISTENING = "listening"
     RESPONDING = "responding"
     ERROR = "error"
@@ -64,7 +62,7 @@ class AssistantState(ABC, LoggingMixin):
     async def on_enter(self, context: VoiceAssistantContext) -> None:
         """Called when entering this state"""
         ...
-        
+
     @abstractmethod
     async def on_exit(self, context: VoiceAssistantContext) -> None:
         """Called when exiting this state"""
@@ -77,6 +75,36 @@ class AssistantState(ABC, LoggingMixin):
         """Handle an event in this state"""
         ...
 
+    async def _transition_to_idle(self, context: VoiceAssistantContext) -> None:
+        """Transition to IdleState"""
+        from agent.state.idle import IdleState
+
+        await self._transition_to(IdleState(), context)
+
+    async def _transition_to_timeout(self, context: VoiceAssistantContext) -> None:
+        """Transition to TimeoutState"""
+        from agent.state.timeout import TimeoutState
+
+        await self._transition_to(TimeoutState(), context)
+
+    async def _transition_to_listening(self, context: VoiceAssistantContext) -> None:
+        """Transition to ListeningState"""
+        from agent.state.listening import ListeningState
+
+        await self._transition_to(ListeningState(), context)
+
+    async def _transition_to_responding(self, context: VoiceAssistantContext) -> None:
+        """Transition to RespondingState"""
+        from agent.state.responding import RespondingState
+
+        await self._transition_to(RespondingState(), context)
+
+    async def _transition_to_error(self, context: VoiceAssistantContext) -> None:
+        """Transition to ErrorState"""
+        from agent.state.error import ErrorState
+
+        await self._transition_to(ErrorState(), context)
+
     async def _transition_to(
         self, new_state: AssistantState, context: VoiceAssistantContext
     ) -> None:
@@ -86,32 +114,8 @@ class AssistantState(ABC, LoggingMixin):
             self.__class__.__name__,
             new_state.__class__.__name__,
         )
-        
+
         await self.on_exit(context)
-        
+
         context.state = new_state
         await context.state.on_enter(context)
-
-
-class VoiceAssistantContext:
-    """Context object that holds state and dependencies"""
-
-    def __init__(self, sound_player: SoundFilePlayer):
-        # Import hier statt oben - vermeidet circular import
-        from agent.state.idle import IdleState
-        
-        self.state: AssistantState = IdleState()
-        self.session_active = False
-        self.sound_player = sound_player
-
-    async def handle_event(self, event: VoiceAssistantEvent) -> None:
-        """Delegate event to current state"""
-        await self.state.handle(event, self)
-
-    def start_session(self) -> None:
-        """Start a new session"""
-        self.session_active = True
-
-    def end_session(self) -> None:
-        """End the current session"""
-        self.session_active = False

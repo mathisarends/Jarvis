@@ -1,9 +1,5 @@
-
-
-from agent.state.base import AssistantState, StateType, VoiceAssistantContext, VoiceAssistantEvent
-from agent.state.idle import IdleState
-from agent.state.listening import ListeningState
-from agent.state.timeout import TimeoutState
+from agent.state.base import AssistantState, StateType, VoiceAssistantEvent
+from agent.state.context import VoiceAssistantContext
 
 
 class RespondingState(AssistantState):
@@ -18,6 +14,7 @@ class RespondingState(AssistantState):
         )
 
     async def on_exit(self, context: VoiceAssistantContext) -> None:
+        # Nothing to clean up in responding state
         pass
 
     async def handle(
@@ -34,15 +31,19 @@ class RespondingState(AssistantState):
                 self.logger.info("Assistant completed tool call")
                 # Stay in responding state - might have more to say
             case VoiceAssistantEvent.ASSISTANT_RESPONSE_COMPLETED:
-                self.logger.info("Assistant response completed - returning to waiting for user input")
-                await self._transition_to(TimeoutState(), context)
+                self.logger.info(
+                    "Assistant response completed - returning to waiting for user input"
+                )
+                await self._transition_to_timeout(context)
             case VoiceAssistantEvent.ASSISTANT_SPEECH_INTERRUPTED:
-                self.logger.info("Assistant speech interrupted - returning to listening")
-                await self._transition_to(ListeningState(), context)
+                self.logger.info(
+                    "Assistant speech interrupted - returning to listening"
+                )
+                await self._transition_to_listening(context)
             case VoiceAssistantEvent.IDLE_TRANSITION:
                 self.logger.info("Idle transition in Responding state")
-                await self._transition_to(IdleState(), context)
+                await self._transition_to_idle(context)
             case VoiceAssistantEvent.ERROR_OCCURRED:
-                await self._transition_to(ErrorState(), context)
+                await self._transition_to_error(context)
             case _:
                 self.logger.debug("Ignoring event %s in Responding state", event.value)

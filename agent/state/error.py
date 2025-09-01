@@ -1,5 +1,5 @@
-from agent.state.base import AssistantState, StateType, VoiceAssistantContext, VoiceAssistantEvent
-from agent.state.idle import IdleState
+from agent.state.base import AssistantState, StateType, VoiceAssistantEvent
+from agent.state.context import VoiceAssistantContext
 from audio.file_player import SoundFile
 
 
@@ -14,6 +14,7 @@ class ErrorState(AssistantState):
         context.sound_player.play_sound_file(SoundFile.ERROR)
 
     async def on_exit(self, context: VoiceAssistantContext) -> None:
+        # No cleanup needed when exiting error state
         pass
 
     async def handle(
@@ -23,10 +24,10 @@ class ErrorState(AssistantState):
             case VoiceAssistantEvent.ASSISTANT_RESPONSE_COMPLETED:
                 # After error message is delivered, return to idle
                 self.logger.info("Error response completed, returning to idle")
-                await self._transition_to(IdleState(), context)
+                await self._transition_to_idle(context)
             case VoiceAssistantEvent.IDLE_TRANSITION:
                 # Direct transition to idle
                 self.logger.info("Idle transition in Error state")
-                await self._transition_to(IdleState(), context)
+                await self._transition_to_idle(context)
             case _:
                 self.logger.debug("Ignoring event %s in Error state", event.value)

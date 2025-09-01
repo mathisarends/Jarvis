@@ -1,7 +1,5 @@
-
-
-from agent.state.base import AssistantState, StateType, VoiceAssistantContext, VoiceAssistantEvent
-from agent.state.idle import IdleState
+from agent.state.base import AssistantState, StateType, VoiceAssistantEvent
+from agent.state.context import VoiceAssistantContext
 
 
 class ListeningState(AssistantState):
@@ -14,6 +12,7 @@ class ListeningState(AssistantState):
         self.logger.info("Entering Listening state - user is speaking")
 
     async def on_exit(self, context: VoiceAssistantContext) -> None:
+        # Nothing to clean up in listening state
         pass
 
     async def handle(
@@ -22,11 +21,11 @@ class ListeningState(AssistantState):
         match event:
             case VoiceAssistantEvent.USER_SPEECH_ENDED:
                 self.logger.info("User finished speaking")
-                await self._transition_to(RespondingState(), context)
+                await self._transition_to_responding(context)
             case VoiceAssistantEvent.IDLE_TRANSITION:
                 self.logger.info("Idle transition in Listening state")
-                await self._transition_to(IdleState(), context)
+                await self._transition_to_idle(context)
             case VoiceAssistantEvent.ERROR_OCCURRED:
-                await self._transition_to(ErrorState(), context)
+                await self._transition_to_error(context)
             case _:
                 self.logger.debug("Ignoring event %s in Listening state", event.value)

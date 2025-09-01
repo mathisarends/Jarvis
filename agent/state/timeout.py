@@ -1,27 +1,28 @@
-
-
 import asyncio
 from typing import Optional
-from agent.state.base import AssistantState, StateType, VoiceAssistantContext, VoiceAssistantEvent
+from agent.state.base import AssistantState, StateType, VoiceAssistantEvent
+from agent.state.context import VoiceAssistantContext
 from audio.file_player import SoundFile
 
 
 class TimeoutState(AssistantState):
     """State after wake word - waiting for user to start speaking with timeout"""
 
-    TIMEOUT_SECONDS = 20.0
+    TIMEOUT_SECONDS = 10.0
 
     def __init__(self):
-        super().__init__(StateType.WAITING_FOR_USER_INPUT)
+        super().__init__(StateType.TIMEOUT)
         self._timeout_task: Optional[asyncio.Task] = None
 
     async def on_enter(self, context: VoiceAssistantContext) -> None:
-        self.logger.info("Entering WaitingForUserInput state - user has %s seconds to start speaking", 
-                        self.TIMEOUT_SECONDS)
-        
+        self.logger.info(
+            "Entering TimeoutState - user has %s seconds to start speaking",
+            self.TIMEOUT_SECONDS,
+        )
+
         # Play wake-word sound cue
         context.sound_player.play_sound_file(SoundFile.WAKE_WORD)
-        
+
         # Start timeout
         await self._start_timeout(context)
 
@@ -31,7 +32,7 @@ class TimeoutState(AssistantState):
     async def _start_timeout(self, context: VoiceAssistantContext) -> None:
         """Start the timeout task for this state"""
         await self._cancel_timeout()  # Cancel any existing timeout
-        
+
         self.logger.debug("Starting timeout: %s seconds", self.TIMEOUT_SECONDS)
         self._timeout_task = asyncio.create_task(self._timeout_handler(context))
 
@@ -60,15 +61,19 @@ class TimeoutState(AssistantState):
         match event:
             case VoiceAssistantEvent.USER_STARTED_SPEAKING:
                 self.logger.info("User started speaking - cancelling timeout")
-                await self._transition_to(ListeningState(), context)
+                await self._transition_to_listening(context)
             case VoiceAssistantEvent.TIMEOUT_OCCURRED:
-                self.logger.info("Timeout occurred - user did not start speaking within %s seconds", 
-                               self.TIMEOUT_SECONDS)
-                await self._transition_to(IdleState(), context)
+                self.logger.info(
+                    "Timeout occurred - user did not start speaking within %s seconds",
+                    self.TIMEOUT_SECONDS,
+                )
+                await self._transition_to_idle(context)
             case VoiceAssistantEvent.IDLE_TRANSITION:
                 self.logger.info("Idle transition in WaitingForUserInput state")
-                await self._transition_to(IdleState(), context)
+                await self._transition_to_idle(context)
             case VoiceAssistantEvent.ERROR_OCCURRED:
-                await self._transition_to(ErrorState(), context)
+                await self._transition_to_error(context)
             case _:
-                self.logger.debug("Ignoring event %s in WaitingForUserInput state", event.value)
+                self.logger.debug(
+                    "Ignoring event %s in WaitingForUserInput state", event.value
+                )
