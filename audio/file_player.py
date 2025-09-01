@@ -1,15 +1,27 @@
 import os
-import pygame
+from enum import Enum
 
+import pygame
 from shared.logging_mixin import LoggingMixin
+
+
+class SoundFile(Enum):
+    """Enum for available sound files."""
+
+    ERROR = "error"
+    RETURN_TO_IDLE = "return_to_idle"
+    STARTUP = "startup"
+    WAKE_WORD = "wake_word"
 
 
 class SoundFilePlayer(LoggingMixin):
     def __init__(self):
         self.volume = 1.0
         self.sounds_dir = os.path.join(os.path.dirname(__file__), "res")
-        
-        self.logger.info("Initializing SoundFilePlayer with sounds directory: %s", self.sounds_dir)
+
+        self.logger.info(
+            "Initializing SoundFilePlayer with sounds directory: %s", self.sounds_dir
+        )
         self._init_mixer()
 
     def _init_mixer(self):
@@ -58,6 +70,26 @@ class SoundFilePlayer(LoggingMixin):
             self.logger.error("File access error for %s: %s", sound_name, e)
             return False
 
+    def play_startup_sound(self) -> bool:
+        """Play the startup sound."""
+        return self.play_sound_file(SoundFile.STARTUP)
+
+    def play_wake_word_sound(self) -> bool:
+        """Play the wake word sound."""
+        return self.play_sound_file(SoundFile.WAKE_WORD)
+
+    def play_return_to_idle_sound(self) -> bool:
+        """Play the return to idle sound."""
+        return self.play_sound_file(SoundFile.RETURN_TO_IDLE)
+
+    def play_error_sound(self) -> bool:
+        """Play the error sound."""
+        return self.play_sound_file(SoundFile.ERROR)
+
+    def play_sound_file(self, sound_file: SoundFile) -> bool:
+        """Play a sound using the SoundFile enum."""
+        return self.play_sound(sound_file.value)
+
     def set_volume_level(self, volume: float) -> None:
         """Set the volume level for the audio player."""
         if not 0.0 <= volume <= 1.0:
@@ -74,12 +106,12 @@ class SoundFilePlayer(LoggingMixin):
         """Get the full path to a sound file."""
         filename = sound_name if sound_name.endswith(".mp3") else f"{sound_name}.mp3"
         return os.path.join(self.sounds_dir, filename)
-    
-    
+
+
 if __name__ == "__main__":
     player = SoundFilePlayer()
-    player.play_sound("startup")
+    player.play_startup_sound()
     # Optional: Add a delay to let the sound play
     import time
+
     time.sleep(2)  # Adjust based on sound length
-    

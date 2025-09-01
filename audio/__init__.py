@@ -1,3 +1,4 @@
-from .sound_file_player import SoundFilePlayer
+from .file_player import SoundFilePlayer
+from .capture import AudioCapture
 
-__all__ = ["SoundFilePlayer"]
+__all__ = ["SoundFilePlayer", "AudioCapture"]
