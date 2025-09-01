@@ -1,25 +1,19 @@
 """
-Efficient event-driven controller for voice assistant
+Minimal controller: only wake-word event supported
 """
-
 import asyncio
 from dataclasses import dataclass
 from typing import Optional
 
 from agent.realtime.views import AssistantVoice, RealtimeModel
-from agent.state.base import (
-    VoiceAssistantContext,
-    VoiceAssistantEvent,
-)
-from audio import SoundFilePlayer, SoundFile
+from agent.state.base import VoiceAssistantContext, VoiceAssistantEvent
+from audio import SoundFilePlayer
 from audio.wake_word_listener import WakeWordListener, PorcupineBuiltinKeyword
 from shared.logging_mixin import LoggingMixin
 
 
 @dataclass(frozen=True)
 class VoiceAssistantConfig:
-    """Configuration for the voice assistant."""
-
     voice: AssistantVoice = AssistantVoice.ALLOY
     realtime_model: RealtimeModel = RealtimeModel.GPT_REALTIME
 
@@ -28,280 +22,143 @@ class VoiceAssistantConfig:
 
 
 class VoiceAssistantController(LoggingMixin):
-    """Event-driven controller for voice assistant state machine"""
+    """Slim controller: boot, wake-word, and state transition (only)."""
 
-    def __init__(self):
-        self.context = VoiceAssistantContext()
+    def __init__(self, cfg: Optional[VoiceAssistantConfig] = None):
+        self.cfg = cfg or VoiceAssistantConfig()
+
         self.sound_player = SoundFilePlayer()
+        self.context = VoiceAssistantContext(sound_player=self.sound_player)
         self.wake_word_listener = WakeWordListener(
-            wakeword=PorcupineBuiltinKeyword.PICOVOICE, sensitivity=0.7
+            wakeword=self.cfg.wake_word,
+            sensitivity=self.cfg.sensitivity,
         )
 
-        self.event_sounds: dict[VoiceAssistantEvent, SoundFile] = {
-            VoiceAssistantEvent.WAKE_WORD_DETECTED: SoundFile.WAKE_WORD,
-            VoiceAssistantEvent.SESSION_TIMEOUT: SoundFile.RETURN_TO_IDLE,
-            VoiceAssistantEvent.ERROR_OCCURRED: SoundFile.ERROR,
-        }
-
+        # nur ein Task in dieser Minimalversion
+        self._wake_task: Optional[asyncio.Task] = None
         self._running = False
-        self._current_tasks: dict[str, Optional[asyncio.Task]] = {
-            "wake_word": None,
-            "session_timeout": None,
-            "user_input": None,
-        }
 
-        self.logger.info("Voice Assistant Controller initialized")
+        self.logger.info("Voice Assistant Controller initialized (minimal wake-word mode)")
 
     async def start(self) -> None:
-        """Start the voice assistant"""
         if self._running:
-            self.logger.warning("Controller is already running")
+            self.logger.warning("Controller already running")
             return
 
         self._running = True
         self.logger.info("Starting Voice Assistant Controller")
-
         self.sound_player.play_startup_sound()
 
+        # Initialize the initial state
+        await self.context.state.on_enter(self.context)
+
         try:
-            await self._main_loop()
-        except Exception as e:
-            self.logger.error("Error in main loop: %s", e)
-            await self.handle_event(VoiceAssistantEvent.ERROR_OCCURRED)
+            # initial: je nach State entscheiden, ob wake-word laufen soll
+            await self._update_tasks_for_state()
+            # idle loop – läuft bis stop() gerufen wird
+            while self._running:
+                await asyncio.sleep(0.1)
+        except Exception:
+            self.logger.exception("Unhandled error in controller")
+            # In der Minimalversion haben wir nur WAKE; Error-State könntest du später anbinden.
         finally:
             await self.stop()
 
     async def stop(self) -> None:
-        """Stop the voice assistant"""
         if not self._running:
             return
-
-        self.logger.info("Stopping Voice Assistant Controller")
         self._running = False
+        self.logger.info("Stopping Voice Assistant Controller")
 
-        # Cancel all running tasks
-        await self._cancel_all_tasks()
+        # Task beenden
+        await self._cancel_wake_task()
 
-        # Cleanup services
-        self.wake_word_listener.cleanup()
-        self.sound_player.stop_sound()
+        # Services aufräumen
+        try:
+            self.wake_word_listener.cleanup()
+        except Exception:
+            self.logger.exception("WakeWord cleanup failed")
+
+        try:
+            self.sound_player.stop_sound()
+        except Exception:
+            self.logger.exception("Sound stop failed")
 
         self.logger.info("Voice Assistant Controller stopped")
 
     async def handle_event(self, event: VoiceAssistantEvent) -> None:
-        """Handle an event with sound feedback and state transition"""
+        """Only handles WAKE_WORD_DETECTED in this minimal setup."""
         self.logger.info("Handling event: %s", event.value)
 
-        # Play sound for event (non-blocking)
-        if event in self.event_sounds:
-            sound_file = self.event_sounds[event]
-            self.sound_player.play_sound_file(sound_file)
-            self.logger.debug(
-                "Playing sound for event %s: %s", event.value, sound_file.value
-            )
+        if event is VoiceAssistantEvent.WAKE_WORD_DETECTED:
+            # State-Transition (Idle -> Listening) - sound will be played in state
+            await self.context.handle_event(event)
 
-        # Handle state transition
-        self.context.handle_event(event)
+            # Tasks gemäß neuem State anpassen
+            await self._update_tasks_for_state()
+        else:
+            # alle anderen Events werden hier (noch) ignoriert
+            self.logger.debug("Ignoring event in minimal mode: %s", event.value)
 
-        # Update tasks based on new state
-        await self._update_tasks_for_current_state()
+    # --- intern ---------------------------------------------------------------
 
-    async def _main_loop(self) -> None:
-        """Main event-driven control loop"""
-        # Start initial tasks based on current state
-        await self._update_tasks_for_current_state()
+    async def _update_tasks_for_state(self) -> None:
+        """In Minimalversion: Wake-Word nur in Idle laufen lassen."""
+        state_name = type(self.context.state).__name__
+        self.logger.debug("Update tasks for state: %s", state_name)
 
-        # Keep running until stopped
-        while self._running:
-            # Wait for any task to complete
-            if any(task for task in self._current_tasks.values() if task):
-                done, pending = await asyncio.wait(
-                    [task for task in self._current_tasks.values() if task],
-                    return_when=asyncio.FIRST_COMPLETED,
-                )
+        if state_name == "IdleState":
+            await self._start_wake_task()
+        else:
+            # ListeningState / RespondingState / ErrorState -> Wake-Word stoppen
+            await self._cancel_wake_task()
 
-                # Process completed tasks
-                for task in done:
-                    await self._handle_completed_task(task)
-            else:
-                # No tasks running, wait briefly to avoid busy loop
-                await asyncio.sleep(0.1)
+    async def _start_wake_task(self) -> None:
+        if self._wake_task and not self._wake_task.done():
+            return  # läuft bereits
+        self.logger.debug("Starting wake-word detection task")
+        self._wake_task = asyncio.create_task(self._wake_word_loop(), name="wake_word")
 
-    async def _update_tasks_for_current_state(self) -> None:
-        """Update running tasks based on current state"""
-        current_state_name = type(self.context.state).__name__
-        self.logger.debug("Updating tasks for state: %s", current_state_name)
+    async def _cancel_wake_task(self) -> None:
+        if self._wake_task and not self._wake_task.done():
+            self.logger.debug("Cancelling wake-word task")
+            self._wake_task.cancel()
+            try:
+                await self._wake_task
+            except asyncio.CancelledError:
+                pass
+            except Exception:
+                self.logger.exception("Error while cancelling wake task")
+            finally:
+                self._wake_task = None
 
-        # Cancel tasks that shouldn't run in current state
-        await self._cancel_inappropriate_tasks(current_state_name)
-
-        # Start tasks needed for current state
-        if current_state_name == "IdleState":
-            await self._start_wake_word_task()
-
-        elif current_state_name == "ListeningState":
-            await self._start_session_timeout_task()
-            await self._start_user_input_task()
-
-        elif current_state_name == "RespondingState":
-            await self._start_response_task()
-            await self._start_session_timeout_task()
-
-        elif current_state_name == "ErrorState":
-            await self._start_error_recovery_task()
-
-    async def _start_wake_word_task(self) -> None:
-        """Start wake word detection task"""
-        if not self._current_tasks["wake_word"]:
-            self.logger.debug("Starting wake word detection task")
-            self._current_tasks["wake_word"] = asyncio.create_task(
-                self._wake_word_detection(), name="wake_word_detection"
-            )
-
-    async def _start_session_timeout_task(self) -> None:
-        """Start session timeout task"""
-        if not self._current_tasks["session_timeout"]:
-            self.logger.debug("Starting session timeout task")
-            self._current_tasks["session_timeout"] = asyncio.create_task(
-                self._session_timeout(), name="session_timeout"
-            )
-
-    async def _start_user_input_task(self) -> None:
-        """Start user input detection task"""
-        if not self._current_tasks["user_input"]:
-            self.logger.debug("Starting user input detection task")
-            self._current_tasks["user_input"] = asyncio.create_task(
-                self._user_input_detection(), name="user_input_detection"
-            )
-
-    async def _start_response_task(self) -> None:
-        """Start response generation and playback task"""
-        if not self._current_tasks["user_input"]:  # Reuse user_input slot for response
-            self.logger.debug("Starting response task")
-            self._current_tasks["user_input"] = asyncio.create_task(
-                self._generate_and_play_response(), name="response_generation"
-            )
-
-    async def _start_error_recovery_task(self) -> None:
-        """Start error recovery task"""
-        if not self._current_tasks["user_input"]:  # Reuse slot
-            self.logger.debug("Starting error recovery task")
-            self._current_tasks["user_input"] = asyncio.create_task(
-                self._error_recovery(), name="error_recovery"
-            )
-
-    async def _cancel_inappropriate_tasks(self, current_state: str) -> None:
-        """Cancel tasks that shouldn't run in the current state"""
-        tasks_to_cancel = []
-
-        if current_state != "IdleState" and self._current_tasks["wake_word"]:
-            tasks_to_cancel.append("wake_word")
-
-        if (
-            current_state not in ["ListeningState", "RespondingState"]
-            and self._current_tasks["session_timeout"]
-        ):
-            tasks_to_cancel.append("session_timeout")
-
-        for task_name in tasks_to_cancel:
-            if self._current_tasks[task_name]:
-                self.logger.debug("Cancelling task: %s", task_name)
-                self._current_tasks[task_name].cancel()
-                try:
-                    await self._current_tasks[task_name]
-                except asyncio.CancelledError:
-                    pass
-                self._current_tasks[task_name] = None
-
-    async def _cancel_all_tasks(self) -> None:
-        """Cancel all running tasks"""
-        for task_name, task in self._current_tasks.items():
-            if task and not task.done():
-                self.logger.debug("Cancelling task: %s", task_name)
-                task.cancel()
-                try:
-                    await task
-                except asyncio.CancelledError:
-                    pass
-
-        # Clear all tasks
-        for key in self._current_tasks:
-            self._current_tasks[key] = None
-
-    async def _handle_completed_task(self, completed_task: asyncio.Task) -> None:
-        """Handle a completed task"""
-        task_name = completed_task.get_name()
-
+    async def _wake_word_loop(self) -> None:
+        """Wartet einmalig auf Wake-Word und feuert dann das Event."""
         try:
-            result = await completed_task
-            self.logger.debug("Task %s completed with result: %s", task_name, result)
+            detected = await self.wake_word_listener.listen_for_wakeword()
+            if detected:
+                await self.handle_event(VoiceAssistantEvent.WAKE_WORD_DETECTED)
 
-            # Clear the completed task
-            for key, task in self._current_tasks.items():
-                if task == completed_task:
-                    self._current_tasks[key] = None
-                    break
-
+                # Demo: (optional) Wake-Word wechseln für die nächste Runde
+                # self.wake_word_listener.set_wakeword(PorcupineBuiltinKeyword.BUMBLEBEE)
         except asyncio.CancelledError:
-            self.logger.debug("Task %s was cancelled", task_name)
-        except Exception as e:
-            self.logger.error("Task %s failed with error: %s", task_name, e)
-            await self.handle_event(VoiceAssistantEvent.ERROR_OCCURRED)
+            # normales Ende beim Statewechsel/Stop
+            raise
+        except Exception:
+            self.logger.exception("Wake-word loop failed")
+            # In der Minimalversion keine Error-Transition – kannst du später ergänzen.
 
-    # Task implementations
-    async def _wake_word_detection(self) -> bool:
-        """Detect wake word"""
-        detected = await self.wake_word_listener.listen_for_wakeword()
-        if detected:
-            await self.handle_event(VoiceAssistantEvent.WAKE_WORD_DETECTED)
 
-            # 🔄 Demo: switch to "bumblebee" for next iteration
-            self.logger.info("Switching wake word to BUMBLEBEE for demo...")
-            self.wake_word_listener.set_wakeword(PorcupineBuiltinKeyword.BUMBLEBEE)
-
-            return True
-        return False
-
-    async def _session_timeout(self) -> None:
-        """Handle session timeout"""
-        await asyncio.sleep(20.0)  # 20 second timeout
-        await self.handle_event(VoiceAssistantEvent.SESSION_TIMEOUT)
-
-    async def _user_input_detection(self) -> None:
-        """Detect user input (placeholder)"""
-        # TODO: Implement actual speech recognition
-        self.logger.info("Listening for user input...")
-        await asyncio.sleep(5.0)  # Simulate listening
-
-        # Simulate receiving user input
-        await self.handle_event(VoiceAssistantEvent.USER_INPUT_RECEIVED)
-
-    async def _generate_and_play_response(self) -> None:
-        """Generate and play response (placeholder)"""
-        # TODO: Implement actual LLM call and TTS
-        self.logger.info("Generating and playing response...")
-        await asyncio.sleep(3.0)  # Simulate response generation and playback
-
-        await self.handle_event(VoiceAssistantEvent.SPEECH_DONE)
-
-    async def _error_recovery(self) -> None:
-        """Handle error recovery"""
-        self.logger.info("Performing error recovery...")
-        await asyncio.sleep(2.0)  # Give time for error sound to play
-
-        await self.handle_event(VoiceAssistantEvent.SPEECH_DONE)
-
+# --- optionaler Entry-Point ---------------------------------------------------
 
 async def main():
-    """Main entry point"""
-    controller = VoiceAssistantController()
-
+    ctrl = VoiceAssistantController()
     try:
-        await controller.start()
+        await ctrl.start()
     except KeyboardInterrupt:
-        print("\nShutting down...")
+        pass
     finally:
-        await controller.stop()
+        await ctrl.stop()
 
 
 if __name__ == "__main__":
