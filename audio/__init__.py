@@ -1,4 +1,3 @@
-from .audio_player_base import AudioPlayer
-from .audio_player import PyAudioPlayer
+from .sound_file_player import SoundFilePlayer
 
-__all__ = ["AudioPlayer", "PyAudioPlayer"]
+__all__ = ["SoundFilePlayer"]

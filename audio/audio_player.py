@@ -11,13 +11,11 @@ import pyaudio
 import pygame
 from typing_extensions import override
 
-from core.audio.audio_player_base import AudioPlayer
 from config import CHANNELS, CHUNK, FORMAT, RATE
-from shared.event_bus import EventBus, EventType
 from shared.logging_mixin import LoggingMixin
 
-# Simplify this here (no contract here, setup event bus)
-class PyAudioPlayer(AudioPlayer, LoggingMixin):
+
+class PyAudioPlayer(LoggingMixin):
     """PyAudio implementation of the AudioPlayerBase class with sound file playback"""
 
     @override
