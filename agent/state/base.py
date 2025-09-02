@@ -114,8 +114,7 @@ class AssistantState(ABC, LoggingMixin):
             self.__class__.__name__,
             new_state.__class__.__name__,
         )
+        context.state = new_state
 
         await self.on_exit(context)
-
-        context.state = new_state
         await context.state.on_enter(context)

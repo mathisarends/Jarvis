@@ -29,7 +29,7 @@ class VoiceAssistantContext(LoggingMixin):
         audio_detection_service: AudioDetectionService,
         timeout_service: TimeoutService,
     ):
-        # Import hier statt oben - vermeidet circular import
+        # Needed for initialization - prevent circular deps
         from agent.state.idle import IdleState
 
         self.state: AssistantState = IdleState()
@@ -51,3 +51,8 @@ class VoiceAssistantContext(LoggingMixin):
     def end_session(self) -> None:
         """End the current session"""
         self.session_active = False
+
+    def is_idle(self) -> bool:
+        """Check if the current state is idle"""
+        from agent.state.base import StateType
+        return self.state.state_type == StateType.IDLE
