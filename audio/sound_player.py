@@ -4,7 +4,6 @@ import queue
 import threading
 import time
 import traceback
-from dataclasses import dataclass
 from enum import Enum
 from typing import Optional, Callable
 
@@ -32,12 +31,14 @@ class SoundPlayer(LoggingMixin):
 
     SUPPORTED_FORMATS = {".mp3"}
 
-    def __init__(self, config: Optional[AudioConfig] = None, sounds_dir: Optional[str] = None):
+    def __init__(
+        self, config: Optional[AudioConfig] = None, sounds_dir: Optional[str] = None
+    ):
         super().__init__()
-        
+
         # Audio configuration
         self.config = config or AudioConfig()
-        
+
         # PyAudio setup for chunks
         self.p = pyaudio.PyAudio()
         self.stream: Optional[pyaudio.Stream] = None
@@ -50,15 +51,17 @@ class SoundPlayer(LoggingMixin):
         self.min_state_change_interval = 0.5
         self.stream_lock = threading.Lock()
         self.state_lock = threading.Lock()
-        
+
         # Volume control (shared between both functionalities)
         self.volume = 1.0
-        
+
         # Sound file setup
         self.sounds_dir = sounds_dir or os.path.join(os.path.dirname(__file__), "res")
-        self.logger.info("Initializing SoundPlayer with sounds directory: %s", self.sounds_dir)
+        self.logger.info(
+            "Initializing SoundPlayer with sounds directory: %s", self.sounds_dir
+        )
         self._init_mixer()
-        
+
         # Callback functions - must be registered or will raise runtime error
         self._on_playback_started: Optional[Callable[[], None]] = None
         self._on_playback_completed: Optional[Callable[[], None]] = None
@@ -91,22 +94,25 @@ class SoundPlayer(LoggingMixin):
         self.player_thread = threading.Thread(target=self._play_audio_loop)
         self.player_thread.daemon = True
         self.player_thread.start()
-        self.logger.info("Audio chunk player started with sample rate: %d Hz", self.config.sample_rate)
+        self.logger.info(
+            "Audio chunk player started with sample rate: %d Hz",
+            self.config.sample_rate,
+        )
 
     def stop_chunk_player(self):
         """Stop the audio chunk player"""
         self.logger.info("Stopping audio chunk player")
         self.is_playing = False
-        
+
         if self.player_thread:
             self.player_thread.join(timeout=2.0)
-            
+
         with self.stream_lock:
             if self.stream:
                 self.stream.stop_stream()
                 self.stream.close()
                 self.stream = None
-                
+
         self.p.terminate()
         self.logger.info("Audio chunk player stopped")
 
@@ -115,7 +121,9 @@ class SoundPlayer(LoggingMixin):
         try:
             audio_data = base64.b64decode(base64_audio)
             self.audio_queue.put(audio_data)
-            self.logger.debug("Added audio chunk to queue (size: %d bytes)", len(audio_data))
+            self.logger.debug(
+                "Added audio chunk to queue (size: %d bytes)", len(audio_data)
+            )
         except Exception as e:
             self.logger.error("Error processing audio chunk: %s", e)
 
@@ -135,7 +143,9 @@ class SoundPlayer(LoggingMixin):
                     time.sleep(0.05)
                     self.stream.start_stream()
                 except Exception as e:
-                    self.logger.error("Error while pausing/resuming audio stream: %s", e)
+                    self.logger.error(
+                        "Error while pausing/resuming audio stream: %s", e
+                    )
                     self._recreate_audio_stream()
 
         # Reset state with mutex protection
@@ -239,10 +249,10 @@ class SoundPlayer(LoggingMixin):
     def set_volume_level(self, volume: float) -> float:
         """
         Set the volume level for both chunk and file playback.
-        
+
         Args:
             volume: Volume level between 0.0 (mute) and 1.0 (maximum)
-            
+
         Returns:
             The actual volume level set
         """
@@ -256,7 +266,7 @@ class SoundPlayer(LoggingMixin):
     def get_volume_level(self) -> float:
         """Get the current volume level"""
         return self.volume
-    
+
     def _play_audio_loop(self):
         """Thread loop for playing audio chunks"""
         while self.is_playing:
@@ -295,7 +305,8 @@ class SoundPlayer(LoggingMixin):
             # Only call callback if we just started playing AND minimum time has passed
             if (
                 not was_busy
-                and (current_time - self.last_state_change) >= self.min_state_change_interval
+                and (current_time - self.last_state_change)
+                >= self.min_state_change_interval
             ):
                 self.last_state_change = current_time
                 threading.Thread(target=self._call_playback_started).start()
@@ -323,7 +334,9 @@ class SoundPlayer(LoggingMixin):
             if self.audio_queue.empty() and self.is_busy:
                 current_time = time.time()
 
-                if (current_time - self.last_state_change) >= self.min_state_change_interval:
+                if (
+                    current_time - self.last_state_change
+                ) >= self.min_state_change_interval:
                     self.is_busy = False
                     self.current_audio_data = bytes()
                     self.last_state_change = current_time
@@ -365,7 +378,9 @@ class SoundPlayer(LoggingMixin):
                     try:
                         self.stream.close()
                     except Exception as e:
-                        self.logger.warning("Error closing stream during recreation: %s", e)
+                        self.logger.warning(
+                            "Error closing stream during recreation: %s", e
+                        )
 
                 try:
                     self.stream = self.p.open(
@@ -396,8 +411,10 @@ class SoundPlayer(LoggingMixin):
         """Call the playback started callback in its own thread"""
         try:
             if self._on_playback_started is None:
-                raise RuntimeError("No playback started callback registered. Call register_on_playback_started() first.")
-            
+                raise RuntimeError(
+                    "No playback started callback registered. Call register_on_playback_started() first."
+                )
+
             self.logger.debug("Audio chunk playback started - calling callback")
             self._on_playback_started()
         except Exception as e:
@@ -407,8 +424,10 @@ class SoundPlayer(LoggingMixin):
         """Call the playback completed callback in its own thread"""
         try:
             if self._on_playback_completed is None:
-                raise RuntimeError("No playback completed callback registered. Call register_on_playback_completed() first.")
-            
+                raise RuntimeError(
+                    "No playback completed callback registered. Call register_on_playback_completed() first."
+                )
+
             self.logger.debug("Audio chunk playback complete - calling callback")
             self._on_playback_completed()
         except Exception as e:

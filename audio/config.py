@@ -2,6 +2,7 @@ from dataclasses import dataclass
 
 import pyaudio
 
+
 @dataclass(frozen=True)
 class AudioConfig:
     """Audio configuration settings"""

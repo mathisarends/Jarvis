@@ -1,5 +1,6 @@
 """
-VoiceAssistantContext - Updated to include wake word listener
+VoiceAssistantContext - Central context holding all services and state management.
+Provides access to audio services, timeout management, and wake word detection.
 """
 
 from __future__ import annotations
@@ -13,7 +14,6 @@ from audio.sound_player import SoundPlayer
 from shared.logging_mixin import LoggingMixin
 
 if TYPE_CHECKING:
-    from audio import So
     from audio.wake_word_listener import WakeWordListener
     from agent.state.base import AssistantState
     from agent.state.base import VoiceAssistantEvent

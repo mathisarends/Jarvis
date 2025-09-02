@@ -26,25 +26,36 @@ class WebSocketManager(LoggingMixin):
     DEFAULT_BASE_URL = "wss://api.openai.com/v1/realtime"
     NO_CONNECTION_ERROR_MSG = "No connection available. Call create_connection() first."
 
-    def __init__(self, websocket_url: str, headers: Dict[str, str], event_router=None):
+    def __init__(
+        self,
+        websocket_url: str,
+        headers: Dict[str, str],
+        message_callback: Optional[Callable] = None,
+    ):
         """
         Initialize the WebSocket Manager.
         """
         self.websocket_url = websocket_url
         self.headers = list(headers.items()) if headers else None
         self.connection: Optional[ClientConnection] = None
-        self.event_router = event_router
+        self.message_callback = message_callback
         self.logger.info("WebSocketManager initialized")
+
+    def set_message_callback(self, callback: Callable) -> None:
+        """Set callback that is called when WebSocket messages are received"""
+        self.message_callback = callback
 
     @classmethod
     def for_gpt_realtime(
-        cls, *, api_key: str | None = None, event_router=None
+        cls, *, api_key: str | None = None, message_callback: Optional[Callable] = None
     ) -> WebSocketManager:
         """
         Convenience factory for 'gpt-realtime'.
         """
         return cls._from_model(
-            api_key=api_key, model=RealtimeModel.GPT_REALTIME, event_router=event_router
+            api_key=api_key,
+            model=RealtimeModel.GPT_REALTIME,
+            message_callback=message_callback,
         )
 
     async def create_connection(self) -> Optional[ClientConnection]:
@@ -165,7 +176,7 @@ class WebSocketManager(LoggingMixin):
 
     async def _process_websocket_message(self, message: str) -> None:
         """
-        Process incoming WebSocket messages and route events.
+        Process incoming WebSocket messages and call the message callback.
 
         Args:
             message: The raw message from the WebSocket
@@ -179,8 +190,14 @@ class WebSocketManager(LoggingMixin):
                 self.logger.warning("Response is not a dictionary: %s", type(response))
                 return
 
-            event_type = response.get("type", "")
-            await self.event_router.process_event(event_type, response)
+            # Call the message callback if available
+            if self.message_callback:
+                if asyncio.iscoroutinefunction(self.message_callback):
+                    await self.message_callback(response)
+                else:
+                    self.message_callback(response)
+            else:
+                self.logger.warning("No message callback set - message will be ignored")
 
         except json.JSONDecodeError as e:
             self.logger.warning("Received malformed JSON message: %s", e)
@@ -199,7 +216,7 @@ class WebSocketManager(LoggingMixin):
         *,
         api_key: str | None = None,
         model: RealtimeModel = RealtimeModel.GPT_REALTIME,
-        event_router=None,
+        message_callback: Optional[Callable] = None,
     ) -> WebSocketManager:
         """
         Create a manager for a given model (enum or raw string).
@@ -207,7 +224,7 @@ class WebSocketManager(LoggingMixin):
         actual_api_key = api_key or cls._get_api_key_from_env()
         ws_url = cls._get_websocket_url(model.value)
         headers = cls._get_auth_header(actual_api_key)
-        return cls(ws_url, headers, event_router)
+        return cls(ws_url, headers, message_callback)
 
     @classmethod
     def _get_websocket_url(cls, model: str) -> str:

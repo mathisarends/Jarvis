@@ -1,5 +1,6 @@
 """
-Slimmed controller: States manage their own tasks
+Voice Assistant Controller with modular service architecture.
+States and services manage their own responsibilities for clean separation of concerns.
 """
 
 import asyncio
@@ -26,7 +27,7 @@ class VoiceAssistantConfig:
 
 
 class VoiceAssistantController(LoggingMixin):
-    """Slim controller: States manage their own tasks."""
+    """Main controller coordinating states and services for voice assistant functionality."""
 
     def __init__(self, config: Optional[VoiceAssistantConfig] = None):
         self.config = config or VoiceAssistantConfig()
