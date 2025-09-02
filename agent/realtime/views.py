@@ -1,6 +1,8 @@
 from enum import StrEnum
 from dataclasses import dataclass
 
+from audio.wake_word_listener import PorcupineBuiltinKeyword
+
 
 class RealtimeModel(StrEnum):
     GPT_REALTIME = "gpt-realtime"
@@ -22,16 +24,14 @@ class AssistantVoice(StrEnum):
     MARIN = "marin"  # only available in gpt-realtime
 
 
-@dataclass(frozen=True)  # frozen will depend on wether the options can change here
-class OpenAIRealtimeConfig:
-    """
-    Configuration object for the OpenAI Realtime API integration.
-    Pass this into OpenAIRealtimeAPI instead of separate params.
-    """
-
-    model: RealtimeModel = RealtimeModel.GPT_REALTIME
+@dataclass(frozen=True)
+class VoiceAssistantConfig:
     voice: AssistantVoice = AssistantVoice.ALLOY
-    temperature: float = 0.7
+    system_message: str = "You are a friendly assistant."
+    temperature: float = 0.8
+
+    wake_word: PorcupineBuiltinKeyword = PorcupineBuiltinKeyword.PICOVOICE
+    wakeword_sensitivity: float = 0.7
 
 
 # ---- Client -> Server events -----------------------------------------------

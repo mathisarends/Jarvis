@@ -4,11 +4,14 @@ State machine for voice assistant - base classes and enums
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from abc import ABC, abstractmethod
 from enum import Enum
 
-from agent.state.context import VoiceAssistantContext
 from shared.logging_mixin import LoggingMixin
+
+if TYPE_CHECKING:
+    from agent.state.context import VoiceAssistantContext
 
 
 class VoiceAssistantEvent(Enum):
@@ -23,7 +26,7 @@ class VoiceAssistantEvent(Enum):
     ASSISTANT_SPEECH_INTERRUPTED = "assistant_speech_interrupted"
 
     ASSISTANT_STARTED_TOOL_CALL = "assistant_started_tool_call"
-    ASSISTANT_RECEIVED_TOOL_CALL_RESULT = "ASSISTANT_RECEIVED_TOOL_CALL_RESULT"
+    ASSISTANT_RECEIVED_TOOL_CALL_RESULT = "assistant_received_tool_call"
 
     TIMEOUT_OCCURRED = "timeout_occurred"
     IDLE_TRANSITION = "idle_transition"
@@ -40,6 +43,7 @@ class StateType(Enum):
     TIMEOUT = "timeout"
     LISTENING = "listening"
     RESPONDING = "responding"
+    TOOL_CALLING = "tool_calling"
     ERROR = "error"
 
     def __str__(self) -> str:

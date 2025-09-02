@@ -72,7 +72,7 @@ class IdleState(AssistantState):
                 detected = await context.wake_word_listener.listen_for_wakeword()
                 if detected:
                     self.logger.info("Wake word detected!")
-                    await context.handle_event(VoiceAssistantEvent.WAKE_WORD_DETECTED)
+                    # WakeWordListener now publishes event directly via EventBus
                     break  # Exit loop after detection
 
                 # Small delay to prevent busy loop
@@ -83,5 +83,6 @@ class IdleState(AssistantState):
             raise
         except Exception:
             self.logger.exception("Wake word detection failed")
-            # Trigger error state
-            await context.handle_event(VoiceAssistantEvent.ERROR_OCCURRED)
+            # Only publish error if EventBus is not available in WakeWordListener
+            if not context.wake_word_listener.event_bus:
+                context.event_bus.publish_sync(VoiceAssistantEvent.ERROR_OCCURRED)

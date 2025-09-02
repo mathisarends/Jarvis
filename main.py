@@ -4,26 +4,19 @@ States and services manage their own responsibilities for clean separation of co
 """
 
 import asyncio
-from dataclasses import dataclass
 from typing import Optional
 
-from agent.realtime.views import AssistantVoice, RealtimeModel
-from agent.state.base import VoiceAssistantContext, VoiceAssistantEvent
+from agent.realtime.event_bus import EventBus
+from agent.realtime.realtime_api import OpenAIRealtimeAPI
+from agent.realtime.views import VoiceAssistantConfig
+from agent.realtime.websocket_manager import WebSocketManager
+from agent.state.context import VoiceAssistantContext
 from audio.capture import AudioCapture
 from audio.detection import AudioDetectionService
 from audio.sound_player import SoundPlayer
-from audio.wake_word_listener import WakeWordListener, PorcupineBuiltinKeyword
+from audio.wake_word_listener import WakeWordListener
 from agent.state.timeout_service import TimeoutService
 from shared.logging_mixin import LoggingMixin
-
-
-@dataclass(frozen=True)
-class VoiceAssistantConfig:
-    voice: AssistantVoice = AssistantVoice.ALLOY
-    realtime_model: RealtimeModel = RealtimeModel.GPT_REALTIME
-
-    wake_word: PorcupineBuiltinKeyword = PorcupineBuiltinKeyword.PICOVOICE
-    sensitivity: float = 0.7
 
 
 class VoiceAssistantController(LoggingMixin):
@@ -34,14 +27,24 @@ class VoiceAssistantController(LoggingMixin):
 
         # Services
         self.sound_player = SoundPlayer()
-        self.wake_word_listener = WakeWordListener(
-            wakeword=self.config.wake_word, sensitivity=self.config.sensitivity
-        )
         self.audio_capture = AudioCapture()
+        self.event_bus = EventBus()
+
+        self.wake_word_listener = WakeWordListener(
+            wakeword=self.config.wake_word,
+            sensitivity=self.config.wakeword_sensitivity,
+        )
         self.audio_detection_service = AudioDetectionService(
             audio_capture=self.audio_capture
         )
         self.timeout_service = TimeoutService(timeout_seconds=10.0)
+
+        self.realtime_api = OpenAIRealtimeAPI(
+            realtime_config=VoiceAssistantConfig(),
+            ws_manager=WebSocketManager.for_gpt_realtime(),
+            sound_player=self.sound_player,
+            audio_capture=self.audio_capture,
+        )
 
         # Context with dependencies
         self.context = VoiceAssistantContext(
@@ -50,6 +53,8 @@ class VoiceAssistantController(LoggingMixin):
             audio_capture=self.audio_capture,
             audio_detection_service=self.audio_detection_service,
             timeout_service=self.timeout_service,
+            realtime_api=self.realtime_api,
+            event_bus=self.event_bus,
         )
 
         self._running = False
@@ -102,19 +107,11 @@ class VoiceAssistantController(LoggingMixin):
             self.logger.exception("WakeWord cleanup failed")
 
         try:
-            self.sound_player.stop_sound()
+            self.sound_player.stop_sounds()
         except Exception:
             self.logger.exception("Sound stop failed")
 
         self.logger.info("Voice Assistant Controller stopped")
-
-    async def handle_external_event(self, event: VoiceAssistantEvent) -> None:
-        """
-        Handle external events (if needed for testing or manual triggers).
-        Most events are now handled internally by states.
-        """
-        self.logger.info("Handling external event: %s", event.value)
-        await self.context.handle_event(event)
 
 
 async def main():

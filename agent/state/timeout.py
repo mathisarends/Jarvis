@@ -53,17 +53,9 @@ class TimeoutState(AssistantState):
                 self.logger.debug("Ignoring event %s in TimeoutState", event.value)
 
     async def _start_timeout_service(self, context: VoiceAssistantContext) -> None:
-        """Start the timeout service with callbacks"""
+        """Start the timeout service"""
         self.logger.debug("Starting timeout service")
-
-        async def on_timeout_callback() -> None:
-            self.logger.info("Timeout occurred - sending TIMEOUT_OCCURRED event")
-            await context.handle_event(VoiceAssistantEvent.TIMEOUT_OCCURRED)
-
-        # Set callbacks on the timeout service
-        context.timeout_service.set_timeout_callback(on_timeout_callback)
-
-        # Start timeout
+        # No need to set callbacks anymore - service uses EventBus directly
         await context.timeout_service.start_timeout()
 
     async def _stop_timeout_service(self, context: VoiceAssistantContext) -> None:
@@ -74,23 +66,7 @@ class TimeoutState(AssistantState):
     async def _start_audio_detection(self, context: VoiceAssistantContext) -> None:
         """Start audio detection using AudioDetectionService"""
         self.logger.debug("Starting audio detection for speech detection")
-
-        async def on_speech_detected_callback(audio_level: float) -> None:
-            self.logger.info(
-                "User speech detected by audio detection service (level: %.1f)",
-                audio_level,
-            )
-            await context.handle_event(VoiceAssistantEvent.USER_STARTED_SPEAKING)
-
-        async def on_error_callback(error: Exception) -> None:
-            self.logger.error("Audio detection error: %s", error)
-            await context.handle_event(VoiceAssistantEvent.ERROR_OCCURRED)
-
-        # Set callbacks on the detection service
-        context.audio_detection_service.set_speech_callback(on_speech_detected_callback)
-        context.audio_detection_service.set_error_callback(on_error_callback)
-
-        # Start monitoring
+        # No need to set callbacks anymore - service uses EventBus directly
         await context.audio_detection_service.start_monitoring()
 
     async def _stop_audio_detection(self, context: VoiceAssistantContext) -> None:

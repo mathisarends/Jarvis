@@ -32,7 +32,7 @@ OPENAI_HEADERS = {
 }
 
 SYSTEM_MESSAGE = dedent(
-    "Du bist ein hilfreicher KI-Assistent. Antworte klar und direkt. Wenn der Nutzer Deutsch spricht, antworte auf Deutsch."
+    "You are a helpful AI assistant. Answer clearly and directly. If the user speaks German, respond in German."
 )
 VOICE = RealtimeVoice.ALLOY
 

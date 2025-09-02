@@ -5,11 +5,13 @@ import threading
 import time
 import traceback
 from enum import Enum
-from typing import Optional, Callable
+from typing import Optional
 
 import numpy as np
 import pygame
 import pyaudio
+from agent.realtime.event_bus import EventBus
+from agent.state.base import VoiceAssistantEvent
 from audio.config import AudioConfig
 from shared.logging_mixin import LoggingMixin
 
@@ -52,7 +54,8 @@ class SoundPlayer(LoggingMixin):
         self.stream_lock = threading.Lock()
         self.state_lock = threading.Lock()
 
-        # Volume control (shared between both functionalities)
+        self.event_bus = EventBus()
+
         self.volume = 1.0
 
         # Sound file setup
@@ -61,24 +64,6 @@ class SoundPlayer(LoggingMixin):
             "Initializing SoundPlayer with sounds directory: %s", self.sounds_dir
         )
         self._init_mixer()
-
-        # Callback functions - must be registered or will raise runtime error
-        self._on_playback_started: Optional[Callable[[], None]] = None
-        self._on_playback_completed: Optional[Callable[[], None]] = None
-
-    def register_on_playback_started(self, callback: Callable[[], None]):
-        """Register callback function for when chunk playback starts"""
-        self._on_playback_started = callback
-        self.logger.debug("Registered playback started callback")
-
-    def register_on_playback_completed(self, callback: Callable[[], None]):
-        """Register callback function for when chunk playback completes"""
-        self._on_playback_completed = callback
-        self.logger.debug("Registered playback completed callback")
-
-    # =============================================================================
-    # CHUNK PLAYER FUNCTIONALITY
-    # =============================================================================
 
     def start_chunk_player(self):
         """Start the audio chunk player thread"""
@@ -154,7 +139,10 @@ class SoundPlayer(LoggingMixin):
                 self.is_busy = False
                 self.current_audio_data = bytes()
                 self.last_state_change = time.time()
-                threading.Thread(target=self._call_playback_completed).start()
+                # Publish ASSISTANT_RESPONSE_COMPLETED when manually clearing queue
+                self.event_bus.publish_sync(
+                    VoiceAssistantEvent.ASSISTANT_RESPONSE_COMPLETED
+                )
 
         self.logger.info("Audio queue cleared, stream kept alive")
 
@@ -165,10 +153,6 @@ class SoundPlayer(LoggingMixin):
     def get_queue_size(self) -> int:
         """Get the current size of the audio queue"""
         return self.audio_queue.qsize()
-
-    # =============================================================================
-    # SOUND FILE FUNCTIONALITY
-    # =============================================================================
 
     def play_sound(self, sound_name: str) -> bool:
         """Play a sound file asynchronously (non-blocking)"""
@@ -242,19 +226,9 @@ class SoundPlayer(LoggingMixin):
         """Play the error sound"""
         return self.play_sound_file(SoundFile.ERROR)
 
-    # =============================================================================
-    # SHARED VOLUME CONTROL
-    # =============================================================================
-
     def set_volume_level(self, volume: float) -> float:
         """
         Set the volume level for both chunk and file playback.
-
-        Args:
-            volume: Volume level between 0.0 (mute) and 1.0 (maximum)
-
-        Returns:
-            The actual volume level set
         """
         if not 0.0 <= volume <= 1.0:
             raise ValueError("Volume must be between 0.0 and 1.0")
@@ -302,14 +276,17 @@ class SoundPlayer(LoggingMixin):
             was_busy = self.is_busy
             self.is_busy = True
 
-            # Only call callback if we just started playing AND minimum time has passed
+            # Publish ASSISTANT_STARTED_RESPONDING when we start playing after being idle
             if (
                 not was_busy
                 and (current_time - self.last_state_change)
                 >= self.min_state_change_interval
             ):
                 self.last_state_change = current_time
-                threading.Thread(target=self._call_playback_started).start()
+                # Publish event to EventBus
+                self.event_bus.publish_sync(
+                    VoiceAssistantEvent.ASSISTANT_STARTED_RESPONDING
+                )
 
         adjusted_chunk = self._adjust_volume(chunk)
         self.current_audio_data = adjusted_chunk
@@ -340,7 +317,10 @@ class SoundPlayer(LoggingMixin):
                     self.is_busy = False
                     self.current_audio_data = bytes()
                     self.last_state_change = current_time
-                    threading.Thread(target=self._call_playback_completed).start()
+                    # Publish ASSISTANT_RESPONSE_COMPLETED when queue is empty and we finish playing
+                    self.event_bus.publish_sync(
+                        VoiceAssistantEvent.ASSISTANT_RESPONSE_COMPLETED
+                    )
 
     def _handle_playback_error(self, error):
         """Handle any errors during playback"""
@@ -355,7 +335,10 @@ class SoundPlayer(LoggingMixin):
             if self.is_busy:
                 self.is_busy = False
                 self.last_state_change = time.time()
-                threading.Thread(target=self._call_playback_completed).start()
+                # Publish ASSISTANT_RESPONSE_COMPLETED on error as well (playback stopped)
+                self.event_bus.publish_sync(
+                    VoiceAssistantEvent.ASSISTANT_RESPONSE_COMPLETED
+                )
 
     def _adjust_volume(self, audio_chunk: bytes) -> bytes:
         """Adjust the volume of an audio chunk"""
@@ -406,32 +389,6 @@ class SoundPlayer(LoggingMixin):
                     self.logger.info("PyAudio and stream recreated successfully")
         except Exception as e:
             self.logger.error("Failed to recreate audio stream: %s", e)
-
-    def _call_playback_started(self):
-        """Call the playback started callback in its own thread"""
-        try:
-            if self._on_playback_started is None:
-                raise RuntimeError(
-                    "No playback started callback registered. Call register_on_playback_started() first."
-                )
-
-            self.logger.debug("Audio chunk playback started - calling callback")
-            self._on_playback_started()
-        except Exception as e:
-            self.logger.error("Failed to call playback started callback: %s", e)
-
-    def _call_playback_completed(self):
-        """Call the playback completed callback in its own thread"""
-        try:
-            if self._on_playback_completed is None:
-                raise RuntimeError(
-                    "No playback completed callback registered. Call register_on_playback_completed() first."
-                )
-
-            self.logger.debug("Audio chunk playback complete - calling callback")
-            self._on_playback_completed()
-        except Exception as e:
-            self.logger.error("Failed to call playback completed callback: %s", e)
 
     def _init_mixer(self):
         """Initialize pygame mixer if not already done"""

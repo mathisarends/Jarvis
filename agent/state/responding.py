@@ -70,14 +70,10 @@ class RespondingState(AssistantState):
         """Start wake word detection for interruption during assistant speech"""
         self.logger.debug("Starting wake word detection during assistant response")
 
-        async def on_wake_word_detected() -> None:
-            self.logger.info("Wake word detected - interrupting assistant response")
-            await context.handle_event(VoiceAssistantEvent.WAKE_WORD_DETECTED)
-
         # Start wake word listening for interruption
-        # Note: This runs in background and will call the callback when wake word is detected
+        # WakeWordListener will publish WAKE_WORD_DETECTED directly via EventBus
         self._wake_word_task = asyncio.create_task(
-            self._wake_word_detection_loop(context, on_wake_word_detected)
+            self._wake_word_detection_loop(context)
         )
 
     async def _stop_wake_word_detection(self, context: VoiceAssistantContext) -> None:
@@ -97,13 +93,16 @@ class RespondingState(AssistantState):
                 self._wake_word_task = None
 
     async def _wake_word_detection_loop(
-        self, context: VoiceAssistantContext, callback
+        self, context: VoiceAssistantContext
     ) -> None:
         """Background loop for wake word detection"""
         try:
             wake_word_detected = await context.wake_word_listener.listen_for_wakeword()
             if wake_word_detected:
-                await callback()
+                # WakeWordListener publishes event directly via EventBus
+                self.logger.info("Wake word detected during assistant response")
         except Exception as e:
             self.logger.error("Wake word detection error: %s", e)
-            await context.handle_event(VoiceAssistantEvent.ERROR_OCCURRED)
+            # Only publish error if EventBus is not available in WakeWordListener
+            if not context.wake_word_listener.event_bus:
+                context.event_bus.publish_sync(VoiceAssistantEvent.ERROR_OCCURRED)

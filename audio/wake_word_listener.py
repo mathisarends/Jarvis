@@ -18,6 +18,8 @@ from pvporcupine import (
 import pyaudio
 from dotenv import load_dotenv
 
+from agent.realtime.event_bus import EventBus
+from agent.state.base import VoiceAssistantEvent
 from shared.logging_mixin import LoggingMixin
 
 load_dotenv()
@@ -55,10 +57,12 @@ class WakeWordListener(LoggingMixin):
         wakeword: PorcupineBuiltinKeyword = PorcupineBuiltinKeyword.PICOVOICE,
         sensitivity: float = 0.7,
     ):
+        super().__init__()
         self._swap_lock = threading.Lock()
         self._detection_event = threading.Event()
         self.is_listening = False
         self.should_stop = False
+        self.event_bus = EventBus()
 
         self.wakeword = self._validate_wakeword(wakeword)
         self.sensitivity = self._validate_sensitivity(sensitivity)
@@ -301,6 +305,8 @@ class WakeWordListener(LoggingMixin):
                 if keyword_index >= 0:
                     self.logger.info("Wake word detected (index=%d)", keyword_index)
                     self._detection_event.set()
+                    # Publish event directly via EventBus
+                    self.event_bus.publish_sync(VoiceAssistantEvent.WAKE_WORD_DETECTED)
             except (
                 ValueError,
                 PorcupineInvalidStateError,

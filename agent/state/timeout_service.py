@@ -1,34 +1,26 @@
 import asyncio
-from typing import Callable, Optional
+from typing import Optional
 
+from agent.realtime.event_bus import EventBus
+from agent.state.base import VoiceAssistantEvent
 from shared.logging_mixin import LoggingMixin
 
 
 class TimeoutService(LoggingMixin):
-    """Service for managing timeouts with callbacks"""
+    """Service for managing timeouts with EventBus integration"""
 
     def __init__(self, timeout_seconds: float = 10.0):
+        super().__init__()
         self.timeout_seconds = timeout_seconds
+        self.event_bus = EventBus()
         self._timeout_task: Optional[asyncio.Task] = None
         self._is_active = False
-
-        # Callbacks
-        self._on_timeout: Optional[Callable] = None
-
-    def set_timeout_callback(self, callback: Callable) -> None:
-        """Set callback that is called when timeout occurs"""
-        self._on_timeout = callback
 
     async def start_timeout(self) -> None:
         """Start the timeout"""
         if self._is_active:
             self.logger.warning("Timeout already active")
             return
-
-        if not self._on_timeout:
-            raise RuntimeError(
-                "Timeout callback not set. Call set_timeout_callback() before starting timeout."
-            )
 
         self.logger.info("Starting timeout: %.1f seconds", self.timeout_seconds)
         self._is_active = True
@@ -67,16 +59,11 @@ class TimeoutService(LoggingMixin):
             self.logger.debug("Timeout cancelled")
 
     async def _trigger_timeout(self) -> None:
-        """Trigger timeout callback"""
-        if not self._on_timeout:
-            raise RuntimeError("Timeout callback not set")
+        """Trigger timeout via EventBus"""
         try:
-            if asyncio.iscoroutinefunction(self._on_timeout):
-                await self._on_timeout()
-            else:
-                self._on_timeout()
+            self.event_bus.publish_sync(VoiceAssistantEvent.TIMEOUT_OCCURRED)
         except Exception as e:
-            self.logger.exception("Error in timeout callback: %s", e)
+            self.logger.exception("Error triggering timeout: %s", e)
 
     def update_timeout(self, new_timeout_seconds: float) -> None:
         """Update timeout duration"""

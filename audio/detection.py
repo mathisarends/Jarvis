@@ -1,12 +1,15 @@
 import asyncio
-from typing import Callable, Optional
+from typing import Optional
 import numpy as np
+
+from agent.realtime.event_bus import EventBus
+from agent.state.base import VoiceAssistantEvent
 from audio.capture import AudioCapture
 from shared.logging_mixin import LoggingMixin
 
 
 class AudioDetectionService(LoggingMixin):
-    """Service for Audio-Level Detection and Speech Detection"""
+    """Service for Audio-Level Detection and Speech Detection with EventBus integration"""
 
     def __init__(
         self,
@@ -14,24 +17,14 @@ class AudioDetectionService(LoggingMixin):
         threshold: float = 40.0,
         check_interval: float = 0.1,
     ):
+        super().__init__()
         self.audio_capture = audio_capture
         self.threshold = threshold
         self.check_interval = check_interval
+        self.event_bus = EventBus()
 
         self._monitoring_task: Optional[asyncio.Task] = None
         self._is_monitoring = False
-
-        # Callbacks
-        self._on_speech_detected: Optional[Callable] = None
-        self._on_error: Optional[Callable] = None
-
-    def set_speech_callback(self, callback: Callable) -> None:
-        """Set callback that is called when speech is detected"""
-        self._on_speech_detected = callback
-
-    def set_error_callback(self, callback: Callable) -> None:
-        """Set callback that is called on errors"""
-        self._on_error = callback
 
     async def start_monitoring(self) -> None:
         """Start audio monitoring"""
@@ -85,7 +78,7 @@ class AudioDetectionService(LoggingMixin):
                 # Check if audio level exceeds threshold
                 if audio_level > self.threshold:
                     self.logger.info("Speech detected (level: %.1f)", audio_level)
-                    await self._trigger_speech_detected(audio_level)
+                    await self._trigger_speech_detected()
                     break  # Stop monitoring after detection
 
                 await asyncio.sleep(self.check_interval)
@@ -96,33 +89,19 @@ class AudioDetectionService(LoggingMixin):
             self.logger.exception("Audio monitoring failed: %s", e)
             await self._trigger_error(e)
 
-    async def _trigger_speech_detected(self, audio_level: float) -> None:
-        """Trigger speech detected callback"""
-        if not self._on_speech_detected:
-            raise RuntimeError(
-                "Speech detection callback not set. Call set_speech_callback() before starting monitoring."
-            )
+    async def _trigger_speech_detected(self) -> None:
+        """Trigger speech detected via EventBus"""
         try:
-            if asyncio.iscoroutinefunction(self._on_speech_detected):
-                await self._on_speech_detected(audio_level)
-            else:
-                self._on_speech_detected(audio_level)
+            self.event_bus.publish_sync(VoiceAssistantEvent.USER_STARTED_SPEAKING)
         except Exception as e:
-            self.logger.exception("Error in speech detected callback: %s", e)
+            self.logger.exception("Error triggering speech detected: %s", e)
 
     async def _trigger_error(self, error: Exception) -> None:
-        """Trigger error callback"""
-        if not self._on_error:
-            raise RuntimeError(
-                "Error callback not set. Call set_error_callback() before starting monitoring."
-            )
+        """Trigger error via EventBus"""
         try:
-            if asyncio.iscoroutinefunction(self._on_error):
-                await self._on_error(error)
-            else:
-                self._on_error(error)
+            self.event_bus.publish_sync(VoiceAssistantEvent.ERROR_OCCURRED)
         except Exception as e:
-            self.logger.exception("Error in error callback: %s", e)
+            self.logger.exception("Error triggering error callback: %s", e)
 
     def update_threshold(self, new_threshold: float) -> None:
         """Update detection threshold"""
