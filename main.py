@@ -10,7 +10,9 @@ from agent.realtime.views import AssistantVoice, RealtimeModel
 from agent.state.base import VoiceAssistantContext, VoiceAssistantEvent
 from audio import SoundFilePlayer
 from audio.capture import AudioCapture
+from audio.detection import AudioDetectionService
 from audio.wake_word_listener import WakeWordListener, PorcupineBuiltinKeyword
+from agent.state.timeout_service import TimeoutService
 from shared.logging_mixin import LoggingMixin
 
 
@@ -35,12 +37,18 @@ class VoiceAssistantController(LoggingMixin):
             wakeword=self.config.wake_word, sensitivity=self.config.sensitivity
         )
         self.audio_capture = AudioCapture()
+        self.audio_detection_service = AudioDetectionService(
+            audio_capture=self.audio_capture
+        )
+        self.timeout_service = TimeoutService(timeout_seconds=10.0)
 
         # Context with dependencies
         self.context = VoiceAssistantContext(
             sound_player=self.sound_player,
             wake_word_listener=self.wake_word_listener,
             audio_capture=self.audio_capture,
+            audio_detection_service=self.audio_detection_service,
+            timeout_service=self.timeout_service,
         )
 
         self._running = False

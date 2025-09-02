@@ -99,7 +99,9 @@ class AudioDetectionService(LoggingMixin):
     async def _trigger_speech_detected(self, audio_level: float) -> None:
         """Trigger speech detected callback"""
         if not self._on_speech_detected:
-            return
+            raise RuntimeError(
+                "Speech detection callback not set. Call set_speech_callback() before starting monitoring."
+            )
         try:
             if asyncio.iscoroutinefunction(self._on_speech_detected):
                 await self._on_speech_detected(audio_level)
@@ -111,7 +113,9 @@ class AudioDetectionService(LoggingMixin):
     async def _trigger_error(self, error: Exception) -> None:
         """Trigger error callback"""
         if not self._on_error:
-            return
+            raise RuntimeError(
+                "Error callback not set. Call set_error_callback() before starting monitoring."
+            )
         try:
             if asyncio.iscoroutinefunction(self._on_error):
                 await self._on_error(error)

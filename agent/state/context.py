@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 
 from audio.capture import AudioCapture
 from audio.detection import AudioDetectionService
+from agent.state.timeout_service import TimeoutService
 from shared.logging_mixin import LoggingMixin
 
 if TYPE_CHECKING:
@@ -26,6 +27,7 @@ class VoiceAssistantContext(LoggingMixin):
         wake_word_listener: WakeWordListener,
         audio_capture: AudioCapture,
         audio_detection_service: AudioDetectionService,
+        timeout_service: TimeoutService,
     ):
         # Import hier statt oben - vermeidet circular import
         from agent.state.idle import IdleState
@@ -36,6 +38,7 @@ class VoiceAssistantContext(LoggingMixin):
         self.wake_word_listener = wake_word_listener
         self.audio_capture = audio_capture
         self.audio_detection_service = audio_detection_service
+        self.timeout_service = timeout_service
 
     async def handle_event(self, event: VoiceAssistantEvent) -> None:
         """Delegate event to current state"""
