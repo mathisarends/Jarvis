@@ -1,6 +1,5 @@
 from agent.state.base import AssistantState, StateType, VoiceAssistantEvent
 from agent.state.context import VoiceAssistantContext
-from agent.state.idle import IdleState
 from audio.file_player import SoundFile
 
 
@@ -26,12 +25,11 @@ class TimeoutState(AssistantState):
 
     async def on_exit(self, context: VoiceAssistantContext) -> None:
         await self._stop_timeout_service(context)
-        
+
+        # Only stop audio detection if we're transitioning to idle
+        # If transitioning to listening, audio detection should continue
         if context.is_idle():
             await self._stop_audio_detection(context)
-    
-        # Stop audio stream
-        context.audio_capture.stop_stream()
 
     async def handle(
         self, event: VoiceAssistantEvent, context: VoiceAssistantContext

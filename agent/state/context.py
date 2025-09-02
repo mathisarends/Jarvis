@@ -55,4 +55,5 @@ class VoiceAssistantContext(LoggingMixin):
     def is_idle(self) -> bool:
         """Check if the current state is idle"""
         from agent.state.base import StateType
+
         return self.state.state_type == StateType.IDLE

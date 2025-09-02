@@ -11,9 +11,26 @@ class ListeningState(AssistantState):
     async def on_enter(self, context: VoiceAssistantContext) -> None:
         self.logger.info("Entering Listening state - user is speaking")
 
+        # Reactivate microphone stream if it was deactivated (e.g., during assistant response)
+        if not context.audio_capture.is_active:
+            context.audio_capture.start_stream()
+            self.logger.info(
+                "Microphone stream reactivated - ready to capture user speech"
+            )
+        else:
+            self.logger.debug("Microphone stream already active")
+
     async def on_exit(self, context: VoiceAssistantContext) -> None:
-        # Nothing to clean up in listening state
-        pass
+        # Log microphone stream status before exiting
+        if context.audio_capture.is_active:
+            self.logger.debug(
+                "Microphone stream still active when exiting Listening state"
+            )
+        else:
+            self.logger.debug("Microphone stream was already stopped")
+
+        # Note: We don't stop the audio stream here as RespondingState might need it
+        self.logger.info("Exiting Listening state")
 
     async def handle(
         self, event: VoiceAssistantEvent, context: VoiceAssistantContext
@@ -21,7 +38,7 @@ class ListeningState(AssistantState):
         match event:
             case VoiceAssistantEvent.USER_SPEECH_ENDED:
                 self.logger.info("User finished speaking")
-                await self._transition_to_responding(context)
+                return await self._transition_to_responding(context)
             case VoiceAssistantEvent.IDLE_TRANSITION:
                 self.logger.info("Idle transition in Listening state")
                 await self._transition_to_idle(context)
