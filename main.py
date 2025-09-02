@@ -8,9 +8,9 @@ from typing import Optional
 
 from agent.realtime.views import AssistantVoice, RealtimeModel
 from agent.state.base import VoiceAssistantContext, VoiceAssistantEvent
-from audio import SoundFilePlayer
 from audio.capture import AudioCapture
 from audio.detection import AudioDetectionService
+from audio.sound_player import SoundPlayer
 from audio.wake_word_listener import WakeWordListener, PorcupineBuiltinKeyword
 from agent.state.timeout_service import TimeoutService
 from shared.logging_mixin import LoggingMixin
@@ -32,7 +32,7 @@ class VoiceAssistantController(LoggingMixin):
         self.config = config or VoiceAssistantConfig()
 
         # Services
-        self.sound_player = SoundFilePlayer()
+        self.sound_player = SoundPlayer()
         self.wake_word_listener = WakeWordListener(
             wakeword=self.config.wake_word, sensitivity=self.config.sensitivity
         )

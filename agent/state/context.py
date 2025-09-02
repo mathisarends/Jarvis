@@ -9,10 +9,11 @@ from typing import TYPE_CHECKING
 from audio.capture import AudioCapture
 from audio.detection import AudioDetectionService
 from agent.state.timeout_service import TimeoutService
+from audio.sound_player import SoundPlayer
 from shared.logging_mixin import LoggingMixin
 
 if TYPE_CHECKING:
-    from audio import SoundFilePlayer
+    from audio import So
     from audio.wake_word_listener import WakeWordListener
     from agent.state.base import AssistantState
     from agent.state.base import VoiceAssistantEvent
@@ -23,7 +24,7 @@ class VoiceAssistantContext(LoggingMixin):
 
     def __init__(
         self,
-        sound_player: SoundFilePlayer,
+        sound_player: SoundPlayer,
         wake_word_listener: WakeWordListener,
         audio_capture: AudioCapture,
         audio_detection_service: AudioDetectionService,

@@ -1,40 +1,13 @@
-from dataclasses import dataclass
-
 import pyaudio
+from audio.config import AudioConfig
 from shared.logging_mixin import LoggingMixin
-
-
-@dataclass(frozen=True)
-class AudioCaptureConfig:
-    """Audio configuration settings"""
-
-    chunk_size: int = 4096
-    format: int = pyaudio.paInt16
-    channels: int = 1
-    sample_rate: int = 24000
-
-    @property
-    def bytes_per_sample(self) -> int:
-        """Calculate bytes per sample based on format"""
-        format_map = {
-            pyaudio.paInt16: 2,
-            pyaudio.paInt24: 3,
-            pyaudio.paInt32: 4,
-            pyaudio.paFloat32: 4,
-        }
-        return format_map.get(self.format, 2)
-
-    @property
-    def chunk_bytes(self) -> int:
-        """Calculate total bytes per chunk"""
-        return self.chunk_size * self.bytes_per_sample * self.channels
 
 
 class AudioCapture(LoggingMixin):
     """Class for capturing audio from a microphone using PyAudio"""
 
-    def __init__(self, config: AudioCaptureConfig = None):
-        self.config = config or AudioCaptureConfig()
+    def __init__(self, config: AudioConfig = None):
+        self.config = config or AudioConfig()
         self.p = pyaudio.PyAudio()
         self.stream = None
         self.is_active = False

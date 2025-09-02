@@ -1,6 +1,6 @@
 from agent.state.base import AssistantState, StateType, VoiceAssistantEvent
 from agent.state.context import VoiceAssistantContext
-from audio.file_player import SoundFile
+from audio.sound_player import SoundFile
 
 
 class TimeoutState(AssistantState):
