@@ -11,24 +11,18 @@ from shared.singleton_decorator import singleton
 @singleton
 class EventBus:
     """
-    Hybrid EventBus – dispatcht immer auf DEN Hauptloop.
+    Hybrid EventBus – always dispatches to the main loop.
     """
     def __init__(self):
         self._subscribers: dict[VoiceAssistantEvent, list[Callable]] = {
             event_type: [] for event_type in VoiceAssistantEvent
         }
         self._executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="EventBus")
-        self._loop: Optional[asyncio.AbstractEventLoop] = None  # später setzen!
+        self._loop: Optional[asyncio.AbstractEventLoop] = None  # set later!
 
     def attach_loop(self, loop: asyncio.AbstractEventLoop) -> None:
-        """Den Hauptloop registrieren (einmalig beim Startup)."""
+        """Register the main loop (once during startup)."""
         self._loop = loop
-
-    def _require_loop(self) -> asyncio.AbstractEventLoop:
-        if self._loop is None:
-            # Nur für klare Fehlermeldung – NICHT automatisch erstellen!
-            raise RuntimeError("EventBus loop not attached. Call event_bus.attach_loop(asyncio.get_running_loop()) during startup.")
-        return self._loop
 
     def subscribe(self, event_type: VoiceAssistantEvent, callback: Callable) -> None:
         self._subscribers[event_type].append(callback)
@@ -39,18 +33,18 @@ class EventBus:
 
     def publish_sync(self, event_type: VoiceAssistantEvent, data: Any = None) -> None:
         """
-        Aus Fremd-Threads aufrufbar. Async-Callbacks werden thread-safe
-        auf den Hauptloop geschoben. Sync-Callbacks laufen im Executor.
+        Callable from foreign threads. Async callbacks are thread-safely
+        pushed to the main loop. Sync callbacks run in the executor.
         """
         loop = self._require_loop()
-        for callback in list(self._subscribers[event_type]):
+        for callback in self._subscribers[event_type]:
             try:
                 if asyncio.iscoroutinefunction(callback):
                     fut = asyncio.run_coroutine_threadsafe(
                         self._safe_invoke_async_callback(callback, event_type, data),
                         loop,
                     )
-                    # optional: Fehler loggen, ohne zu blockieren
+                    # optional: Log errors without blocking
                     fut.add_done_callback(self._callback_completed)
                 else:
                     loop.run_in_executor(
@@ -61,11 +55,11 @@ class EventBus:
 
     async def publish_async(self, event_type: VoiceAssistantEvent, data: Any = None) -> None:
         """
-        Aus dem Hauptloop/Async-Kontext. Async-Callbacks: await.
-        Sync-Callbacks: in Executor ausführen.
+        From the main loop/async context. Async callbacks: await.
+        Sync callbacks: execute in executor.
         """
         loop = self._require_loop()
-        for callback in list(self._subscribers[event_type]):
+        for callback in self._subscribers[event_type]:
             try:
                 if asyncio.iscoroutinefunction(callback):
                     await self._safe_invoke_async_callback(callback, event_type, data)
@@ -75,6 +69,9 @@ class EventBus:
                     )
             except Exception as e:
                 print(f"Error invoking async callback for event {event_type}: {e}")
+                
+    def shutdown(self) -> None:
+        self._executor.shutdown(wait=True)
 
     def _callback_completed(self, fut):
         try:
@@ -102,5 +99,7 @@ class EventBus:
         else:
             await callback(event, data)
 
-    def shutdown(self) -> None:
-        self._executor.shutdown(wait=True)
+    def _require_loop(self) -> asyncio.AbstractEventLoop:
+        if self._loop is None:
+            raise RuntimeError("EventBus loop not attached. Call event_bus.attach_loop(asyncio.get_running_loop()) during startup.")
+        return self._loop

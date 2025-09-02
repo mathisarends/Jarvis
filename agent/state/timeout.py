@@ -30,6 +30,7 @@ class TimeoutState(AssistantState):
         # If transitioning to listening, audio detection should continue
         if context.is_idle():
             await self._stop_audio_detection(context)
+            context.sound_player.play_return_to_idle_sound()
 
     async def handle(
         self, event: VoiceAssistantEvent, context: VoiceAssistantContext
