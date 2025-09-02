@@ -58,7 +58,7 @@ class IdleState(AssistantState):
         self._wake_task.cancel()
         try:
             await self._wake_task
-        except asyncio.CancelledError:
+        except asyncio.CancelledError:  # NOSONAR
             self.logger.debug("Wake word task cancelled")
         except Exception:
             self.logger.exception("Error while stopping wake word task")
@@ -78,7 +78,7 @@ class IdleState(AssistantState):
                 # Small delay to prevent busy loop
                 await asyncio.sleep(0.01)
 
-        except asyncio.CancelledError:
+        except asyncio.CancelledError:  # NOSONAR
             self.logger.debug("Wake word loop cancelled")
             raise
         except Exception:

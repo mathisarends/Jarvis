@@ -1,42 +1,122 @@
+"""
+Slimmed controller: States manage their own tasks
+"""
+
 import asyncio
-from audio import WakeWordListener, PorcupineBuiltinKeyword
+from dataclasses import dataclass
+from typing import Optional
+
+from agent.realtime.views import AssistantVoice, RealtimeModel
+from agent.state.base import VoiceAssistantContext, VoiceAssistantEvent
+from audio import SoundFilePlayer
+from audio.capture import AudioCapture
+from audio.wake_word_listener import WakeWordListener, PorcupineBuiltinKeyword
+from shared.logging_mixin import LoggingMixin
 
 
-async def simple_test():
-    """Simple interactive test"""
+@dataclass(frozen=True)
+class VoiceAssistantConfig:
+    voice: AssistantVoice = AssistantVoice.ALLOY
+    realtime_model: RealtimeModel = RealtimeModel.GPT_REALTIME
 
-    print("🎤 Simple Wake Word Test")
-    print("=" * 30)
+    wake_word: PorcupineBuiltinKeyword = PorcupineBuiltinKeyword.PICOVOICE
+    sensitivity: float = 0.7
 
-    # Choose wake word
-    wake_word = PorcupineBuiltinKeyword.PICOVOICE
-    sensitivity = 0.8
 
-    print(f"Wake Word: '{wake_word.value}'")
-    print(f"Sensitivity: {sensitivity}")
-    print("\nInstructions:")
-    print("1. Wait for 'Listening...' message")
-    print("2. Say the wake word clearly")
-    print("3. Wait for detection or press Ctrl+C to stop")
-    print("-" * 30)
+class VoiceAssistantController(LoggingMixin):
+    """Slim controller: States manage their own tasks."""
 
+    def __init__(self, config: Optional[VoiceAssistantConfig] = None):
+        self.config = config or VoiceAssistantConfig()
+
+        # Services
+        self.sound_player = SoundFilePlayer()
+        self.wake_word_listener = WakeWordListener(
+            wakeword=self.config.wake_word, sensitivity=self.config.sensitivity
+        )
+        self.audio_capture = AudioCapture()
+
+        # Context with dependencies
+        self.context = VoiceAssistantContext(
+            sound_player=self.sound_player,
+            wake_word_listener=self.wake_word_listener,
+            audio_capture=self.audio_capture,
+        )
+
+        self._running = False
+
+        self.logger.info("Voice Assistant Controller initialized (slim mode)")
+
+    async def start(self) -> None:
+        """Start the voice assistant"""
+        if self._running:
+            self.logger.warning("Controller already running")
+            return
+
+        self._running = True
+        self.logger.info("Starting Voice Assistant Controller")
+        self.sound_player.play_startup_sound()
+
+        try:
+            # Initialize the initial state (IdleState will start wake word detection)
+            await self.context.state.on_enter(self.context)
+
+            # Simple idle loop - states manage themselves
+            while self._running:
+                await asyncio.sleep(0.1)
+
+        except KeyboardInterrupt:
+            self.logger.info("Shutdown requested by user")
+        except Exception:
+            self.logger.exception("Unhandled error in controller")
+        finally:
+            await self.stop()
+
+    async def stop(self) -> None:
+        """Stop the voice assistant"""
+        if not self._running:
+            return
+
+        self._running = False
+        self.logger.info("Stopping Voice Assistant Controller")
+
+        try:
+            # Clean up current state (will stop any running tasks)
+            await self.context.state.on_exit(self.context)
+        except Exception:
+            self.logger.exception("Error during state cleanup")
+
+        # Clean up services
+        try:
+            self.wake_word_listener.cleanup()
+        except Exception:
+            self.logger.exception("WakeWord cleanup failed")
+
+        try:
+            self.sound_player.stop_sound()
+        except Exception:
+            self.logger.exception("Sound stop failed")
+
+        self.logger.info("Voice Assistant Controller stopped")
+
+    async def handle_external_event(self, event: VoiceAssistantEvent) -> None:
+        """
+        Handle external events (if needed for testing or manual triggers).
+        Most events are now handled internally by states.
+        """
+        self.logger.info("Handling external event: %s", event.value)
+        await self.context.handle_event(event)
+
+
+async def main():
+    ctrl = VoiceAssistantController()
     try:
-        with WakeWordListener(wakeword=wake_word, sensitivity=sensitivity) as listener:
-            print("🔊 Listening... (say the wake word now)")
-
-            detected = await listener.listen_for_wakeword_async()
-
-            if detected:
-                print("🎉 SUCCESS! Wake word detected!")
-            else:
-                print("😴 Listening stopped without detection")
-
+        await ctrl.start()
     except KeyboardInterrupt:
-        print("\n⏹️  Test stopped by user")
-    except Exception as e:
-        print(f"❌ Error: {e}")
-        print("Test failed")
+        pass
+    finally:
+        await ctrl.stop()
 
 
 if __name__ == "__main__":
-    asyncio.run(simple_test())
+    asyncio.run(main())

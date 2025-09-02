@@ -9,6 +9,9 @@ from typing import Optional
 from agent.realtime.views import AssistantVoice, RealtimeModel
 from agent.state.base import VoiceAssistantContext, VoiceAssistantEvent
 from audio import SoundFilePlayer
+import audio
+from audio.capture import AudioCapture
+from audio.detection import AudioDetectionService
 from audio.wake_word_listener import WakeWordListener, PorcupineBuiltinKeyword
 from shared.logging_mixin import LoggingMixin
 
@@ -31,13 +34,19 @@ class VoiceAssistantController(LoggingMixin):
         # Services
         self.sound_player = SoundFilePlayer()
         self.wake_word_listener = WakeWordListener(
-            wakeword=self.config.wake_word,
-            sensitivity=self.config.sensitivity,
+            wakeword=self.config.wake_word, sensitivity=self.config.sensitivity
+        )
+        self.audio_capture = AudioCapture()
+        self.audio_detection_service = AudioDetectionService(
+            audio_capture=self.audio_capture
         )
 
         # Context with dependencies
         self.context = VoiceAssistantContext(
-            sound_player=self.sound_player, wake_word_listener=self.wake_word_listener
+            sound_player=self.sound_player,
+            wake_word_listener=self.wake_word_listener,
+            audio_capture=self.audio_capture,
+            audio_detection_service=self.audio_detection_service,
         )
 
         self._running = False
@@ -103,9 +112,6 @@ class VoiceAssistantController(LoggingMixin):
         """
         self.logger.info("Handling external event: %s", event.value)
         await self.context.handle_event(event)
-
-
-# --- Entry Point ---
 
 
 async def main():

@@ -29,15 +29,6 @@ class AudioCaptureConfig:
         """Calculate total bytes per chunk"""
         return self.chunk_size * self.bytes_per_sample * self.channels
 
-    def __str__(self) -> str:
-        return (
-            f"AudioConfig(rate={self.sample_rate}Hz, "
-            f"chunk={self.chunk_size} samples, "
-            f"format={self.bytes_per_sample*8}-bit, "
-            f"channels={self.channels}, "
-            f"chunk_bytes={self.chunk_bytes})"
-        )
-
 
 class AudioCapture(LoggingMixin):
     """Class for capturing audio from a microphone using PyAudio"""
