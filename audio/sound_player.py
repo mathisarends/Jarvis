@@ -25,6 +25,7 @@ class SoundFile(Enum):
     STARTUP = "startup"
     WAKE_WORD = "wake_word"
 
+
 @singleton
 class SoundPlayer(LoggingMixin):
     """
@@ -64,12 +65,24 @@ class SoundPlayer(LoggingMixin):
         self._init_mixer()
         self.start_chunk_player()
         self.logger.info("Chunk player auto-started during initialization")
-        
+
         # Subscribe to events
-        self.event_bus.subscribe(VoiceAssistantEvent.AUDIO_CHUNK_RECEIVED, self._handle_audio_chunk_event)
-        self.event_bus.subscribe(VoiceAssistantEvent.WAKE_WORD_DETECTED, self._handle_wake_word_event)
-        self.event_bus.subscribe(VoiceAssistantEvent.IDLE_TRANSITION, self._handle_idle_transition_event)
-        self.event_bus.subscribe(VoiceAssistantEvent.ERROR_OCCURRED, self._handle_error_event)
+        self.event_bus.subscribe(
+            VoiceAssistantEvent.AUDIO_CHUNK_RECEIVED, self._handle_audio_chunk_event
+        )
+        self.event_bus.subscribe(
+            VoiceAssistantEvent.WAKE_WORD_DETECTED, self._handle_wake_word_event
+        )
+        self.event_bus.subscribe(
+            VoiceAssistantEvent.IDLE_TRANSITION, self._handle_idle_transition_event
+        )
+        self.event_bus.subscribe(
+            VoiceAssistantEvent.ERROR_OCCURRED, self._handle_error_event
+        )
+
+    # ====================
+    # PUBLIC METHODS
+    # ====================
 
     def start_chunk_player(self) -> None:
         """Start the audio chunk player thread"""
@@ -106,17 +119,6 @@ class SoundPlayer(LoggingMixin):
 
         self.p.terminate()
         self.logger.info("Audio chunk player stopped")
-
-    def add_audio_chunk(self, base64_audio: str):
-        """Add a base64 encoded audio chunk to the playback queue"""
-        try:
-            audio_data = base64.b64decode(base64_audio)
-            self.audio_queue.put(audio_data)
-            self.logger.debug(
-                "Added audio chunk to queue (size: %d bytes)", len(audio_data)
-            )
-        except Exception as e:
-            self.logger.error("Error processing audio chunk: %s", e)
 
     def clear_queue_and_stop_chunks(self):
         """Stop current audio playback and clear the audio queue"""
@@ -212,25 +214,9 @@ class SoundPlayer(LoggingMixin):
 
         self.clear_queue_and_stop_chunks()
 
-    def play_sound_file(self, sound_file: SoundFile) -> bool:
-        """Play a sound using the SoundFile enum"""
-        return self.play_sound(sound_file.value)
-
-    def play_startup_sound(self) -> bool:
-        """Play the startup sound"""
-        return self.play_sound_file(SoundFile.STARTUP)
-
-    def play_wake_word_sound(self) -> bool:
-        """Play the wake word sound"""
-        return self.play_sound_file(SoundFile.WAKE_WORD)
-
-    def play_return_to_idle_sound(self) -> bool:
-        """Play the return to idle sound"""
-        return self.play_sound_file(SoundFile.RETURN_TO_IDLE)
-
-    def play_error_sound(self) -> bool:
-        """Play the error sound"""
-        return self.play_sound_file(SoundFile.ERROR)
+    def get_volume_level(self) -> float:
+        """Get the current volume level"""
+        return self.volume
 
     def set_volume_level(self, volume: float) -> float:
         """
@@ -243,9 +229,40 @@ class SoundPlayer(LoggingMixin):
         self.logger.info("Volume set to: %.2f", self.volume)
         return self.volume
 
-    def get_volume_level(self) -> float:
-        """Get the current volume level"""
-        return self.volume
+    def play_startup_sound(self) -> bool:
+        """Play the startup sound"""
+        return self._play_sound_file(SoundFile.STARTUP)
+
+    # ====================
+    # PRIVATE METHODS
+    # ====================
+
+    def _add_audio_chunk(self, base64_audio: str):
+        """Add a base64 encoded audio chunk to the playback queue"""
+        try:
+            audio_data = base64.b64decode(base64_audio)
+            self.audio_queue.put(audio_data)
+            self.logger.debug(
+                "Added audio chunk to queue (size: %d bytes)", len(audio_data)
+            )
+        except Exception as e:
+            self.logger.error("Error processing audio chunk: %s", e)
+
+    def _play_wake_word_sound(self) -> bool:
+        """Play the wake word sound"""
+        return self._play_sound_file(SoundFile.WAKE_WORD)
+
+    def _play_return_to_idle_sound(self) -> bool:
+        """Play the return to idle sound"""
+        return self._play_sound_file(SoundFile.RETURN_TO_IDLE)
+
+    def _play_error_sound(self) -> bool:
+        """Play the error sound"""
+        return self._play_sound_file(SoundFile.ERROR)
+
+    def _play_sound_file(self, sound_file: SoundFile) -> bool:
+        """Play a sound using the SoundFile enum"""
+        return self.play_sound(sound_file.value)
 
     def _play_audio_loop(self):
         """Thread loop for playing audio chunks"""
@@ -361,40 +378,21 @@ class SoundPlayer(LoggingMixin):
 
     def _recreate_audio_stream(self):
         """Recreate the audio stream if there was an error"""
-        try:
-            with self.stream_lock:
-                if self.stream:
-                    try:
-                        self.stream.close()
-                    except Exception as e:
-                        self.logger.warning(
-                            "Error closing stream during recreation: %s", e
-                        )
+        with self.stream_lock:
+            # Close existing stream
+            if self.stream:
+                self.stream.close()
+                self.stream = None
 
-                try:
-                    self.stream = self.p.open(
-                        format=self.config.format,
-                        channels=self.config.channels,
-                        rate=self.config.sample_rate,
-                        output=True,
-                        frames_per_buffer=self.config.chunk_size,
-                    )
-                    self.logger.info("Audio stream recreated successfully")
-                except Exception as e:
-                    self.logger.error("Failed to open new stream: %s", e)
-                    # Try to reinitialize PyAudio
-                    self.p.terminate()
-                    self.p = pyaudio.PyAudio()
-                    self.stream = self.p.open(
-                        format=self.config.format,
-                        channels=self.config.channels,
-                        rate=self.config.sample_rate,
-                        output=True,
-                        frames_per_buffer=self.config.chunk_size,
-                    )
-                    self.logger.info("PyAudio and stream recreated successfully")
-        except Exception as e:
-            self.logger.error("Failed to recreate audio stream: %s", e)
+            # Create new stream
+            self.stream = self.p.open(
+                format=self.config.format,
+                channels=self.config.channels,
+                rate=self.config.sample_rate,
+                output=True,
+                frames_per_buffer=self.config.chunk_size,
+            )
+            self.logger.info("Audio stream recreated successfully")
 
     def _init_mixer(self):
         """Initialize pygame mixer if not already done"""
@@ -428,26 +426,28 @@ class SoundPlayer(LoggingMixin):
         filename = sound_name if sound_name.endswith(".mp3") else f"{sound_name}.mp3"
         return os.path.join(self.sounds_dir, filename)
 
-    def _handle_audio_chunk_event(self, event: VoiceAssistantEvent, audio_data: str) -> None:
+    def _handle_audio_chunk_event(
+        self, event: VoiceAssistantEvent, audio_data: str
+    ) -> None:
         """Handle AUDIO_CHUNK_RECEIVED events by adding the audio to the playback queue"""
         if event == VoiceAssistantEvent.AUDIO_CHUNK_RECEIVED:
             self.logger.debug("Received audio chunk via EventBus")
-            self.add_audio_chunk(audio_data)
+            self._add_audio_chunk(audio_data)
 
     def _handle_wake_word_event(self, event: VoiceAssistantEvent) -> None:
         """Handle WAKE_WORD_DETECTED events by playing the wake word sound"""
         if event == VoiceAssistantEvent.WAKE_WORD_DETECTED:
             self.logger.debug("Playing wake word sound via EventBus")
-            self.play_wake_word_sound()
+            self._play_wake_word_sound()
 
     def _handle_idle_transition_event(self, event: VoiceAssistantEvent) -> None:
         """Handle IDLE_TRANSITION events by playing the return to idle sound"""
         if event == VoiceAssistantEvent.IDLE_TRANSITION:
             self.logger.debug("Playing return to idle sound via EventBus")
-            self.play_return_to_idle_sound()
+            self._play_return_to_idle_sound()
 
     def _handle_error_event(self, event: VoiceAssistantEvent) -> None:
         """Handle ERROR_OCCURRED events by playing the error sound"""
         if event == VoiceAssistantEvent.ERROR_OCCURRED:
             self.logger.debug("Playing error sound via EventBus")
-            self.play_error_sound()
+            self._play_error_sound()

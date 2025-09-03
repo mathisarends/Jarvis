@@ -28,6 +28,7 @@ class TimeoutState(AssistantState):
         # Only stop audio detection if we're transitioning to idle
         # If transitioning to listening, audio detection should continue
         from agent.state.base import StateType
+
         if context.state.state_type == StateType.IDLE:
             await context.event_bus.publish_sync(VoiceAssistantEvent.IDLE_TRANSITION)
             await self._stop_audio_detection(context)

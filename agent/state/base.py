@@ -21,11 +21,17 @@ class VoiceAssistantEvent(Enum):
     USER_STARTED_SPEAKING = "user_started_speaking"
     USER_SPEECH_ENDED = "user_speech_ended"
 
+    USER_TRANSCRIPT_CHUNK_RECEIVED = "user_transcript_chunk_received"
+    USER_TRANSCRIPT_COMPLETED = "user_transcript_completed"
+
     AUDIO_CHUNK_RECEIVED = "audio_chunk_received"
 
     ASSISTANT_STARTED_RESPONDING = "assistant_started_responding"
     ASSISTANT_RESPONSE_COMPLETED = "assistant_response_completed"
     ASSISTANT_SPEECH_INTERRUPTED = "assistant_speech_interrupted"
+
+    ASSISTANT_TRANSCRIPT_CHUNK_RECEIVED = "assistant_transcript_chunk_received"
+    ASSISTANT_TRANSCRIPT_COMPLETED = "assistant_transcript_completed"
 
     ASSISTANT_STARTED_TOOL_CALL = "assistant_started_tool_call"
     ASSISTANT_RECEIVED_TOOL_CALL_RESULT = "assistant_received_tool_call"

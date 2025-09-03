@@ -4,6 +4,7 @@ from typing import Any, Literal, Optional, Union
 
 from pydantic import BaseModel, Field
 
+from agent.realtime.event_types import RealtimeServerEvent
 from audio.wake_word_listener import PorcupineBuiltinKeyword
 
 
@@ -35,46 +36,14 @@ class VoiceAssistantConfig:
 
     wake_word: PorcupineBuiltinKeyword = PorcupineBuiltinKeyword.PICOVOICE
     wakeword_sensitivity: float = 0.7
-
-
-class FunctionParameters(BaseModel):
-    """JSON Schema for function parameters in a tool."""
-
-    type: str = Field(..., description="Always 'object' for function parameters")
-    strict: Optional[bool] = None
-    properties: dict[str, Any] = Field(default_factory=dict)
-    required: Optional[list[str]] = None
-
-
-class Tool(BaseModel):
-    """A tool available to the model (e.g., function)."""
-
-    type: Literal["function"]
-    name: str
-    description: Optional[str] = None
-    parameters: FunctionParameters
-
-
-class AudioConfig(BaseModel):
-    """Optional audio input/output configuration."""
-
-    input_audio_format: Optional[dict[str, Any]] = None
-    output_audio_format: Optional[dict[str, Any]] = None
-
-
-class SessionConfig(BaseModel):
-    """Realtime session configuration for session.update."""
-
-    type: Literal["realtime"]
-    model: Optional[str] = None
-    audio: Optional[AudioConfig] = None
-    include: Optional[list[str]] = None
-    instructions: Optional[str] = None
-    max_output_tokens: Optional[Union[int, Literal["inf"]]] = None
-    output_modalities: Optional[list[str]] = None
-    prompt: Optional[dict[str, Any]] = None
-    temperature: Optional[float] = None
-    tool_choice: Optional[Union[str, dict[str, Any]]] = None
-    tools: Optional[list[Tool]] = None
-    tracing: Optional[Union[str, list[str, Any]]] = None
-    truncation: Optional[Union[str, list[str, Any]]] = None
+    
+    
+class ResponseOutputAudioDelta(BaseModel):
+    """Model for 'response.output_audio.delta' (base64-encoded audio chunk)."""
+    type: Literal[RealtimeServerEvent.RESPONSE_OUTPUT_AUDIO_DELTA]
+    event_id: str
+    item_id: str
+    response_id: str
+    output_index: int
+    content_index: int
+    delta: str  # base64-encoded audio bytes

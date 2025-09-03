@@ -7,10 +7,13 @@ import os
 import threading
 from typing import Any, Callable, Dict, Optional
 
+from pydantic import ValidationError
 import websocket
 from dotenv import load_dotenv
 
-from agent.realtime.views import RealtimeModel
+from agent.realtime.event_types import RealtimeServerEvent
+from agent.realtime.transcription.views import InputAudioTranscriptionCompleted, InputAudioTranscriptionDelta, ResponseOutputAudioTranscriptDelta, ResponseOutputAudioTranscriptDone
+from agent.realtime.views import RealtimeModel, ResponseOutputAudioDelta
 from agent.realtime.event_bus import EventBus
 from agent.state.base import VoiceAssistantEvent
 from shared.logging_mixin import LoggingMixin
@@ -133,36 +136,55 @@ class WebSocketManager(LoggingMixin):
         """
         event_type = data.get("type", "")
 
-        if event_type == "input_audio_buffer.speech_started":
-            # User started speaking
+        if event_type == RealtimeServerEvent.INPUT_AUDIO_BUFFER_SPEECH_STARTED:
             self.logger.debug("User started speaking")
             self.event_bus.publish_sync(VoiceAssistantEvent.USER_STARTED_SPEAKING)
 
-        elif event_type == "input_audio_buffer.speech_stopped":
-            # User stopped speaking
+        elif event_type == RealtimeServerEvent.INPUT_AUDIO_BUFFER_SPEECH_STOPPED:
             self.logger.debug("User speech ended")
             self.event_bus.publish_sync(VoiceAssistantEvent.USER_SPEECH_ENDED)
 
-        elif event_type == "response.output_audio.delta":
-            audio_data = data.get("delta", "")
+        elif event_type == RealtimeServerEvent.RESPONSE_OUTPUT_AUDIO_DELTA:
+            audio_data = ResponseOutputAudioDelta.model_validate(data)
             if not audio_data:
                 self.logger.warning("Received empty audio delta")
                 return
 
-            self.logger.debug("Publishing audio delta via event bus")
             self.event_bus.publish_sync(
-                VoiceAssistantEvent.AUDIO_CHUNK_RECEIVED, audio_data
+                VoiceAssistantEvent.AUDIO_CHUNK_RECEIVED, audio_data.delta
             )
 
-        elif event_type == "response.done":
+        elif event_type == RealtimeServerEvent.RESPONSE_DONE:
             # Assistant response completed (already handled, but keeping for completeness)
             self.logger.debug("Assistant response completed")
             self.event_bus.publish_sync(
                 VoiceAssistantEvent.ASSISTANT_RESPONSE_COMPLETED
             )
 
-        elif event_type == "error":
-            # Error occurred
+        elif (
+            event_type
+            == RealtimeServerEvent.CONVERSATION_ITEM_INPUT_AUDIO_TRANSCRIPTION_COMPLETED
+        ):
+            try:
+                payload = InputAudioTranscriptionCompleted.model_validate(data)
+            except ValidationError as e:
+                self.logger.warning("Bad payload for %s: %s | data=%r", event_type, e, data)
+            else:
+                self.event_bus.publish_sync(
+                    VoiceAssistantEvent.USER_TRANSCRIPT_COMPLETED, payload
+                )
+
+        elif event_type == RealtimeServerEvent.RESPONSE_OUTPUT_AUDIO_TRANSCRIPT_DONE:
+            try:
+                payload = ResponseOutputAudioTranscriptDone.model_validate(data)
+            except ValidationError as e:
+                self.logger.warning("Bad payload for %s: %s | data=%r", event_type, e, data)
+            else:
+                self.event_bus.publish_sync(
+                    VoiceAssistantEvent.ASSISTANT_TRANSCRIPT_COMPLETED, payload
+                )
+
+        elif event_type == RealtimeServerEvent.ERROR:
             error_data = data.get("error", {})
             self.logger.error("OpenAI API error: %s", error_data)
             self.event_bus.publish_sync(

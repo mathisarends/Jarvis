@@ -7,6 +7,7 @@ import asyncio
 from typing import Optional
 
 from agent.realtime.realtime_api import OpenAIRealtimeAPI
+from agent.realtime.transcription.service import TranscriptionService
 from agent.realtime.views import VoiceAssistantConfig
 from agent.realtime.websocket_manager import WebSocketManager
 from audio.capture import AudioCapture
@@ -29,6 +30,7 @@ class SimpleVoiceAssistant(LoggingMixin):
             realtime_config=self.config,
             ws_manager=WebSocketManager.for_gpt_realtime(),
             audio_capture=self.audio_capture,
+            transcription_service=TranscriptionService()
         )
 
         self._running = False

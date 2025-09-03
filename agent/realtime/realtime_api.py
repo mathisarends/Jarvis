@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING, Any
 
+from agent.realtime.transcription.service import TranscriptionService
 from agent.realtime.websocket_manager import WebSocketManager
 from audio.capture import AudioCapture
 from shared.logging_mixin import LoggingMixin
@@ -18,6 +19,7 @@ class OpenAIRealtimeAPI(LoggingMixin):
         realtime_config: VoiceAssistantConfig,
         ws_manager: WebSocketManager,
         audio_capture: AudioCapture,
+        transcription_service: TranscriptionService
     ):
         """
         Initializes the OpenAI Realtime API client.
@@ -25,6 +27,7 @@ class OpenAIRealtimeAPI(LoggingMixin):
         """
         self.ws_manager = ws_manager
         self.audio_capture = audio_capture
+        self.transcription_service = transcription_service
 
         # Session configuration from realtime_config
         self.system_message = realtime_config.system_message
@@ -94,7 +97,7 @@ class OpenAIRealtimeAPI(LoggingMixin):
         except Exception as e:
             self.logger.error("Error initializing session: %s", e)
             return False
-
+        
     def _build_session_config(self) -> dict[str, Any]:
         """
         Creates the session configuration for the OpenAI API.
@@ -107,14 +110,15 @@ class OpenAIRealtimeAPI(LoggingMixin):
                 "model": "gpt-realtime",
                 "instructions": self.system_message,
                 "audio": {
-                    "input_audio_format": {"type": "pcm16"},
-                    "output_audio_format": {"type": "pcm16"},
+                    "output": {
+                        "voice": "marin"
+                    }
                 },
                 "output_modalities": ["audio"],
                 "max_output_tokens": 1024,
             },
         }
-
+        
     async def _send_audio_stream(self) -> None:
         """
         Sends audio data from the microphone to the OpenAI API.
