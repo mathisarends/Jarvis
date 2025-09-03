@@ -36,9 +36,6 @@ class SoundPlayer(LoggingMixin):
     def __init__(
         self, config: Optional[AudioConfig] = None, sounds_dir: Optional[str] = None
     ):
-        super().__init__()
-
-        # Audio configuration
         self.config = config or AudioConfig()
 
         # PyAudio setup for chunks

@@ -4,10 +4,10 @@ import asyncio
 import base64
 import json
 import os
+import threading
 from typing import Any, Callable, Dict, Optional
 
-import websockets
-from websockets.asyncio.client import connect, ClientConnection
+import websocket
 from dotenv import load_dotenv
 
 from agent.realtime.views import RealtimeModel
@@ -18,7 +18,7 @@ load_dotenv()
 
 class WebSocketManager(LoggingMixin):
     """
-    Class for managing WebSocket connections.
+    Class for managing WebSocket connections using websocket-client.
     Handles the creation, management, and closing of WebSocket connections
     as well as sending and receiving messages.
     """
@@ -30,24 +30,22 @@ class WebSocketManager(LoggingMixin):
         self,
         websocket_url: str,
         headers: Dict[str, str],
-        message_callback: Optional[Callable] = None,
     ):
         """
         Initialize the WebSocket Manager.
         """
         self.websocket_url = websocket_url
-        self.headers = list(headers.items()) if headers else None
-        self.connection: Optional[ClientConnection] = None
-        self.message_callback = message_callback
+        self.headers = [f"{k}: {v}" for k, v in headers.items()] if headers else []
+        self.ws: Optional[websocket.WebSocketApp] = None
+        self._connected = False
+        self._connection_event = threading.Event()
+        self._running = False
         self.logger.info("WebSocketManager initialized")
 
-    def set_message_callback(self, callback: Callable) -> None:
-        """Set callback that is called when WebSocket messages are received"""
-        self.message_callback = callback
 
     @classmethod
     def for_gpt_realtime(
-        cls, *, api_key: str | None = None, message_callback: Optional[Callable] = None
+        cls, *, api_key: str | None = None
     ) -> WebSocketManager:
         """
         Convenience factory for 'gpt-realtime'.
@@ -55,40 +53,85 @@ class WebSocketManager(LoggingMixin):
         return cls._from_model(
             api_key=api_key,
             model=RealtimeModel.GPT_REALTIME,
-            message_callback=message_callback,
         )
 
-    async def create_connection(self) -> Optional[ClientConnection]:
+    async def create_connection(self) -> bool:
         """
         Create a WebSocket connection.
         """
         try:
             self.logger.info("Establishing connection to %s...", self.websocket_url)
-            self.connection = await connect(
-                self.websocket_url, extra_headers=self.headers
-            )
-            self.logger.info("Connection successfully established!")
-            return self.connection
+            
+            def on_open(ws):
+                self.logger.info("Connection successfully established!")
+                self._connected = True
+                self._connection_event.set()
 
-        except websockets.exceptions.InvalidStatus as e:
-            self.logger.error("Invalid status code from WebSocket server: %s", e)
-        except ConnectionRefusedError as e:
-            self.logger.error("Connection refused: %s", e)
-        except OSError as e:
-            self.logger.error("OS-level connection error: %s", e)
-        return None
+            def on_message(ws, message):
+                try:
+                    data = json.loads(message)
+                    self.logger.debug("Received message: %s", data.get("type"))
+                    # Handle message directly here - user can implement custom logic
+                    # For now, just log the message type
+                    
+                except json.JSONDecodeError as e:
+                    self.logger.warning("Received malformed JSON message: %s", e)
+                except Exception as e:
+                    self.logger.error("Error processing message: %s", e)
+
+            def on_error(ws, error):
+                self.logger.error("WebSocket error: %s", error)
+                self._connected = False
+
+            def on_close(ws, close_status_code, close_msg):
+                self.logger.info("Connection closed: %s %s", close_status_code, close_msg)
+                self._connected = False
+                self._running = False
+
+            self.ws = websocket.WebSocketApp(
+                self.websocket_url,
+                header=self.headers,
+                on_open=on_open,
+                on_message=on_message,
+                on_error=on_error,
+                on_close=on_close,
+            )
+
+            # Start WebSocket in separate thread
+            self._running = True
+            ws_thread = threading.Thread(target=self.ws.run_forever, daemon=True)
+            ws_thread.start()
+
+            # Wait for connection to be established (with timeout)
+            connected = await asyncio.get_event_loop().run_in_executor(
+                None, lambda: self._connection_event.wait(timeout=10)
+            )
+            
+            if connected and self._connected:
+                return True
+            else:
+                self.logger.error("Failed to establish connection within timeout")
+                return False
+
+        except Exception as e:
+            self.logger.error("Error creating connection: %s", e)
+            return False
 
     async def send_message(self, message: Dict[str, Any]) -> bool:
         """
         Send a JSON message through the WebSocket connection.
         """
-        if not self.connection:
+        if not self._connected or not self.ws:
             self.logger.error(self.NO_CONNECTION_ERROR_MSG)
             return False
 
         try:
-            await self.connection.send(json.dumps(message))
-            return True
+            def _send():
+                self.ws.send(json.dumps(message))
+                return True
+            
+            result = await asyncio.get_event_loop().run_in_executor(None, _send)
+            return result
         except Exception as e:
             self.logger.error("Error sending message: %s", e)
             return False
@@ -98,7 +141,7 @@ class WebSocketManager(LoggingMixin):
         Send binary data through the WebSocket connection.
         For audio streaming, data is typically encoded in base64.
         """
-        if not self.connection:
+        if not self._connected or not self.ws:
             self.logger.error(self.NO_CONNECTION_ERROR_MSG)
             return False
 
@@ -122,48 +165,44 @@ class WebSocketManager(LoggingMixin):
         should_continue: Callable[[], bool] = lambda: True,
     ) -> None:
         """
-        Continuously receive and process messages from the WebSocket connection.
+        Monitor the WebSocket connection status.
+        Messages are now handled directly in the on_message callback.
         """
-        if not self.connection:
+        if not self._connected:
             self.logger.error(self.NO_CONNECTION_ERROR_MSG)
             return
 
         try:
-            self.logger.info("Starting message reception...")
-            async for message in self.connection:
-                await self._process_websocket_message(message)
+            self.logger.info("Monitoring WebSocket connection...")
+            
+            while should_continue() and self._running and self._connected:
+                # Messages are handled directly in on_message callback
+                # Just keep the connection alive
+                await asyncio.sleep(0.1)
+                        
+            self.logger.info("Connection monitoring stopped")
 
-                if not should_continue():
-                    break
-
-        except websockets.exceptions.ConnectionClosedOK:
-            self.logger.info(
-                "WebSocket connection closed normally during message reception"
-            )
-        except websockets.exceptions.ConnectionClosedError as e:
-            if str(e).startswith("sent 1000 (OK)"):
-                self.logger.info(
-                    "WebSocket connection closed normally during message reception"
-                )
-            else:
-                self.logger.error(
-                    "WebSocket connection closed unexpectedly during message reception: %s",
-                    e,
-                )
-        except asyncio.TimeoutError as e:
-            self.logger.error("Timeout while receiving messages: %s", e)
+        except Exception as e:
+            self.logger.error("Error monitoring connection: %s", e)
 
     async def close(self) -> None:
         """
         Close the WebSocket connection gracefully.
         """
-        if not self.connection:
+        if not self.ws:
             return
 
         try:
             self.logger.info("Closing connection...")
-            await self.connection.close()
-            self.connection = None
+            self._running = False
+            self._connected = False
+            
+            def _close():
+                if self.ws:
+                    self.ws.close()
+            
+            await asyncio.get_event_loop().run_in_executor(None, _close)
+            self.ws = None
             self.logger.info("Connection closed")
         except Exception as e:
             self.logger.error("Error closing connection: %s", e)
@@ -172,43 +211,15 @@ class WebSocketManager(LoggingMixin):
         """
         Check if the WebSocket connection is established and open.
         """
-        return self.connection is not None and self.connection.open
+        return self._connected and self.ws is not None
 
-    async def _process_websocket_message(self, message: str) -> None:
+    async def _process_message(self, message: Dict[str, Any]) -> None:
         """
-        Process incoming WebSocket messages and call the message callback.
-
-        Args:
-            message: The raw message from the WebSocket
+        This method is no longer used since messages are handled directly
+        in the on_message callback. Kept for potential future use.
         """
-        try:
-            self.logger.debug("Raw message received: %s...", message[:100])
-
-            response = json.loads(message)
-
-            if not isinstance(response, dict):
-                self.logger.warning("Response is not a dictionary: %s", type(response))
-                return
-
-            # Call the message callback if available
-            if self.message_callback:
-                if asyncio.iscoroutinefunction(self.message_callback):
-                    await self.message_callback(response)
-                else:
-                    self.message_callback(response)
-            else:
-                self.logger.warning("No message callback set - message will be ignored")
-
-        except json.JSONDecodeError as e:
-            self.logger.warning("Received malformed JSON message: %s", e)
-        except KeyError as e:
-            self.logger.warning(
-                "Expected key missing in message: %s | Message content: %s",
-                e,
-                message[:500],
-            )
-        except Exception as e:
-            self.logger.error("Unexpected error processing message: %s", e)
+        # Messages are now handled directly in on_message callback
+        pass
 
     @classmethod
     def _from_model(
@@ -216,7 +227,6 @@ class WebSocketManager(LoggingMixin):
         *,
         api_key: str | None = None,
         model: RealtimeModel = RealtimeModel.GPT_REALTIME,
-        message_callback: Optional[Callable] = None,
     ) -> WebSocketManager:
         """
         Create a manager for a given model (enum or raw string).
@@ -224,7 +234,7 @@ class WebSocketManager(LoggingMixin):
         actual_api_key = api_key or cls._get_api_key_from_env()
         ws_url = cls._get_websocket_url(model.value)
         headers = cls._get_auth_header(actual_api_key)
-        return cls(ws_url, headers, message_callback)
+        return cls(ws_url, headers)
 
     @classmethod
     def _get_websocket_url(cls, model: str) -> str:

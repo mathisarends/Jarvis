@@ -60,12 +60,15 @@ class OpenAIRealtimeAPI(LoggingMixin):
 
     async def _process_responses(self) -> None:
         """
-        Processes responses from the OpenAI API and publishes events to the EventBus.
+        Monitor the WebSocket connection.
+        Messages are now handled directly in the WebSocketManager's on_message callback.
         """
         if not self.ws_manager.is_connected():
-            self.logger.error("No connection available for processing responses")
+            self.logger.error("No connection available for monitoring")
             return
 
+        # Messages are handled directly in WebSocketManager.on_message
+        # Just monitor the connection status
         await self.ws_manager.receive_messages(
             should_continue=self.ws_manager.is_connected,
         )
@@ -95,22 +98,18 @@ class OpenAIRealtimeAPI(LoggingMixin):
             self.logger.error("Error initializing session: %s", e)
             return False
 
+    # TODO: This does work find out why and add correct structure
     def _build_session_config(self) -> dict[str, Any]:
         """
         Creates the session configuration for the OpenAI API.
+        ABSOLUTE MINIMUM - nur die beiden erforderlichen Parameter.
         """
         return {
             "type": "session.update",
             "session": {
-                "turn_detection": {"type": "server_vad"},
-                "input_audio_format": "pcm16",
-                "output_audio_format": "pcm16",
-                "voice": self.voice,
-                "instructions": self.system_message,
-                "modalities": ["audio"],
-                "temperature": self.temperature,
-                "tools": [],
-            },
+                "type": "realtime",
+                "instructions": self.system_message
+            }
         }
 
     async def _send_audio_stream(self) -> None:
@@ -161,3 +160,32 @@ class OpenAIRealtimeAPI(LoggingMixin):
         Stops audio playback.
         """
         self.sound_player.clear_queue_and_stop_chunks()
+
+    async def _handle_realtime_message(self, response: dict[str, Any]) -> None:
+        """
+        Handle incoming realtime messages directly.
+        """
+        try:
+            response_type = response.get("type", "")
+            self.logger.debug("Received realtime message: %s", response_type)
+
+            if response_type == "response.audio.delta":
+                # Handle audio response chunks
+                self.enqueue_audio_chunk(response)
+            elif response_type == "response.audio_transcript.delta":
+                # Handle transcript deltas if needed
+                transcript = response.get("delta", "")
+                if transcript:
+                    self.logger.debug("Transcript: %s", transcript)
+            elif response_type == "response.done":
+                # Response completed
+                self.logger.info("Response completed")
+            elif response_type == "error":
+                # Handle errors
+                error = response.get("error", {})
+                self.logger.error("Realtime API error: %s", error)
+            else:
+                self.logger.debug("Unhandled message type: %s", response_type)
+
+        except Exception as e:
+            self.logger.error("Error handling realtime message: %s", e)
