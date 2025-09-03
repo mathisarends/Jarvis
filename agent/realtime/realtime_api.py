@@ -45,7 +45,7 @@ class OpenAIRealtimeAPI(LoggingMixin):
         self.system_message = realtime_config.system_message
         self.voice = realtime_config.voice
         self.temperature = realtime_config.temperature
-        
+
         self.tool_registry = ToolRegistry()
         self._register_tools()
 
@@ -104,7 +104,7 @@ class OpenAIRealtimeAPI(LoggingMixin):
         audio_config = AudioConfig(
             output=AudioOutputConfig(
                 format=AudioFormatConfig(type=AudioFormat.PCM16),
-                voice=self.voice or "marin",
+                voice="marin",
             )
         )
 
@@ -157,7 +157,6 @@ class OpenAIRealtimeAPI(LoggingMixin):
             self.logger.error("Timeout while sending audio: %s", e)
         except Exception as e:
             self.logger.error("Error while sending audio: %s", e)
-
 
     def _register_tools(self) -> None:
         """Register available tools with the tool registry"""

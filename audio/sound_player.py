@@ -80,7 +80,8 @@ class SoundPlayer(LoggingMixin):
             VoiceAssistantEvent.ERROR_OCCURRED, self._handle_error_event
         )
         self.event_bus.subscribe(
-            VoiceAssistantEvent.USER_STARTED_SPEAKING, self._handle_user_started_speaking
+            VoiceAssistantEvent.USER_STARTED_SPEAKING,
+            self._handle_user_started_speaking,
         )
 
     def start_chunk_player(self) -> None:

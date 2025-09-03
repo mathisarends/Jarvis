@@ -34,9 +34,11 @@ class ToolRegistry(LoggingMixin):
             return_early_message: optional early-response text
         """
         self._validate_tool(tool)
-        
+
         if tool.name in self._tools:
-            raise ValueError(f"A tool with the name '{tool.name}' is already registered.")
+            raise ValueError(
+                f"A tool with the name '{tool.name}' is already registered."
+            )
 
         self._tools[tool.name] = tool
         if return_early_message:
@@ -80,29 +82,33 @@ class ToolRegistry(LoggingMixin):
                 params_schema = {"type": "object", "properties": {}, "required": []}
 
             # enforce additionalProperties=False for stricter validation
-            if isinstance(params_schema, dict) and "additionalProperties" not in params_schema:
+            if (
+                isinstance(params_schema, dict)
+                and "additionalProperties" not in params_schema
+            ):
                 params_schema = {**params_schema, "additionalProperties": False}
 
             # Create Pydantic FunctionTool model
             function_tool = PydanticTool(
                 type="function",
                 name=ft.name,
-                description=getattr(ft, "description", None) or "No description provided.",
+                description=getattr(ft, "description", None)
+                or "No description provided.",
                 parameters=params_schema,
             )
             tools.append(function_tool)
-        
+
         return tools
 
     def _validate_tool(self, tool: FunctionTool) -> None:
         """
         Validate that the tool has required attributes.
         """
-        if not hasattr(tool, 'name') or not tool.name:
+        if not hasattr(tool, "name") or not tool.name:
             raise ValueError("Tool must have a valid name")
-        
-        if not hasattr(tool, 'description') or not tool.description:
+
+        if not hasattr(tool, "description") or not tool.description:
             raise ValueError("Tool must have a description")
-        
-        if not hasattr(tool, 'params_json_schema'):
+
+        if not hasattr(tool, "params_json_schema"):
             raise ValueError("Tool must have params_json_schema")

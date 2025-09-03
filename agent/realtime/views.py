@@ -38,6 +38,7 @@ class AssistantVoice(StrEnum):
     - cedar: (Realtime-only) – no official description available yet.
     - marin: (Realtime-only) – no official description available yet.
     """
+
     ALLOY = "alloy"
     ASH = "ash"
     BALLAD = "ballad"
