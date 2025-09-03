@@ -5,21 +5,18 @@ import base64
 import json
 import os
 import threading
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Optional
 
-from pydantic import ValidationError
 import websocket
 from dotenv import load_dotenv
 
-from agent.realtime.event_types import RealtimeServerEvent
-from agent.realtime.transcription.views import InputAudioTranscriptionCompleted, InputAudioTranscriptionDelta, ResponseOutputAudioTranscriptDelta, ResponseOutputAudioTranscriptDone
-from agent.realtime.views import RealtimeModel, ResponseOutputAudioDelta
+from agent.realtime.websocket.realtime_event_dispatcher import RealtimeEventDispatcher
+from agent.realtime.views import RealtimeModel
 from agent.realtime.event_bus import EventBus
 from agent.state.base import VoiceAssistantEvent
 from shared.logging_mixin import LoggingMixin
 
 load_dotenv()
-
 
 class WebSocketManager(LoggingMixin):
     """
@@ -34,7 +31,7 @@ class WebSocketManager(LoggingMixin):
     def __init__(
         self,
         websocket_url: str,
-        headers: Dict[str, str],
+        headers: dict[str, str],
     ):
         """
         Initialize the WebSocket Manager.
@@ -46,6 +43,7 @@ class WebSocketManager(LoggingMixin):
         self._connection_event = threading.Event()
         self._running = False
         self.event_bus = EventBus()
+        self.event_dispatcher = RealtimeEventDispatcher()
 
         self.event_bus.attach_loop(asyncio.get_running_loop())
         self.logger.info("WebSocketManager initialized")
@@ -72,14 +70,14 @@ class WebSocketManager(LoggingMixin):
                 self._connected = True
                 self._connection_event.set()
 
-            def on_message(ws, message: dict[str, Any]) -> None:
+            def on_message(ws, message: str) -> None:
                 try:
                     data = json.loads(message)
                     message_type = data.get("type", "")
                     self.logger.info("Received message: %s", message_type)
 
-                    # Process OpenAI Realtime API events and map to voice assistant events
-                    self._handle_openai_event(data)
+                    # Delegate event processing to RealtimeEventDispatcher
+                    self.event_dispatcher.dispatch_event(data)
 
                 except json.JSONDecodeError as e:
                     self.logger.warning("Received malformed JSON message: %s", e)
@@ -130,95 +128,7 @@ class WebSocketManager(LoggingMixin):
             self.logger.error("Error creating connection: %s", e)
             return False
 
-    def _handle_openai_event(self, data: dict[str, Any]) -> None:
-        """
-        Handle OpenAI Realtime API events and map them to voice assistant events.
-        """
-        event_type = data.get("type", "")
-
-        if event_type == RealtimeServerEvent.INPUT_AUDIO_BUFFER_SPEECH_STARTED:
-            self.logger.debug("User started speaking")
-            self.event_bus.publish_sync(VoiceAssistantEvent.USER_STARTED_SPEAKING)
-
-        elif event_type == RealtimeServerEvent.INPUT_AUDIO_BUFFER_SPEECH_STOPPED:
-            self.logger.debug("User speech ended")
-            self.event_bus.publish_sync(VoiceAssistantEvent.USER_SPEECH_ENDED)
-
-        elif event_type == RealtimeServerEvent.RESPONSE_OUTPUT_AUDIO_DELTA:
-            audio_data = ResponseOutputAudioDelta.model_validate(data)
-            if not audio_data:
-                self.logger.warning("Received empty audio delta")
-                return
-
-            self.event_bus.publish_sync(
-                VoiceAssistantEvent.AUDIO_CHUNK_RECEIVED, audio_data.delta
-            )
-
-        elif event_type == RealtimeServerEvent.RESPONSE_DONE:
-            # Assistant response completed (already handled, but keeping for completeness)
-            self.logger.debug("Assistant response completed")
-            self.event_bus.publish_sync(
-                VoiceAssistantEvent.ASSISTANT_RESPONSE_COMPLETED
-            )
-
-        elif (
-            event_type
-            == RealtimeServerEvent.CONVERSATION_ITEM_INPUT_AUDIO_TRANSCRIPTION_COMPLETED
-        ):
-            try:
-                payload = InputAudioTranscriptionCompleted.model_validate(data)
-            except ValidationError as e:
-                self.logger.warning("Bad payload for %s: %s | data=%r", event_type, e, data)
-            else:
-                self.event_bus.publish_sync(
-                    VoiceAssistantEvent.USER_TRANSCRIPT_COMPLETED, payload
-                )
-
-        elif event_type == RealtimeServerEvent.RESPONSE_OUTPUT_AUDIO_TRANSCRIPT_DONE:
-            try:
-                payload = ResponseOutputAudioTranscriptDone.model_validate(data)
-            except ValidationError as e:
-                self.logger.warning("Bad payload for %s: %s | data=%r", event_type, e, data)
-            else:
-                self.event_bus.publish_sync(
-                    VoiceAssistantEvent.ASSISTANT_TRANSCRIPT_COMPLETED, payload
-                )
-
-        elif event_type == RealtimeServerEvent.ERROR:
-            error_data = data.get("error", {})
-            self.logger.error("OpenAI API error: %s", error_data)
-            self.event_bus.publish_sync(
-                VoiceAssistantEvent.ERROR_OCCURRED, {"openai_error": error_data}
-            )
-
-        elif event_type in [
-            "session.created",
-            "session.updated",
-            "conversation.created",
-            "conversation.item.created",
-            "input_audio_buffer.committed",
-            "input_audio_buffer.cleared",
-            "conversation.item.input_audio_transcription.completed",
-            "conversation.item.input_audio_transcription.failed",
-            "response.output_item.added",
-            "response.output_item.done",
-            "response.content_part.added",
-            "response.content_part.done",
-            "response.text.delta",
-            "response.text.done",
-            "response.audio.delta",
-            "response.audio.done",
-            "response.audio_transcript.delta",
-            "response.audio_transcript.done",
-        ]:
-            # These events are handled elsewhere or don't need state transitions
-            self.logger.debug("Received event (no state transition): %s", event_type)
-
-        else:
-            # Unknown event type
-            self.logger.warning("Unknown OpenAI event type: %s", event_type)
-
-    async def send_message(self, message: Dict[str, Any]) -> bool:
+    async def send_message(self, message: dict[str, Any]) -> bool:
         """
         Send a JSON message through the WebSocket connection.
         """
@@ -238,17 +148,13 @@ class WebSocketManager(LoggingMixin):
             self.logger.error("Error sending message: %s", e)
             return False
 
-    async def send_binary(self, data: bytes, encoding: str = "base64") -> bool:
+    async def send_audio_stream(self, data: bytes) -> bool:
         """
-        Send binary data through the WebSocket connection.
+        Send audio data through the WebSocket connection.
         For audio streaming, data is typically encoded in base64.
         """
         if not self._connected or not self.ws:
             self.logger.error(self.NO_CONNECTION_ERROR_MSG)
-            return False
-
-        if encoding != "base64":
-            self.logger.error("Unsupported encoding: %s", encoding)
             return False
 
         try:
@@ -261,31 +167,6 @@ class WebSocketManager(LoggingMixin):
         except Exception as e:
             self.logger.error("Error sending binary data: %s", e)
             return False
-
-    async def receive_messages(
-        self,
-        should_continue: Callable[[], bool] = lambda: True,
-    ) -> None:
-        """
-        Monitor the WebSocket connection status.
-        Messages are now handled directly in the on_message callback.
-        """
-        if not self._connected:
-            self.logger.error(self.NO_CONNECTION_ERROR_MSG)
-            return
-
-        try:
-            self.logger.info("Monitoring WebSocket connection...")
-
-            while should_continue() and self._running and self._connected:
-                # Messages are handled directly in on_message callback
-                # Just keep the connection alive
-                await asyncio.sleep(0.1)
-
-            self.logger.info("Connection monitoring stopped")
-
-        except Exception as e:
-            self.logger.error("Error monitoring connection: %s", e)
 
     async def close(self) -> None:
         """
@@ -315,14 +196,6 @@ class WebSocketManager(LoggingMixin):
         """
         return self._connected and self.ws is not None
 
-    async def _process_message(self, message: Dict[str, Any]) -> None:
-        """
-        This method is no longer used since messages are handled directly
-        in the on_message callback. Kept for potential future use.
-        """
-        # Messages are now handled directly in on_message callback
-        pass
-
     @classmethod
     def _from_model(
         cls,
@@ -347,7 +220,7 @@ class WebSocketManager(LoggingMixin):
     def _get_auth_header(
         cls,
         api_key: str,
-    ) -> Dict[str, str]:
+    ) -> dict[str, str]:
         """Build Authorization and optional organization/project headers."""
         return {"Authorization": f"Bearer {api_key}"}
 

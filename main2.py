@@ -9,7 +9,7 @@ from typing import Optional
 from agent.realtime.realtime_api import OpenAIRealtimeAPI
 from agent.realtime.transcription.service import TranscriptionService
 from agent.realtime.views import VoiceAssistantConfig
-from agent.realtime.websocket_manager import WebSocketManager
+from agent.realtime.websocket.websocket_manager import WebSocketManager
 from audio.capture import AudioCapture
 from audio.sound_player import SoundPlayer
 from shared.logging_mixin import LoggingMixin

@@ -4,7 +4,7 @@ import asyncio
 from typing import TYPE_CHECKING, Any
 
 from agent.realtime.transcription.service import TranscriptionService
-from agent.realtime.websocket_manager import WebSocketManager
+from agent.realtime.websocket.websocket_manager import WebSocketManager
 from audio.capture import AudioCapture
 from shared.logging_mixin import LoggingMixin
 
@@ -46,32 +46,14 @@ class OpenAIRealtimeAPI(LoggingMixin):
             return False
 
         try:
-            await asyncio.gather(
-                self._send_audio_stream(),
-                self._process_responses(),
-            )
-
+            # Only send audio stream - WebSocketManager handles all responses automatically
+            await self._send_audio_stream()
             return True
         except asyncio.CancelledError:  # NOSONAR
-            self.logger.info("Tasks were cancelled")
+            self.logger.info("Audio streaming was cancelled")
             return True
         finally:
             await self.ws_manager.close()
-
-    async def _process_responses(self) -> None:
-        """
-        Monitor the WebSocket connection.
-        Messages are now handled directly in the WebSocketManager's on_message callback.
-        """
-        if not self.ws_manager.is_connected():
-            self.logger.error("No connection available for monitoring")
-            return
-
-        # Messages are handled directly in WebSocketManager.on_message
-        # Just monitor the connection status
-        await self.ws_manager.receive_messages(
-            should_continue=self.ws_manager.is_connected,
-        )
 
     async def _initialize_session(self) -> bool:
         """
@@ -137,7 +119,7 @@ class OpenAIRealtimeAPI(LoggingMixin):
                     await asyncio.sleep(0.01)
                     continue
 
-                success = await self.ws_manager.send_binary(data)
+                success = await self.ws_manager.send_audio_stream(data)
                 if success:
                     audio_chunks_sent += 1
                     if audio_chunks_sent % 100 == 0:

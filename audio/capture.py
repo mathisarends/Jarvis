@@ -40,7 +40,7 @@ class AudioCapture(LoggingMixin):
         self.is_active = False
         self.logger.info("Microphone stream stopped")
 
-    def read_chunk(self):
+    def read_chunk(self) -> bytes | None:
         """Read a chunk of audio data from the microphone"""
         if self.stream and self.is_active:
             data = self.stream.read(self.config.chunk_size, exception_on_overflow=False)
