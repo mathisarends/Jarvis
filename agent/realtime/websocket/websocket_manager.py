@@ -18,6 +18,7 @@ from shared.logging_mixin import LoggingMixin
 
 load_dotenv()
 
+
 class WebSocketManager(LoggingMixin):
     """
     Class for managing WebSocket connections using websocket-client.

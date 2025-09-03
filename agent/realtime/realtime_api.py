@@ -6,7 +6,15 @@ from typing import TYPE_CHECKING, Any
 from agent.realtime.event_types import RealtimeClientEvent
 from agent.realtime.transcription.service import TranscriptionService
 from agent.realtime.websocket.websocket_manager import WebSocketManager
-from agent.realtime.views import SessionUpdateEvent, AudioConfig, AudioOutputConfig, AudioFormatConfig, AudioFormat, SessionConfig, RealtimeModel
+from agent.realtime.views import (
+    SessionUpdateEvent,
+    AudioConfig,
+    AudioOutputConfig,
+    AudioFormatConfig,
+    AudioFormat,
+    SessionConfig,
+    RealtimeModel,
+)
 from audio.capture import AudioCapture
 from shared.logging_mixin import LoggingMixin
 
@@ -21,7 +29,7 @@ class OpenAIRealtimeAPI(LoggingMixin):
         realtime_config: VoiceAssistantConfig,
         ws_manager: WebSocketManager,
         audio_capture: AudioCapture,
-        transcription_service: TranscriptionService
+        transcription_service: TranscriptionService,
     ):
         """
         Initializes the OpenAI Realtime API client.
@@ -81,7 +89,7 @@ class OpenAIRealtimeAPI(LoggingMixin):
         except Exception as e:
             self.logger.error("Error initializing session: %s", e)
             return False
-        
+
     def _build_session_config(self) -> dict[str, Any]:
         """
         Creates the session configuration for the OpenAI API.
@@ -91,7 +99,7 @@ class OpenAIRealtimeAPI(LoggingMixin):
         audio_config = AudioConfig(
             output=AudioOutputConfig(
                 format=AudioFormatConfig(type=AudioFormat.PCM16),
-                voice=self.voice or "marin"
+                voice=self.voice or "marin",
             )
         )
 
@@ -105,12 +113,12 @@ class OpenAIRealtimeAPI(LoggingMixin):
                 audio=audio_config,
                 output_modalities=["audio"],
                 max_output_tokens=1024,
-            )
+            ),
         )
 
         # Return the validated configuration as dict
         return session_config.model_dump(exclude_unset=True)
-        
+
     async def _send_audio_stream(self) -> None:
         """
         Sends audio data from the microphone to the OpenAI API.

@@ -2,7 +2,29 @@ from enum import StrEnum
 
 
 class RealtimeClientEvent(StrEnum):
+    # session
     SESSION_UPDATE = "session.update"
+
+    # input audio buffer
+    INPUT_AUDIO_BUFFER_APPEND = "input_audio_buffer.append"
+    INPUT_AUDIO_BUFFER_COMMIT = "input_audio_buffer.commit"
+    INPUT_AUDIO_BUFFER_CLEAR = "input_audio_buffer.clear"
+
+    # conversation item
+    CONVERSATION_ITEM_CREATE = "conversation.item.create"
+    CONVERSATION_ITEM_RETRIEVE = "conversation.item.retrieve"
+    CONVERSATION_ITEM_TRUNCATE = "conversation.item.truncate"
+    CONVERSATION_ITEM_DELETE = "conversation.item.delete"
+
+    # response
+    RESPONSE_CREATE = "response.create"
+    RESPONSE_CANCEL = "response.cancel"
+
+    # transcription session
+    TRANSCRIPTION_SESSION_UPDATE = "transcription_session.update"
+
+    # output audio buffer
+    OUTPUT_AUDIO_BUFFER_CLEAR = "output_audio_buffer.clear"
 
 
 class RealtimeServerEvent(StrEnum):
@@ -91,4 +113,3 @@ class RealtimeServerEvent(StrEnum):
 
     # Errors
     ERROR = "error"
-    

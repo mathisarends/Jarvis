@@ -30,7 +30,7 @@ class SimpleVoiceAssistant(LoggingMixin):
             realtime_config=self.config,
             ws_manager=WebSocketManager.for_gpt_realtime(),
             audio_capture=self.audio_capture,
-            transcription_service=TranscriptionService()
+            transcription_service=TranscriptionService(),
         )
 
         self._running = False

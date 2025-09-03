@@ -22,46 +22,42 @@ class TranscriptionService(LoggingMixin):
 
     def __init__(self):
         self.event_bus = EventBus()
-        
+
         self._setup_event_subscriptions()
-        
+
     def _setup_event_subscriptions(self) -> None:
         """Subscribe to completed transcript events only"""
         self.event_bus.subscribe(
             VoiceAssistantEvent.USER_TRANSCRIPT_COMPLETED,
-            self._handle_user_transcript_completed
+            self._handle_user_transcript_completed,
         )
         self.event_bus.subscribe(
             VoiceAssistantEvent.ASSISTANT_TRANSCRIPT_COMPLETED,
-            self._handle_assistant_transcript_completed
+            self._handle_assistant_transcript_completed,
         )
-        
+
     def _handle_user_transcript_completed(
-        self, 
-        event: VoiceAssistantEvent, 
-        data: InputAudioTranscriptionCompleted
+        self, event: VoiceAssistantEvent, data: InputAudioTranscriptionCompleted
     ) -> None:
         """Handle completed user transcript"""
         if event == VoiceAssistantEvent.USER_TRANSCRIPT_COMPLETED:
             self.logger.info(
                 "User transcript completed: '%s' (item_id=%s)",
                 data.transcript,
-                data.item_id
+                data.item_id,
             )
-            
+
             # Log usage info if available
             if data.usage:
                 self.logger.debug("Transcription usage: %s", data.usage)
-            
+
     def _handle_assistant_transcript_completed(
-        self, 
-        event: VoiceAssistantEvent, 
-        data: ResponseOutputAudioTranscriptDone
+        self, event: VoiceAssistantEvent, data: ResponseOutputAudioTranscriptDone
     ) -> None:
         """Handle completed assistant transcript"""
         if event == VoiceAssistantEvent.ASSISTANT_TRANSCRIPT_COMPLETED:
             self.logger.info(
                 "Assistant transcript completed: '%s' (response_id=%s)",
                 data.transcript,
-                data.response_id
+                data.response_id,
             )

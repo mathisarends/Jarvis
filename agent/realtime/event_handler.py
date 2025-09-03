@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Any, Callable, Dict
+from typing import Any, Callable
 from pydantic import ValidationError
 
 from agent.realtime.event_types import RealtimeServerEvent
@@ -9,7 +9,7 @@ from agent.realtime.transcription.views import (
     InputAudioTranscriptionCompleted,
     ResponseOutputAudioTranscriptDone,
 )
-from agent.realtime.views import ResponseOutputAudioDelta
+from agent.realtime.views import ResponseOutputAudioDelta, ErrorEvent
 from shared.logging_mixin import LoggingMixin
 from shared.singleton_decorator import singleton
 
@@ -23,9 +23,11 @@ class RealtimeEventHandler(LoggingMixin):
 
     def __init__(self):
         self.event_bus = EventBus()
-        
+
         # Event mapping: OpenAI API event -> handler method
-        self._event_handlers: Dict[RealtimeServerEvent, Callable[[Dict[str, Any]], None]] = {
+        self._event_handlers: dict[
+            RealtimeServerEvent, Callable[[dict[str, Any]], None]
+        ] = {
             RealtimeServerEvent.INPUT_AUDIO_BUFFER_SPEECH_STARTED: self._handle_user_speech_started,
             RealtimeServerEvent.INPUT_AUDIO_BUFFER_SPEECH_STOPPED: self._handle_user_speech_stopped,
             RealtimeServerEvent.RESPONSE_OUTPUT_AUDIO_DELTA: self._handle_audio_chunk,
@@ -41,7 +43,6 @@ class RealtimeEventHandler(LoggingMixin):
             RealtimeServerEvent.SESSION_UPDATED,
             RealtimeServerEvent.TRANSCRIPTION_SESSION_CREATED,
             RealtimeServerEvent.TRANSCRIPTION_SESSION_UPDATED,
-            
             # Conversation events
             RealtimeServerEvent.CONVERSATION_CREATED,
             RealtimeServerEvent.CONVERSATION_DELETED,
@@ -51,43 +52,34 @@ class RealtimeEventHandler(LoggingMixin):
             RealtimeServerEvent.CONVERSATION_ITEM_RETRIEVED,
             RealtimeServerEvent.CONVERSATION_ITEM_TRUNCATED,
             RealtimeServerEvent.CONVERSATION_ITEM_DELETED,
-            
             # Input audio transcription events
             RealtimeServerEvent.CONVERSATION_ITEM_INPUT_AUDIO_TRANSCRIPTION_DELTA,
             RealtimeServerEvent.CONVERSATION_ITEM_INPUT_AUDIO_TRANSCRIPTION_COMPLETED,
             RealtimeServerEvent.CONVERSATION_ITEM_INPUT_AUDIO_TRANSCRIPTION_SEGMENT,
             RealtimeServerEvent.CONVERSATION_ITEM_INPUT_AUDIO_TRANSCRIPTION_FAILED,
-            
             # Input audio buffer events
             RealtimeServerEvent.INPUT_AUDIO_BUFFER_COMMITTED,
             RealtimeServerEvent.INPUT_AUDIO_BUFFER_CLEARED,
             RealtimeServerEvent.INPUT_AUDIO_BUFFER_TIMEOUT_TRIGGERED,
-            
             # Response events
             RealtimeServerEvent.RESPONSE_CREATED,
             RealtimeServerEvent.RESPONSE_DONE,
-            
             # Response output events
             RealtimeServerEvent.RESPONSE_OUTPUT_ITEM_ADDED,
             RealtimeServerEvent.RESPONSE_OUTPUT_ITEM_DONE,
             RealtimeServerEvent.RESPONSE_CONTENT_PART_ADDED,
             RealtimeServerEvent.RESPONSE_CONTENT_PART_DONE,
-            
             # Text output events
             RealtimeServerEvent.RESPONSE_OUTPUT_TEXT_DELTA,
             RealtimeServerEvent.RESPONSE_OUTPUT_TEXT_DONE,
-            
             # Audio transcript events
             RealtimeServerEvent.RESPONSE_OUTPUT_AUDIO_TRANSCRIPT_DELTA,
             RealtimeServerEvent.RESPONSE_OUTPUT_AUDIO_TRANSCRIPT_DONE,
-            
             # Audio output events
             RealtimeServerEvent.RESPONSE_OUTPUT_AUDIO_DONE,
-            
             # Function calling events
             RealtimeServerEvent.RESPONSE_FUNCTION_CALL_ARGUMENTS_DELTA,
             RealtimeServerEvent.RESPONSE_FUNCTION_CALL_ARGUMENTS_DONE,
-            
             # MCP events
             RealtimeServerEvent.MCP_CALL_ARGUMENTS_DELTA,
             RealtimeServerEvent.MCP_CALL_ARGUMENTS_DONE,
@@ -97,10 +89,8 @@ class RealtimeEventHandler(LoggingMixin):
             RealtimeServerEvent.RESPONSE_MCP_CALL_IN_PROGRESS,
             RealtimeServerEvent.RESPONSE_MCP_CALL_COMPLETED,
             RealtimeServerEvent.RESPONSE_MCP_CALL_FAILED,
-            
             # Rate limits
             RealtimeServerEvent.RATE_LIMITS_UPDATED,
-            
             # Error events
             RealtimeServerEvent.ERROR,
         }
@@ -111,13 +101,16 @@ class RealtimeEventHandler(LoggingMixin):
         Routes events to appropriate handlers based on event type.
         """
         event_type_str = data.get("type", "")
-        
+
         # Try to convert to enum, fallback to string if not found
         try:
             event_type = RealtimeServerEvent(event_type_str)
         except ValueError:
             # Handle string-only events or unknown events
-            if event_type_str in self._ignored_events or event_type in self._ignored_events:
+            if (
+                event_type_str in self._ignored_events
+                or event_type in self._ignored_events
+            ):
                 self.logger.debug("Received ignored event: %s", event_type_str)
                 return
             elif event_type_str == "error":
@@ -131,7 +124,7 @@ class RealtimeEventHandler(LoggingMixin):
         if event_type in self._ignored_events:
             self.logger.debug("Received ignored event: %s", event_type)
             return
-            
+
         handler = self._event_handlers.get(event_type)
         if handler:
             try:
@@ -141,17 +134,17 @@ class RealtimeEventHandler(LoggingMixin):
         else:
             self.logger.debug("No handler registered for event: %s", event_type)
 
-    def _handle_user_speech_started(self, data: Dict[str, Any]) -> None:
+    def _handle_user_speech_started(self, data: dict[str, Any]) -> None:
         """User started speaking -> USER_STARTED_SPEAKING"""
         self.logger.debug("User started speaking")
         self.event_bus.publish_sync(VoiceAssistantEvent.USER_STARTED_SPEAKING)
 
-    def _handle_user_speech_stopped(self, data: Dict[str, Any]) -> None:
+    def _handle_user_speech_stopped(self, data: dict[str, Any]) -> None:
         """User stopped speaking -> USER_SPEECH_ENDED"""
         self.logger.debug("User speech ended")
         self.event_bus.publish_sync(VoiceAssistantEvent.USER_SPEECH_ENDED)
 
-    def _handle_audio_chunk(self, data: Dict[str, Any]) -> None:
+    def _handle_audio_chunk(self, data: dict[str, Any]) -> None:
         """Audio chunk received -> AUDIO_CHUNK_RECEIVED"""
         try:
             audio_data = ResponseOutputAudioDelta.model_validate(data)
@@ -160,44 +153,49 @@ class RealtimeEventHandler(LoggingMixin):
                 return
 
             self.event_bus.publish_sync(
-                VoiceAssistantEvent.AUDIO_CHUNK_RECEIVED, 
-                audio_data.delta
+                VoiceAssistantEvent.AUDIO_CHUNK_RECEIVED, audio_data.delta
             )
         except ValidationError as e:
             self.logger.warning("Invalid audio delta payload: %s", e)
 
-    def _handle_response_completed(self, data: Dict[str, Any]) -> None:
+    def _handle_response_completed(self, data: dict[str, Any]) -> None:
         """Response completed -> ASSISTANT_RESPONSE_COMPLETED"""
         self.logger.debug("Assistant response completed")
         self.event_bus.publish_sync(VoiceAssistantEvent.ASSISTANT_RESPONSE_COMPLETED)
 
-    def _handle_user_transcript_completed(self, data: Dict[str, Any]) -> None:
+    def _handle_user_transcript_completed(self, data: dict[str, Any]) -> None:
         """User transcript completed -> USER_TRANSCRIPT_COMPLETED"""
         try:
             payload = InputAudioTranscriptionCompleted.model_validate(data)
             self.event_bus.publish_sync(
-                VoiceAssistantEvent.USER_TRANSCRIPT_COMPLETED, 
-                payload
+                VoiceAssistantEvent.USER_TRANSCRIPT_COMPLETED, payload
             )
         except ValidationError as e:
             self.logger.warning("Invalid user transcript payload: %s", e)
 
-    def _handle_assistant_transcript_completed(self, data: Dict[str, Any]) -> None:
+    def _handle_assistant_transcript_completed(self, data: dict[str, Any]) -> None:
         """Assistant transcript completed -> ASSISTANT_TRANSCRIPT_COMPLETED"""
         try:
             payload = ResponseOutputAudioTranscriptDone.model_validate(data)
             self.event_bus.publish_sync(
-                VoiceAssistantEvent.ASSISTANT_TRANSCRIPT_COMPLETED, 
-                payload
+                VoiceAssistantEvent.ASSISTANT_TRANSCRIPT_COMPLETED, payload
             )
         except ValidationError as e:
             self.logger.warning("Invalid assistant transcript payload: %s", e)
 
-    def _handle_api_error(self, data: Dict[str, Any]) -> None:
+    def _handle_api_error(self, data: dict[str, Any]) -> None:
         """API error -> ERROR_OCCURRED"""
-        error_data = data.get("error", {})
-        self.logger.error("OpenAI API error: %s", error_data)
-        self.event_bus.publish_sync(
-            VoiceAssistantEvent.ERROR_OCCURRED, 
-            {"openai_error": error_data}
-        )
+        try:
+            error_event = ErrorEvent.model_validate(data)
+            self.logger.error(
+                "OpenAI API error: %s (type: %s, code: %s)",
+                error_event.error.message,
+                error_event.error.type,
+                error_event.error.code,
+            )
+            self.event_bus.publish_sync(VoiceAssistantEvent.ERROR_OCCURRED, error_event)
+        except ValidationError as e:
+            self.logger.error("Failed to validate error event: %s", e)
+            error_data = data.get("error", {})
+            self.logger.error("OpenAI API error (raw): %s", error_data)
+            self.event_bus.publish_sync(VoiceAssistantEvent.ERROR_OCCURRED, error_data)

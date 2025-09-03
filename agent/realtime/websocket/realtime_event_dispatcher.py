@@ -24,7 +24,7 @@ class RealtimeEventDispatcher(LoggingMixin):
 
     def __init__(self):
         self.event_bus = EventBus()
-        
+
         # Event mapping: OpenAI API event type -> handler method
         self.event_handlers: dict[str, Callable[[dict[str, Any]], None]] = {
             RealtimeServerEvent.INPUT_AUDIO_BUFFER_SPEECH_STARTED: self.handle_user_speech_started,
@@ -39,7 +39,7 @@ class RealtimeEventDispatcher(LoggingMixin):
         # Events die wir loggen aber nicht weiter verarbeiten
         self.ignored_events = {
             "session.created",
-            "session.updated", 
+            "session.updated",
             "conversation.created",
             "conversation.item.created",
             "input_audio_buffer.committed",
@@ -64,7 +64,7 @@ class RealtimeEventDispatcher(LoggingMixin):
         Routet Events basierend auf dem event type zu den entsprechenden Handlern.
         """
         event_type = data.get("type", "")
-        
+
         if not event_type:
             self.logger.warning("Received event without type field: %s", data)
             return
@@ -76,10 +76,10 @@ class RealtimeEventDispatcher(LoggingMixin):
                 handler(data)
             except Exception as e:
                 self.logger.error("Error handling event %s: %s", event_type, e)
-                
+
         elif event_type in self.ignored_events:
             self.logger.debug("Received ignored event: %s", event_type)
-            
+
         else:
             self.logger.warning("Unknown OpenAI event type: %s", event_type)
 
@@ -104,8 +104,7 @@ class RealtimeEventDispatcher(LoggingMixin):
                 return
 
             self.event_bus.publish_sync(
-                VoiceAssistantEvent.AUDIO_CHUNK_RECEIVED, 
-                audio_data.delta
+                VoiceAssistantEvent.AUDIO_CHUNK_RECEIVED, audio_data.delta
             )
         except ValidationError as e:
             self.logger.warning("Invalid audio delta payload: %s", e)
@@ -120,8 +119,7 @@ class RealtimeEventDispatcher(LoggingMixin):
         try:
             payload = InputAudioTranscriptionCompleted.model_validate(data)
             self.event_bus.publish_sync(
-                VoiceAssistantEvent.USER_TRANSCRIPT_COMPLETED, 
-                payload
+                VoiceAssistantEvent.USER_TRANSCRIPT_COMPLETED, payload
             )
         except ValidationError as e:
             self.logger.warning("Invalid user transcript payload: %s", e)
@@ -131,8 +129,7 @@ class RealtimeEventDispatcher(LoggingMixin):
         try:
             payload = ResponseOutputAudioTranscriptDone.model_validate(data)
             self.event_bus.publish_sync(
-                VoiceAssistantEvent.ASSISTANT_TRANSCRIPT_COMPLETED, 
-                payload
+                VoiceAssistantEvent.ASSISTANT_TRANSCRIPT_COMPLETED, payload
             )
         except ValidationError as e:
             self.logger.warning("Invalid assistant transcript payload: %s", e)
@@ -145,20 +142,16 @@ class RealtimeEventDispatcher(LoggingMixin):
                 "OpenAI API error [%s]: %s (event_id: %s)",
                 error_event.error.type,
                 error_event.error.message,
-                error_event.event_id
+                error_event.event_id,
             )
-            
+
             # Publish structured error data
-            self.event_bus.publish_sync(
-                VoiceAssistantEvent.ERROR_OCCURRED, 
-                ErrorEvent
-            )
+            self.event_bus.publish_sync(VoiceAssistantEvent.ERROR_OCCURRED, ErrorEvent)
         except ValidationError as e:
             self.logger.warning("Invalid error event payload: %s", e)
             # Fallback to raw error handling
             error_data = data.get("error", {})
             self.logger.error("OpenAI API error (raw): %s", error_data)
             self.event_bus.publish_sync(
-                VoiceAssistantEvent.ERROR_OCCURRED, 
-                {"openai_error": error_data}
+                VoiceAssistantEvent.ERROR_OCCURRED, {"openai_error": error_data}
             )
