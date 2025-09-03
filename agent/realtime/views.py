@@ -14,6 +14,30 @@ class RealtimeModel(StrEnum):
 
 
 class AssistantVoice(StrEnum):
+    """
+    Available assistant voices for the OpenAI Realtime API.
+
+    Each voice has distinct characteristics suited for different use-cases
+    such as narration, conversational dialogue, or expressive responses.
+
+    - alloy: Neutral and balanced, clean output suitable for general use.
+    - ash: Clear and precise; described as a male baritone with a slightly
+      scratchy yet upbeat quality. May have limited performance with accents.
+    - ballad: Melodic and gentle; community notes suggest a male-sounding voice.
+    - coral: Warm and friendly, good for approachable or empathetic tones.
+    - echo: Resonant and deep, strong presence in delivery.
+    - fable: Not officially documented; often perceived as narrative-like
+      and expressive, fitting for storytelling contexts.
+    - onyx: Not officially documented; often perceived as darker, strong,
+      and confident in tone.
+    - nova: Not officially documented; frequently described as bright,
+      youthful, or energetic.
+    - sage: Calm and thoughtful, measured pacing and a reflective quality.
+    - shimmer: Bright and energetic, dynamic expression with high clarity.
+    - verse: Versatile and expressive, adapts well across different contexts.
+    - cedar: (Realtime-only) – no official description available yet.
+    - marin: (Realtime-only) – no official description available yet.
+    """
     ALLOY = "alloy"
     ASH = "ash"
     BALLAD = "ballad"

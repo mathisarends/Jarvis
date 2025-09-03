@@ -79,10 +79,9 @@ class SoundPlayer(LoggingMixin):
         self.event_bus.subscribe(
             VoiceAssistantEvent.ERROR_OCCURRED, self._handle_error_event
         )
-
-    # ====================
-    # PUBLIC METHODS
-    # ====================
+        self.event_bus.subscribe(
+            VoiceAssistantEvent.USER_STARTED_SPEAKING, self._handle_user_started_speaking
+        )
 
     def start_chunk_player(self) -> None:
         """Start the audio chunk player thread"""
@@ -232,10 +231,6 @@ class SoundPlayer(LoggingMixin):
     def play_startup_sound(self) -> bool:
         """Play the startup sound"""
         return self._play_sound_file(SoundFile.STARTUP)
-
-    # ====================
-    # PRIVATE METHODS
-    # ====================
 
     def _add_audio_chunk(self, base64_audio: str):
         """Add a base64 encoded audio chunk to the playback queue"""
@@ -451,3 +446,9 @@ class SoundPlayer(LoggingMixin):
         if event == VoiceAssistantEvent.ERROR_OCCURRED:
             self.logger.debug("Playing error sound via EventBus")
             self._play_error_sound()
+
+    def _handle_user_started_speaking(self, event: VoiceAssistantEvent) -> None:
+        """Handle USER_STARTED_SPEAKING events by clearing the audio queue"""
+        if event == VoiceAssistantEvent.USER_STARTED_SPEAKING:
+            self.logger.debug("User started speaking, clearing audio queue")
+            self.clear_queue_and_stop_chunks()

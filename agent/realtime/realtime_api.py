@@ -4,6 +4,8 @@ import asyncio
 from typing import TYPE_CHECKING, Any
 
 from agent.realtime.event_types import RealtimeClientEvent
+from agent.realtime.tools.registry import ToolRegistry
+from agent.realtime.tools.tools import get_current_time
 from agent.realtime.transcription.service import TranscriptionService
 from agent.realtime.websocket.websocket_manager import WebSocketManager
 from agent.realtime.views import (
@@ -43,6 +45,9 @@ class OpenAIRealtimeAPI(LoggingMixin):
         self.system_message = realtime_config.system_message
         self.voice = realtime_config.voice
         self.temperature = realtime_config.temperature
+        
+        self.tool_registry = ToolRegistry()
+        self._register_tools()
 
     async def setup_and_run(self) -> bool:
         """
@@ -113,6 +118,7 @@ class OpenAIRealtimeAPI(LoggingMixin):
                 audio=audio_config,
                 output_modalities=["audio"],
                 max_output_tokens=1024,
+                tools=self.tool_registry.get_openai_schema(),
             ),
         )
 
@@ -151,3 +157,8 @@ class OpenAIRealtimeAPI(LoggingMixin):
             self.logger.error("Timeout while sending audio: %s", e)
         except Exception as e:
             self.logger.error("Error while sending audio: %s", e)
+
+
+    def _register_tools(self) -> None:
+        """Register available tools with the tool registry"""
+        self.tool_registry.register_tool(get_current_time)

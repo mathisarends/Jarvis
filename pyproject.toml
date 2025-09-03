@@ -6,12 +6,14 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "numpy>=2.3.2",
+    "openai-agents>=0.2.10",
     "openai[realtime]>=1.102.0",
     "pvporcupine>=3.0.5",
     "pyaudio>=0.2.14",
     "pydantic>=2.11.7",
     "pygame>=2.6.1",
     "python-dotenv>=1.1.1",
+    "tavily-python>=0.7.11",
     "websocket-client>=1.8.0",
     "websockets>=15.0.1",
 ]

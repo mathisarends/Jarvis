@@ -75,7 +75,7 @@ class WebSocketManager(LoggingMixin):
                 try:
                     data = json.loads(message)
                     message_type = data.get("type", "")
-                    self.logger.info("Received message: %s", message_type)
+                    self.logger.debug("Received message: %s", message_type)
 
                     # Delegate event processing to RealtimeEventDispatcher
                     self.event_dispatcher.dispatch_event(data)
