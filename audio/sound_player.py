@@ -61,8 +61,10 @@ class SoundPlayer(LoggingMixin):
             "Initializing SoundPlayer with sounds directory: %s", self.sounds_dir
         )
         self._init_mixer()
+        self.start_chunk_player()
+        self.logger.info("Chunk player auto-started during initialization")
 
-    def start_chunk_player(self):
+    def start_chunk_player(self) -> None:
         """Start the audio chunk player thread"""
         self.is_playing = True
         with self.stream_lock:

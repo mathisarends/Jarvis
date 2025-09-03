@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING, Any
 
+from agent.realtime.event_bus import EventBus
 from agent.realtime.websocket_manager import WebSocketManager
 from audio.capture import AudioCapture
 from audio.sound_player import SoundPlayer
@@ -18,7 +19,6 @@ class OpenAIRealtimeAPI(LoggingMixin):
         self,
         realtime_config: VoiceAssistantConfig,
         ws_manager: WebSocketManager,
-        sound_player: SoundPlayer,
         audio_capture: AudioCapture,
     ):
         """
@@ -26,13 +26,14 @@ class OpenAIRealtimeAPI(LoggingMixin):
         All configuration is loaded from configuration files.
         """
         self.ws_manager = ws_manager
-        self.sound_player = sound_player
         self.audio_capture = audio_capture
 
         # Session configuration from realtime_config
         self.system_message = realtime_config.system_message
         self.voice = realtime_config.voice
         self.temperature = realtime_config.temperature
+        
+        self.event_bus = EventBus()
 
     async def setup_and_run(self) -> bool:
         """
@@ -98,17 +99,23 @@ class OpenAIRealtimeAPI(LoggingMixin):
             self.logger.error("Error initializing session: %s", e)
             return False
 
-    # TODO: This does work find out why and add correct structure
     def _build_session_config(self) -> dict[str, Any]:
         """
         Creates the session configuration for the OpenAI API.
-        ABSOLUTE MINIMUM - nur die beiden erforderlichen Parameter.
+        Adds audio config (pcm16) and max output tokens.
         """
         return {
             "type": "session.update",
             "session": {
                 "type": "realtime",
-                "instructions": self.system_message
+                "model": "gpt-realtime",
+                "instructions": self.system_message,
+                "audio": {
+                    "input_audio_format": {"type": "pcm16"},
+                    "output_audio_format": {"type": "pcm16"}
+                },
+                "output_modalities": ["audio"],
+                "max_output_tokens": 1024,
             }
         }
 
@@ -144,48 +151,3 @@ class OpenAIRealtimeAPI(LoggingMixin):
             self.logger.error("Timeout while sending audio: %s", e)
         except Exception as e:
             self.logger.error("Error while sending audio: %s", e)
-
-    def enqueue_audio_chunk(self, response: dict[str, Any]) -> None:
-        """
-        Processes audio responses from the OpenAI API.
-        """
-        base64_audio = response.get("delta", "")
-        if not base64_audio or not isinstance(base64_audio, str):
-            return
-
-        self.sound_player.add_audio_chunk(base64_audio)
-
-    def stop_playback(self) -> None:
-        """
-        Stops audio playback.
-        """
-        self.sound_player.clear_queue_and_stop_chunks()
-
-    async def _handle_realtime_message(self, response: dict[str, Any]) -> None:
-        """
-        Handle incoming realtime messages directly.
-        """
-        try:
-            response_type = response.get("type", "")
-            self.logger.debug("Received realtime message: %s", response_type)
-
-            if response_type == "response.audio.delta":
-                # Handle audio response chunks
-                self.enqueue_audio_chunk(response)
-            elif response_type == "response.audio_transcript.delta":
-                # Handle transcript deltas if needed
-                transcript = response.get("delta", "")
-                if transcript:
-                    self.logger.debug("Transcript: %s", transcript)
-            elif response_type == "response.done":
-                # Response completed
-                self.logger.info("Response completed")
-            elif response_type == "error":
-                # Handle errors
-                error = response.get("error", {})
-                self.logger.error("Realtime API error: %s", error)
-            else:
-                self.logger.debug("Unhandled message type: %s", response_type)
-
-        except Exception as e:
-            self.logger.error("Error handling realtime message: %s", e)

@@ -11,6 +11,9 @@ import websocket
 from dotenv import load_dotenv
 
 from agent.realtime.views import RealtimeModel
+from agent.realtime.event_bus import EventBus
+from agent.state.base import VoiceAssistantEvent
+from audio.sound_player import SoundPlayer
 from shared.logging_mixin import LoggingMixin
 
 load_dotenv()
@@ -20,7 +23,7 @@ class WebSocketManager(LoggingMixin):
     """
     Class for managing WebSocket connections using websocket-client.
     Handles the creation, management, and closing of WebSocket connections
-    as well as sending and receiving messages.
+    as well as sending and receiving messages with event bus integration.
     """
 
     DEFAULT_BASE_URL = "wss://api.openai.com/v1/realtime"
@@ -28,20 +31,24 @@ class WebSocketManager(LoggingMixin):
 
     def __init__(
         self,
+        sound_player: SoundPlayer, # der hat hier nichts verloren
         websocket_url: str,
         headers: Dict[str, str],
     ):
         """
         Initialize the WebSocket Manager.
         """
+        self.sound_player = sound_player
         self.websocket_url = websocket_url
         self.headers = [f"{k}: {v}" for k, v in headers.items()] if headers else []
         self.ws: Optional[websocket.WebSocketApp] = None
         self._connected = False
         self._connection_event = threading.Event()
         self._running = False
+        self.event_bus = EventBus()
+        
+        self.event_bus.attach_loop(asyncio.get_running_loop())
         self.logger.info("WebSocketManager initialized")
-
 
     @classmethod
     def for_gpt_realtime(
@@ -52,6 +59,7 @@ class WebSocketManager(LoggingMixin):
         """
         return cls._from_model(
             api_key=api_key,
+            sound_player = SoundPlayer(),
             model=RealtimeModel.GPT_REALTIME,
         )
 
@@ -67,12 +75,14 @@ class WebSocketManager(LoggingMixin):
                 self._connected = True
                 self._connection_event.set()
 
-            def on_message(ws, message):
+            def on_message(ws, message: dict[str, Any]) -> None:
                 try:
                     data = json.loads(message)
-                    self.logger.debug("Received message: %s", data.get("type"))
-                    # Handle message directly here - user can implement custom logic
-                    # For now, just log the message type
+                    message_type = data.get("type", "")
+                    self.logger.info("Received message: %s", message_type)
+                    
+                    # Process OpenAI Realtime API events and map to voice assistant events
+                    self._handle_openai_event(data)
                     
                 except json.JSONDecodeError as e:
                     self.logger.warning("Received malformed JSON message: %s", e)
@@ -82,6 +92,8 @@ class WebSocketManager(LoggingMixin):
             def on_error(ws, error):
                 self.logger.error("WebSocket error: %s", error)
                 self._connected = False
+                # Publish error event
+                self.event_bus.publish_sync(VoiceAssistantEvent.ERROR_OCCURRED, {"error": str(error)})
 
             def on_close(ws, close_status_code, close_msg):
                 self.logger.info("Connection closed: %s %s", close_status_code, close_msg)
@@ -116,6 +128,65 @@ class WebSocketManager(LoggingMixin):
         except Exception as e:
             self.logger.error("Error creating connection: %s", e)
             return False
+
+    def _handle_openai_event(self, data: dict[str, Any]) -> None:
+        """
+        Handle OpenAI Realtime API events and map them to voice assistant events.
+        """
+        event_type = data.get("type", "")
+        
+        if event_type == "input_audio_buffer.speech_started":
+            # User started speaking
+            self.logger.debug("User started speaking")
+            self.event_bus.publish_sync(VoiceAssistantEvent.USER_STARTED_SPEAKING)
+            
+        elif event_type == "input_audio_buffer.speech_stopped":
+            # User stopped speaking
+            self.logger.debug("User speech ended")
+            self.event_bus.publish_sync(VoiceAssistantEvent.USER_SPEECH_ENDED)
+            
+        elif event_type == "response.output_audio.delta":
+            # Assistant started responding (already handled, but keeping for completeness)
+            self.logger.debug("Assistant started responding")
+            self.sound_player.add_audio_chunk(data.get("delta", ""))
+            
+        elif event_type == "response.done":
+            # Assistant response completed (already handled, but keeping for completeness)
+            self.logger.debug("Assistant response completed")
+            self.event_bus.publish_sync(VoiceAssistantEvent.ASSISTANT_RESPONSE_COMPLETED)
+            
+        elif event_type == "error":
+            # Error occurred
+            error_data = data.get("error", {})
+            self.logger.error("OpenAI API error: %s", error_data)
+            self.event_bus.publish_sync(VoiceAssistantEvent.ERROR_OCCURRED, {"openai_error": error_data})
+            
+        elif event_type in [
+            "session.created", 
+            "session.updated", 
+            "conversation.created",
+            "conversation.item.created",
+            "input_audio_buffer.committed",
+            "input_audio_buffer.cleared",
+            "conversation.item.input_audio_transcription.completed",
+            "conversation.item.input_audio_transcription.failed",
+            "response.output_item.added",
+            "response.output_item.done",
+            "response.content_part.added",
+            "response.content_part.done",
+            "response.text.delta",
+            "response.text.done",
+            "response.audio.delta",
+            "response.audio.done",
+            "response.audio_transcript.delta",
+            "response.audio_transcript.done"
+        ]:
+            # These events are handled elsewhere or don't need state transitions
+            self.logger.debug("Received event (no state transition): %s", event_type)
+            
+        else:
+            # Unknown event type
+            self.logger.warning("Unknown OpenAI event type: %s", event_type)
 
     async def send_message(self, message: Dict[str, Any]) -> bool:
         """
@@ -225,6 +296,7 @@ class WebSocketManager(LoggingMixin):
     def _from_model(
         cls,
         *,
+        sound_player: SoundPlayer,
         api_key: str | None = None,
         model: RealtimeModel = RealtimeModel.GPT_REALTIME,
     ) -> WebSocketManager:
@@ -234,7 +306,7 @@ class WebSocketManager(LoggingMixin):
         actual_api_key = api_key or cls._get_api_key_from_env()
         ws_url = cls._get_websocket_url(model.value)
         headers = cls._get_auth_header(actual_api_key)
-        return cls(ws_url, headers)
+        return cls(sound_player, ws_url, headers)
 
     @classmethod
     def _get_websocket_url(cls, model: str) -> str:

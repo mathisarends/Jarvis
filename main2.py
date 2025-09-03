@@ -28,7 +28,6 @@ class SimpleVoiceAssistant(LoggingMixin):
         self.realtime_api = OpenAIRealtimeAPI(
             realtime_config=self.config,
             ws_manager=WebSocketManager.for_gpt_realtime(),
-            sound_player=self.sound_player,
             audio_capture=self.audio_capture,
         )
 
