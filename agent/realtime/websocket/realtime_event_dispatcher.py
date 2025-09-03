@@ -1,4 +1,5 @@
 from __future__ import annotations
+from re import I
 from typing import Any, Callable
 from pydantic import ValidationError
 
@@ -10,7 +11,7 @@ from agent.realtime.transcription.views import (
     InputAudioTranscriptionCompleted,
     ResponseOutputAudioTranscriptDone,
 )
-from agent.realtime.views import ResponseOutputAudioDelta, ErrorEvent
+from agent.realtime.views import ResponseOutputAudioDelta, ErrorEvent, SessionCreatedEvent, SessionUpdateEvent
 from shared.logging_mixin import LoggingMixin
 from shared.singleton_decorator import singleton
 
@@ -45,7 +46,6 @@ class RealtimeEventDispatcher(LoggingMixin):
         # Events die wir loggen aber nicht weiter verarbeiten
         self.ignored_events = {
             # Session events
-            RealtimeServerEvent.TRANSCRIPTION_SESSION_CREATED,
             RealtimeServerEvent.TRANSCRIPTION_SESSION_UPDATED,
             # Conversation events
             RealtimeServerEvent.CONVERSATION_CREATED,
@@ -130,8 +130,6 @@ class RealtimeEventDispatcher(LoggingMixin):
         else:
             self.logger.debug("No handler registered for event: %s", event_type_str)
 
-    # Event Handler Methods - Mapping von OpenAI Events zu VoiceAssistantEvents
-
     def _handle_user_speech_started(self, data: dict[str, Any]) -> None:
         """User started speaking -> USER_STARTED_SPEAKING"""
         self.logger.debug("User started speaking")
@@ -185,19 +183,13 @@ class RealtimeEventDispatcher(LoggingMixin):
         """Response function call completed -> ASSISTANT_STARTED_TOOL_CALL"""
         self.logger.debug("Response function call completed")
         function_call_item = FunctionCallItem.model_validate(data)
-        print("function_call_item", function_call_item.name)
-        self.event_bus.publish_sync(VoiceAssistantEvent.ASSISTANT_STARTED_TOOL_CALL)
-        
-    def _handle_session_created(self, data: dict[str, Any]) -> None:
-        """Session created - log event"""
-        self.logger.debug("OpenAI Realtime session created")
-        
+        # TODO: hier logs für welches tool mit welchen args ausgeführt wird
+        self.event_bus.publish_sync(VoiceAssistantEvent.ASSISTANT_STARTED_TOOL_CALL, function_call_item)
+            
     def _handle_session_updated(self, data: dict[str, Any]) -> None:
         """Session updated - debug output"""
-        print("tools", data.get("tools"))
-        print("===")
-        
-        
+        # Handle tool updates here
+        pass
 
     def _handle_api_error(self, data: dict[str, Any]) -> None:
         """API error -> ERROR_OCCURRED"""
@@ -215,3 +207,23 @@ class RealtimeEventDispatcher(LoggingMixin):
             error_data = data.get("error", {})
             self.logger.error("OpenAI API error (raw): %s", error_data)
             self.event_bus.publish_sync(VoiceAssistantEvent.ERROR_OCCURRED, error_data)
+            
+    
+    def _handle_session_created(self, data: dict[str, Any]) -> None:
+        """Session created - log event details"""
+        session_event = SessionCreatedEvent.model_validate(data)
+        session_config = session_event.session
+            
+        self.logger.info("OpenAI Realtime session created successfully")
+        self.logger.info("Model: %s", session_config.model)
+        self.logger.info("Voice: %s", session_config.audio.output.voice)
+        self.logger.info("Tools: %d", len(session_config.tools) if session_config.tools else 0)
+        self.logger.info("Instructions: %s", 
+                            session_config.instructions[:50] + "..." 
+                            if session_config.instructions and len(session_config.instructions) > 50 
+                            else session_config.instructions or "None")
+        self.logger.info("Audio Input: %s", session_config.audio.input.format.type)
+        self.logger.info("Audio Output: %s", session_config.audio.output.voice)
+        self.logger.info("Max Tokens: %s", session_config.max_output_tokens)
+            
+        self.logger.debug("Full session config: %s", session_config.model_dump())

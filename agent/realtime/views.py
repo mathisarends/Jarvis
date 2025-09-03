@@ -275,3 +275,9 @@ class SessionUpdateEvent(BaseModel):
     type: Literal[RealtimeClientEvent.SESSION_UPDATE]
     event_id: str | None = None
     session: SessionConfig
+
+
+class SessionCreatedEvent(BaseModel):
+    type: Literal[RealtimeServerEvent.SESSION_CREATED]
+    event_id: str | None = None
+    session: SessionConfig

@@ -121,6 +121,10 @@ class OpenAIRealtimeAPI(LoggingMixin):
                 tools=self.tool_registry.get_openai_schema(),
             ),
         )
+        
+        initial_config = session_config.model_dump(exclude_unset=True)
+        import json
+        print("Initial session config: %s", json.dumps(initial_config, indent=2))
 
         # Return the validated configuration as dict
         return session_config.model_dump(exclude_unset=True)
