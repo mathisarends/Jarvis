@@ -4,10 +4,14 @@ import asyncio
 from typing import TYPE_CHECKING, Any
 
 from agent.realtime.event_types import RealtimeClientEvent
+from agent.realtime.event_bus import EventBus
 from agent.realtime.tools.registry import ToolRegistry
+from agent.realtime.tools.tool_executor import ToolExecutor
 from agent.realtime.tools.tools import get_current_time
+from agent.realtime.tools.views import FunctionCallResult
 from agent.realtime.transcription.service import TranscriptionService
 from agent.realtime.websocket.websocket_manager import WebSocketManager
+from agent.state.base import VoiceAssistantEvent
 from agent.realtime.views import (
     SessionUpdateEvent,
     AudioConfig,
@@ -47,6 +51,15 @@ class OpenAIRealtimeAPI(LoggingMixin):
         self.temperature = realtime_config.temperature
 
         self.tool_registry = ToolRegistry()
+        self.tool_executor = ToolExecutor(self.tool_registry)
+        self.event_bus = EventBus()
+
+        # Subscribe to tool result events
+        self.event_bus.subscribe(
+            VoiceAssistantEvent.ASSISTANT_RECEIVED_TOOL_CALL_RESULT,
+            self._handle_tool_result,
+        )
+
         self._register_tools()
 
     async def setup_and_run(self) -> bool:
@@ -121,12 +134,7 @@ class OpenAIRealtimeAPI(LoggingMixin):
                 tools=self.tool_registry.get_openai_schema(),
             ),
         )
-        
-        initial_config = session_config.model_dump(exclude_unset=True)
-        import json
-        print("Initial session config: %s", json.dumps(initial_config, indent=2))
 
-        # Return the validated configuration as dict
         return session_config.model_dump(exclude_unset=True)
 
     async def _send_audio_stream(self) -> None:
@@ -164,4 +172,48 @@ class OpenAIRealtimeAPI(LoggingMixin):
 
     def _register_tools(self) -> None:
         """Register available tools with the tool registry"""
-        self.tool_registry.register_tool(get_current_time)
+        self.tool_registry.register(get_current_time)
+
+    async def _handle_tool_result(
+        self, event: VoiceAssistantEvent, data: FunctionCallResult
+    ) -> None:
+        """Handle tool execution results and send them back to OpenAI Realtime API"""
+        try:
+            self.logger.info(
+                "Received tool result for '%s', sending to Realtime API", data.tool_name
+            )
+
+            # 1) Tool-Output als conversation item posten
+            conversation_item = data.to_conversation_item()
+            ok_item = await self.ws_manager.send_message(conversation_item)
+            if not ok_item:
+                self.logger.error(
+                    "Failed to send function_call_output for '%s'", data.tool_name
+                )
+                return
+
+            self.logger.info(
+                "function_call_output for '%s' sent. Triggering response.create...",
+                data.tool_name,
+            )
+
+            # 2) Modell anstoßen, das Ergebnis zu verwenden
+            #    (Du kannst instructions optional leer lassen oder kurz kontextualisieren)
+            response_create = {
+                "type": "response.create",
+            }
+
+            ok_resp = await self.ws_manager.send_message(response_create)
+            if not ok_resp:
+                self.logger.error("Failed to send response.create")
+                return
+
+            self.logger.info("response.create sent successfully")
+
+        except Exception as e:
+            self.logger.error(
+                "Error handling tool result for '%s': %s",
+                data.tool_name,
+                e,
+                exc_info=True,
+            )

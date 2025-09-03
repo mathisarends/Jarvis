@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import Any, Optional, Literal
+from unittest import result
 from pydantic import BaseModel, field_validator
 import json
 
@@ -38,3 +39,19 @@ class FunctionCallItem(BaseModel):
                 # damit nichts verloren geht
                 return {"__raw__": v}
         raise TypeError("arguments must be a dict or a JSON string")
+
+
+class FunctionCallResult(BaseModel):
+    tool_name: str
+    call_id: str
+    output: Any
+
+    def to_conversation_item(self) -> dict:
+        return {
+            "type": "conversation.item.create",
+            "item": {
+                "type": "function_call_output",
+                "call_id": self.call_id,
+                "output": self.output,
+            },
+        }

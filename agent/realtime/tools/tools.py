@@ -1,13 +1,8 @@
-from __future__ import annotations
-
 from datetime import datetime
-from agents import function_tool
+from agent.realtime.tools.simple_tool import tool
 
 
-@function_tool
+@tool()
 def get_current_time() -> str:
-    """
-    Get the current local time.
-    """
-    now = datetime.now()
-    return now.strftime("%H:%M:%S")
+    """Get the current local time."""
+    return datetime.now().strftime("%H:%M:%S")
