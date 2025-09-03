@@ -3,10 +3,8 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING, Any
 
-from agent.realtime.event_bus import EventBus
 from agent.realtime.websocket_manager import WebSocketManager
 from audio.capture import AudioCapture
-from audio.sound_player import SoundPlayer
 from shared.logging_mixin import LoggingMixin
 
 if TYPE_CHECKING:
@@ -32,8 +30,6 @@ class OpenAIRealtimeAPI(LoggingMixin):
         self.system_message = realtime_config.system_message
         self.voice = realtime_config.voice
         self.temperature = realtime_config.temperature
-        
-        self.event_bus = EventBus()
 
     async def setup_and_run(self) -> bool:
         """
@@ -112,11 +108,11 @@ class OpenAIRealtimeAPI(LoggingMixin):
                 "instructions": self.system_message,
                 "audio": {
                     "input_audio_format": {"type": "pcm16"},
-                    "output_audio_format": {"type": "pcm16"}
+                    "output_audio_format": {"type": "pcm16"},
                 },
                 "output_modalities": ["audio"],
                 "max_output_tokens": 1024,
-            }
+            },
         }
 
     async def _send_audio_stream(self) -> None:

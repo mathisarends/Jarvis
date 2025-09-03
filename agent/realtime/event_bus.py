@@ -13,11 +13,14 @@ class EventBus:
     """
     Hybrid EventBus – always dispatches to the main loop.
     """
+
     def __init__(self):
         self._subscribers: dict[VoiceAssistantEvent, list[Callable]] = {
             event_type: [] for event_type in VoiceAssistantEvent
         }
-        self._executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="EventBus")
+        self._executor = ThreadPoolExecutor(
+            max_workers=2, thread_name_prefix="EventBus"
+        )
         self._loop: Optional[asyncio.AbstractEventLoop] = None  # set later!
 
     def attach_loop(self, loop: asyncio.AbstractEventLoop) -> None:
@@ -48,12 +51,18 @@ class EventBus:
                     fut.add_done_callback(self._callback_completed)
                 else:
                     loop.run_in_executor(
-                        self._executor, self._safe_invoke_sync_callback, callback, event_type, data
+                        self._executor,
+                        self._safe_invoke_sync_callback,
+                        callback,
+                        event_type,
+                        data,
                     )
             except Exception as e:
                 print(f"Error invoking callback for event {event_type}: {e}")
 
-    async def publish_async(self, event_type: VoiceAssistantEvent, data: Any = None) -> None:
+    async def publish_async(
+        self, event_type: VoiceAssistantEvent, data: Any = None
+    ) -> None:
         """
         From the main loop/async context. Async callbacks: await.
         Sync callbacks: execute in executor.
@@ -65,11 +74,15 @@ class EventBus:
                     await self._safe_invoke_async_callback(callback, event_type, data)
                 else:
                     await loop.run_in_executor(
-                        self._executor, self._safe_invoke_sync_callback, callback, event_type, data
+                        self._executor,
+                        self._safe_invoke_sync_callback,
+                        callback,
+                        event_type,
+                        data,
                     )
             except Exception as e:
                 print(f"Error invoking async callback for event {event_type}: {e}")
-                
+
     def shutdown(self) -> None:
         self._executor.shutdown(wait=True)
 
@@ -79,7 +92,9 @@ class EventBus:
         except Exception as e:
             print(f"Async callback failed: {e}")
 
-    def _safe_invoke_sync_callback(self, callback: Callable, event: VoiceAssistantEvent, data: Any = None) -> None:
+    def _safe_invoke_sync_callback(
+        self, callback: Callable, event: VoiceAssistantEvent, data: Any = None
+    ) -> None:
         sig = inspect.signature(callback)
         n = len(sig.parameters)
         if n == 0:
@@ -89,7 +104,9 @@ class EventBus:
         else:
             callback(event, data)
 
-    async def _safe_invoke_async_callback(self, callback: Callable, event: VoiceAssistantEvent, data: Any = None) -> None:
+    async def _safe_invoke_async_callback(
+        self, callback: Callable, event: VoiceAssistantEvent, data: Any = None
+    ) -> None:
         sig = inspect.signature(callback)
         n = len(sig.parameters)
         if n == 0:
@@ -101,5 +118,7 @@ class EventBus:
 
     def _require_loop(self) -> asyncio.AbstractEventLoop:
         if self._loop is None:
-            raise RuntimeError("EventBus loop not attached. Call event_bus.attach_loop(asyncio.get_running_loop()) during startup.")
+            raise RuntimeError(
+                "EventBus loop not attached. Call event_bus.attach_loop(asyncio.get_running_loop()) during startup."
+            )
         return self._loop

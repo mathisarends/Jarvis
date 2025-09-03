@@ -14,6 +14,7 @@ from agent.realtime.event_bus import EventBus
 from agent.state.base import VoiceAssistantEvent
 from audio.config import AudioConfig
 from shared.logging_mixin import LoggingMixin
+from shared.singleton_decorator import singleton
 
 
 class SoundFile(Enum):
@@ -24,7 +25,7 @@ class SoundFile(Enum):
     STARTUP = "startup"
     WAKE_WORD = "wake_word"
 
-
+@singleton
 class SoundPlayer(LoggingMixin):
     """
     Unified audio player that handles both streaming audio chunks and sound file playback.
@@ -63,6 +64,12 @@ class SoundPlayer(LoggingMixin):
         self._init_mixer()
         self.start_chunk_player()
         self.logger.info("Chunk player auto-started during initialization")
+        
+        # Subscribe to events
+        self.event_bus.subscribe(VoiceAssistantEvent.AUDIO_CHUNK_RECEIVED, self._handle_audio_chunk_event)
+        self.event_bus.subscribe(VoiceAssistantEvent.WAKE_WORD_DETECTED, self._handle_wake_word_event)
+        self.event_bus.subscribe(VoiceAssistantEvent.IDLE_TRANSITION, self._handle_idle_transition_event)
+        self.event_bus.subscribe(VoiceAssistantEvent.ERROR_OCCURRED, self._handle_error_event)
 
     def start_chunk_player(self) -> None:
         """Start the audio chunk player thread"""
@@ -420,3 +427,27 @@ class SoundPlayer(LoggingMixin):
         """Get the full path to a sound file"""
         filename = sound_name if sound_name.endswith(".mp3") else f"{sound_name}.mp3"
         return os.path.join(self.sounds_dir, filename)
+
+    def _handle_audio_chunk_event(self, event: VoiceAssistantEvent, audio_data: str) -> None:
+        """Handle AUDIO_CHUNK_RECEIVED events by adding the audio to the playback queue"""
+        if event == VoiceAssistantEvent.AUDIO_CHUNK_RECEIVED:
+            self.logger.debug("Received audio chunk via EventBus")
+            self.add_audio_chunk(audio_data)
+
+    def _handle_wake_word_event(self, event: VoiceAssistantEvent) -> None:
+        """Handle WAKE_WORD_DETECTED events by playing the wake word sound"""
+        if event == VoiceAssistantEvent.WAKE_WORD_DETECTED:
+            self.logger.debug("Playing wake word sound via EventBus")
+            self.play_wake_word_sound()
+
+    def _handle_idle_transition_event(self, event: VoiceAssistantEvent) -> None:
+        """Handle IDLE_TRANSITION events by playing the return to idle sound"""
+        if event == VoiceAssistantEvent.IDLE_TRANSITION:
+            self.logger.debug("Playing return to idle sound via EventBus")
+            self.play_return_to_idle_sound()
+
+    def _handle_error_event(self, event: VoiceAssistantEvent) -> None:
+        """Handle ERROR_OCCURRED events by playing the error sound"""
+        if event == VoiceAssistantEvent.ERROR_OCCURRED:
+            self.logger.debug("Playing error sound via EventBus")
+            self.play_error_sound()

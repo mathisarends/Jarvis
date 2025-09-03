@@ -92,9 +92,7 @@ class RespondingState(AssistantState):
             finally:
                 self._wake_word_task = None
 
-    async def _wake_word_detection_loop(
-        self, context: VoiceAssistantContext
-    ) -> None:
+    async def _wake_word_detection_loop(self, context: VoiceAssistantContext) -> None:
         """Background loop for wake word detection"""
         try:
             wake_word_detected = await context.wake_word_listener.listen_for_wakeword()

@@ -42,13 +42,11 @@ class VoiceAssistantController(LoggingMixin):
         self.realtime_api = OpenAIRealtimeAPI(
             realtime_config=VoiceAssistantConfig(),
             ws_manager=WebSocketManager.for_gpt_realtime(),
-            sound_player=self.sound_player,
             audio_capture=self.audio_capture,
         )
 
         # Context with dependencies
         self.context = VoiceAssistantContext(
-            sound_player=self.sound_player,
             wake_word_listener=self.wake_word_listener,
             audio_capture=self.audio_capture,
             audio_detection_service=self.audio_detection_service,

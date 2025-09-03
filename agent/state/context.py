@@ -28,7 +28,6 @@ class VoiceAssistantContext(LoggingMixin):
 
     def __init__(
         self,
-        sound_player: SoundPlayer,
         wake_word_listener: WakeWordListener,
         audio_capture: AudioCapture,
         audio_detection_service: AudioDetectionService,
@@ -41,16 +40,15 @@ class VoiceAssistantContext(LoggingMixin):
 
         self.state: AssistantState = IdleState()
         self.session_active = False
-        self.sound_player = sound_player
         self.wake_word_listener = wake_word_listener
         self.audio_capture = audio_capture
         self.audio_detection_service = audio_detection_service
         self.timeout_service = timeout_service
         self.event_bus = event_bus
         self.realtime_api = realtime_api
-        
+
         loop = asyncio.get_running_loop()
-        event_bus.attach_loop(loop)   
+        event_bus.attach_loop(loop)
 
         # Subscribe to all events and route them to handle_event
         self._setup_event_subscriptions()
@@ -71,9 +69,3 @@ class VoiceAssistantContext(LoggingMixin):
     def end_session(self) -> None:
         """End the current session"""
         self.session_active = False
-
-    def is_idle(self) -> bool:
-        """Check if the current state is idle"""
-        from agent.state.base import StateType
-
-        return self.state.state_type == StateType.IDLE

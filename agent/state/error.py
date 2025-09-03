@@ -1,6 +1,5 @@
 from agent.state.base import AssistantState, StateType, VoiceAssistantEvent
 from agent.state.context import VoiceAssistantContext
-from audio.sound_player import SoundFile
 
 
 class ErrorState(AssistantState):
@@ -11,7 +10,7 @@ class ErrorState(AssistantState):
 
     async def on_enter(self, context: VoiceAssistantContext) -> None:
         self.logger.error("Entering Error state - handling error condition")
-        context.sound_player.play_sound_file(SoundFile.ERROR)
+        # Error sound is now played automatically via ERROR_OCCURRED event
 
     async def on_exit(self, context: VoiceAssistantContext) -> None:
         # No cleanup needed when exiting error state

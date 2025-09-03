@@ -39,26 +39,32 @@ class VoiceAssistantConfig:
 
 class FunctionParameters(BaseModel):
     """JSON Schema for function parameters in a tool."""
+
     type: str = Field(..., description="Always 'object' for function parameters")
     strict: Optional[bool] = None
     properties: dict[str, Any] = Field(default_factory=dict)
     required: Optional[list[str]] = None
 
+
 class Tool(BaseModel):
     """A tool available to the model (e.g., function)."""
+
     type: Literal["function"]
     name: str
     description: Optional[str] = None
     parameters: FunctionParameters
-    
+
+
 class AudioConfig(BaseModel):
     """Optional audio input/output configuration."""
+
     input_audio_format: Optional[dict[str, Any]] = None
     output_audio_format: Optional[dict[str, Any]] = None
-    
-    
+
+
 class SessionConfig(BaseModel):
     """Realtime session configuration for session.update."""
+
     type: Literal["realtime"]
     model: Optional[str] = None
     audio: Optional[AudioConfig] = None
