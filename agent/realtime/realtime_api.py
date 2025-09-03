@@ -3,8 +3,10 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING, Any
 
+from agent.realtime.event_types import RealtimeClientEvent
 from agent.realtime.transcription.service import TranscriptionService
 from agent.realtime.websocket.websocket_manager import WebSocketManager
+from agent.realtime.views import SessionUpdateEvent, AudioConfig, AudioOutputConfig, AudioFormatConfig, AudioFormat, SessionConfig, RealtimeModel
 from audio.capture import AudioCapture
 from shared.logging_mixin import LoggingMixin
 
@@ -83,23 +85,31 @@ class OpenAIRealtimeAPI(LoggingMixin):
     def _build_session_config(self) -> dict[str, Any]:
         """
         Creates the session configuration for the OpenAI API.
-        Adds audio config (pcm16) and max output tokens.
+        Uses fully typed Pydantic models based on the official API documentation.
         """
-        return {
-            "type": "session.update",
-            "session": {
-                "type": "realtime",
-                "model": "gpt-realtime",
-                "instructions": self.system_message,
-                "audio": {
-                    "output": {
-                        "voice": "marin"
-                    }
-                },
-                "output_modalities": ["audio"],
-                "max_output_tokens": 1024,
-            },
-        }
+        # Create audio configuration with nested format objects
+        audio_config = AudioConfig(
+            output=AudioOutputConfig(
+                format=AudioFormatConfig(type=AudioFormat.PCM16),
+                voice=self.voice or "marin"
+            )
+        )
+
+        # Create session configuration using typed models
+        session_config = SessionUpdateEvent(
+            type=RealtimeClientEvent.SESSION_UPDATE,
+            session=SessionConfig(
+                type="realtime",
+                model=RealtimeModel.GPT_REALTIME,
+                instructions=self.system_message,
+                audio=audio_config,
+                output_modalities=["audio"],
+                max_output_tokens=1024,
+            )
+        )
+
+        # Return the validated configuration as dict
+        return session_config.model_dump(exclude_unset=True)
         
     async def _send_audio_stream(self) -> None:
         """

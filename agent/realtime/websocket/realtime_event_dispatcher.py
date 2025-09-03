@@ -9,7 +9,7 @@ from agent.realtime.transcription.views import (
     InputAudioTranscriptionCompleted,
     ResponseOutputAudioTranscriptDone,
 )
-from agent.realtime.views import ResponseOutputAudioDelta
+from agent.realtime.views import ResponseOutputAudioDelta, ErrorEvent
 from shared.logging_mixin import LoggingMixin
 from shared.singleton_decorator import singleton
 
@@ -33,7 +33,7 @@ class RealtimeEventDispatcher(LoggingMixin):
             RealtimeServerEvent.RESPONSE_DONE: self.handle_response_completed,
             RealtimeServerEvent.CONVERSATION_ITEM_INPUT_AUDIO_TRANSCRIPTION_COMPLETED: self.handle_user_transcript_completed,
             RealtimeServerEvent.RESPONSE_OUTPUT_AUDIO_TRANSCRIPT_DONE: self.handle_assistant_transcript_completed,
-            "error": self.handle_api_error,
+            RealtimeServerEvent.ERROR: self.handle_api_error,
         }
 
         # Events die wir loggen aber nicht weiter verarbeiten
@@ -139,20 +139,26 @@ class RealtimeEventDispatcher(LoggingMixin):
 
     def handle_api_error(self, data: dict[str, Any]) -> None:
         """API error -> ERROR_OCCURRED"""
-        error_data = data.get("error", {})
-        self.logger.error("OpenAI API error: %s", error_data)
-        self.event_bus.publish_sync(
-            VoiceAssistantEvent.ERROR_OCCURRED, 
-            {"openai_error": error_data}
-        )
-
-    def register_custom_handler(self, event_type: str, handler: Callable[[dict[str, Any]], None]) -> None:
-        """Registriere einen custom Handler für einen specific Event Type"""
-        self.event_handlers[event_type] = handler
-        self.logger.debug("Registered custom handler for %s", event_type)
-
-    def unregister_handler(self, event_type: str) -> None:
-        """Entferne einen Handler für einen specific Event Type"""
-        if event_type in self.event_handlers:
-            del self.event_handlers[event_type]
-            self.logger.debug("Unregistered handler for %s", event_type)
+        try:
+            error_event = ErrorEvent.model_validate(data)
+            self.logger.error(
+                "OpenAI API error [%s]: %s (event_id: %s)",
+                error_event.error.type,
+                error_event.error.message,
+                error_event.event_id
+            )
+            
+            # Publish structured error data
+            self.event_bus.publish_sync(
+                VoiceAssistantEvent.ERROR_OCCURRED, 
+                ErrorEvent
+            )
+        except ValidationError as e:
+            self.logger.warning("Invalid error event payload: %s", e)
+            # Fallback to raw error handling
+            error_data = data.get("error", {})
+            self.logger.error("OpenAI API error (raw): %s", error_data)
+            self.event_bus.publish_sync(
+                VoiceAssistantEvent.ERROR_OCCURRED, 
+                {"openai_error": error_data}
+            )

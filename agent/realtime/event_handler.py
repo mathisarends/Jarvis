@@ -22,7 +22,6 @@ class RealtimeEventHandler(LoggingMixin):
     """
 
     def __init__(self):
-        super().__init__()
         self.event_bus = EventBus()
         
         # Event mapping: OpenAI API event -> handler method
@@ -33,32 +32,80 @@ class RealtimeEventHandler(LoggingMixin):
             RealtimeServerEvent.RESPONSE_DONE: self._handle_response_completed,
             RealtimeServerEvent.CONVERSATION_ITEM_INPUT_AUDIO_TRANSCRIPTION_COMPLETED: self._handle_user_transcript_completed,
             RealtimeServerEvent.RESPONSE_OUTPUT_AUDIO_TRANSCRIPT_DONE: self._handle_assistant_transcript_completed,
-            # Add more mappings as needed
         }
 
         # Events we want to log but not handle (for debugging)
         self._ignored_events = {
-            "session.created",
-            "session.updated", 
-            "conversation.created",
-            "conversation.item.created",
-            "input_audio_buffer.committed",
-            "input_audio_buffer.cleared",
-            "conversation.item.input_audio_transcription.completed",
-            "conversation.item.input_audio_transcription.failed",
-            "response.output_item.added",
-            "response.output_item.done",
-            "response.content_part.added",
-            "response.content_part.done",
-            "response.text.delta",
-            "response.text.done",
-            "response.audio.delta",
-            "response.audio.done",
-            "response.audio_transcript.delta",
-            "response.audio_transcript.done",
+            # Session events
+            RealtimeServerEvent.SESSION_CREATED,
+            RealtimeServerEvent.SESSION_UPDATED,
+            RealtimeServerEvent.TRANSCRIPTION_SESSION_CREATED,
+            RealtimeServerEvent.TRANSCRIPTION_SESSION_UPDATED,
+            
+            # Conversation events
+            RealtimeServerEvent.CONVERSATION_CREATED,
+            RealtimeServerEvent.CONVERSATION_DELETED,
+            RealtimeServerEvent.CONVERSATION_ITEM_CREATED,
+            RealtimeServerEvent.CONVERSATION_ITEM_ADDED,
+            RealtimeServerEvent.CONVERSATION_ITEM_DONE,
+            RealtimeServerEvent.CONVERSATION_ITEM_RETRIEVED,
+            RealtimeServerEvent.CONVERSATION_ITEM_TRUNCATED,
+            RealtimeServerEvent.CONVERSATION_ITEM_DELETED,
+            
+            # Input audio transcription events
+            RealtimeServerEvent.CONVERSATION_ITEM_INPUT_AUDIO_TRANSCRIPTION_DELTA,
+            RealtimeServerEvent.CONVERSATION_ITEM_INPUT_AUDIO_TRANSCRIPTION_COMPLETED,
+            RealtimeServerEvent.CONVERSATION_ITEM_INPUT_AUDIO_TRANSCRIPTION_SEGMENT,
+            RealtimeServerEvent.CONVERSATION_ITEM_INPUT_AUDIO_TRANSCRIPTION_FAILED,
+            
+            # Input audio buffer events
+            RealtimeServerEvent.INPUT_AUDIO_BUFFER_COMMITTED,
+            RealtimeServerEvent.INPUT_AUDIO_BUFFER_CLEARED,
+            RealtimeServerEvent.INPUT_AUDIO_BUFFER_TIMEOUT_TRIGGERED,
+            
+            # Response events
+            RealtimeServerEvent.RESPONSE_CREATED,
+            RealtimeServerEvent.RESPONSE_DONE,
+            
+            # Response output events
+            RealtimeServerEvent.RESPONSE_OUTPUT_ITEM_ADDED,
+            RealtimeServerEvent.RESPONSE_OUTPUT_ITEM_DONE,
+            RealtimeServerEvent.RESPONSE_CONTENT_PART_ADDED,
+            RealtimeServerEvent.RESPONSE_CONTENT_PART_DONE,
+            
+            # Text output events
+            RealtimeServerEvent.RESPONSE_OUTPUT_TEXT_DELTA,
+            RealtimeServerEvent.RESPONSE_OUTPUT_TEXT_DONE,
+            
+            # Audio transcript events
+            RealtimeServerEvent.RESPONSE_OUTPUT_AUDIO_TRANSCRIPT_DELTA,
+            RealtimeServerEvent.RESPONSE_OUTPUT_AUDIO_TRANSCRIPT_DONE,
+            
+            # Audio output events
+            RealtimeServerEvent.RESPONSE_OUTPUT_AUDIO_DONE,
+            
+            # Function calling events
+            RealtimeServerEvent.RESPONSE_FUNCTION_CALL_ARGUMENTS_DELTA,
+            RealtimeServerEvent.RESPONSE_FUNCTION_CALL_ARGUMENTS_DONE,
+            
+            # MCP events
+            RealtimeServerEvent.MCP_CALL_ARGUMENTS_DELTA,
+            RealtimeServerEvent.MCP_CALL_ARGUMENTS_DONE,
+            RealtimeServerEvent.MCP_LIST_TOOLS_IN_PROGRESS,
+            RealtimeServerEvent.MCP_LIST_TOOLS_COMPLETED,
+            RealtimeServerEvent.MCP_LIST_TOOLS_FAILED,
+            RealtimeServerEvent.RESPONSE_MCP_CALL_IN_PROGRESS,
+            RealtimeServerEvent.RESPONSE_MCP_CALL_COMPLETED,
+            RealtimeServerEvent.RESPONSE_MCP_CALL_FAILED,
+            
+            # Rate limits
+            RealtimeServerEvent.RATE_LIMITS_UPDATED,
+            
+            # Error events
+            RealtimeServerEvent.ERROR,
         }
 
-    def handle_openai_event(self, data: Dict[str, Any]) -> None:
+    def handle_openai_event(self, data: dict[str, Any]) -> None:
         """
         Main entry point for handling OpenAI Realtime API events.
         Routes events to appropriate handlers based on event type.
@@ -70,7 +117,7 @@ class RealtimeEventHandler(LoggingMixin):
             event_type = RealtimeServerEvent(event_type_str)
         except ValueError:
             # Handle string-only events or unknown events
-            if event_type_str in self._ignored_events:
+            if event_type_str in self._ignored_events or event_type in self._ignored_events:
                 self.logger.debug("Received ignored event: %s", event_type_str)
                 return
             elif event_type_str == "error":
@@ -81,6 +128,10 @@ class RealtimeEventHandler(LoggingMixin):
                 return
 
         # Route to appropriate handler
+        if event_type in self._ignored_events:
+            self.logger.debug("Received ignored event: %s", event_type)
+            return
+            
         handler = self._event_handlers.get(event_type)
         if handler:
             try:
@@ -89,8 +140,6 @@ class RealtimeEventHandler(LoggingMixin):
                 self.logger.error("Error handling event %s: %s", event_type, e)
         else:
             self.logger.debug("No handler registered for event: %s", event_type)
-
-    # Event Handlers - Clean mapping from OpenAI events to VoiceAssistantEvents
 
     def _handle_user_speech_started(self, data: Dict[str, Any]) -> None:
         """User started speaking -> USER_STARTED_SPEAKING"""
@@ -152,14 +201,3 @@ class RealtimeEventHandler(LoggingMixin):
             VoiceAssistantEvent.ERROR_OCCURRED, 
             {"openai_error": error_data}
         )
-
-    def register_handler(self, event_type: RealtimeServerEvent, handler: Callable[[Dict[str, Any]], None]) -> None:
-        """Register a custom handler for a specific event type"""
-        self._event_handlers[event_type] = handler
-        self.logger.debug("Registered custom handler for %s", event_type)
-
-    def unregister_handler(self, event_type: RealtimeServerEvent) -> None:
-        """Unregister a handler for a specific event type"""
-        if event_type in self._event_handlers:
-            del self._event_handlers[event_type]
-            self.logger.debug("Unregistered handler for %s", event_type)
