@@ -154,7 +154,7 @@ class RealtimeEventDispatcher(LoggingMixin):
                 return
 
             self.event_bus.publish_sync(
-                VoiceAssistantEvent.AUDIO_CHUNK_RECEIVED, audio_data.delta
+                VoiceAssistantEvent.AUDIO_CHUNK_RECEIVED, audio_data
             )
         except ValidationError as e:
             self.logger.warning("Invalid audio delta payload: %s", e)

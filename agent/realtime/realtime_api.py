@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING, Any
 
+from agent.realtime.barge_in.current_message_context import CurrentMessageContext
 from agent.realtime.event_types import RealtimeClientEvent
 from agent.realtime.event_bus import EventBus
 from agent.realtime.tools.registry import ToolRegistry
@@ -50,9 +51,17 @@ class OpenAIRealtimeAPI(LoggingMixin):
         self.voice = realtime_config.voice
         self.temperature = realtime_config.temperature
 
+        # instantiate event based services
+        self.current_message_timer = CurrentMessageContext()
+
         self.tool_registry = ToolRegistry()
         self.tool_executor = ToolExecutor(self.tool_registry)
         self.event_bus = EventBus()
+
+        # Audio streaming control
+        self._audio_streaming_paused = False
+        self._audio_streaming_event = asyncio.Event()
+        self._audio_streaming_event.set()  # Initially not paused
 
         # Subscribe to tool result events
         self.event_bus.subscribe(
@@ -61,6 +70,28 @@ class OpenAIRealtimeAPI(LoggingMixin):
         )
 
         self._register_tools()
+
+    def pause_audio_streaming(self) -> None:
+        """
+        Pausiert das Audio-Streaming. Die WebSocket-Verbindung bleibt bestehen.
+        """
+        self.logger.info("Pausing audio streaming...")
+        self._audio_streaming_paused = True
+        self._audio_streaming_event.clear()
+
+    def resume_audio_streaming(self) -> None:
+        """
+        Setzt das Audio-Streaming fort.
+        """
+        self.logger.info("Resuming audio streaming...")
+        self._audio_streaming_paused = False
+        self._audio_streaming_event.set()
+
+    def is_audio_streaming_paused(self) -> bool:
+        """
+        Gibt zurück, ob das Audio-Streaming aktuell pausiert ist.
+        """
+        return self._audio_streaming_paused
 
     async def setup_and_run(self) -> bool:
         """
@@ -140,6 +171,7 @@ class OpenAIRealtimeAPI(LoggingMixin):
     async def _send_audio_stream(self) -> None:
         """
         Sends audio data from the microphone to the OpenAI API.
+        Respektiert das Pause/Resume-System.
         """
         if not self.ws_manager.is_connected():
             self.logger.error("No connection available for audio transmission")
@@ -150,6 +182,21 @@ class OpenAIRealtimeAPI(LoggingMixin):
             audio_chunks_sent = 0
 
             while self.audio_capture.is_active and self.ws_manager.is_connected():
+                # Warten bis Audio-Streaming nicht mehr pausiert ist
+                await self._audio_streaming_event.wait()
+
+                # Nochmals prüfen, da sich der Zustand während des Wartens geändert haben könnte
+                if (
+                    not self.audio_capture.is_active
+                    or not self.ws_manager.is_connected()
+                ):
+                    break
+
+                # Wenn pausiert, kurz warten und nochmals prüfen
+                if self._audio_streaming_paused:
+                    await asyncio.sleep(0.01)
+                    continue
+
                 data = self.audio_capture.read_chunk()
                 if not data:
                     await asyncio.sleep(0.01)
@@ -164,6 +211,10 @@ class OpenAIRealtimeAPI(LoggingMixin):
                     self.logger.warning("Failed to send audio chunk")
 
                 await asyncio.sleep(0.01)
+
+            self.logger.info(
+                "Audio transmission ended. Chunks sent: %d", audio_chunks_sent
+            )
 
         except asyncio.TimeoutError as e:
             self.logger.error("Timeout while sending audio: %s", e)

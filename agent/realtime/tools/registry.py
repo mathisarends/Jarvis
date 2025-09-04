@@ -40,10 +40,3 @@ class ToolRegistry(LoggingMixin):
     def get_openai_schema(self) -> list[FunctionTool]:
         """Convert all tools to Pydantic FunctionTool format."""
         return [tool.to_pydantic() for tool in self._tools.values()]
-
-    async def execute_tool(self, name: str, arguments: dict[str, Any]) -> Any:
-        """Execute a tool by name."""
-        tool = self.get(name)
-        if not tool:
-            raise ValueError(f"Tool '{name}' not found")
-        return await tool.execute(arguments)

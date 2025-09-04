@@ -69,7 +69,7 @@ def tool(name: Optional[str] = None):
     return decorator
 
 
-def _generate_schema_from_function(func: Callable) -> Dict[str, Any]:
+def _generate_schema_from_function(func: Callable) -> dict[str, Any]:
     """Generate JSON schema from function signature."""
     signature = inspect.signature(func)
     type_hints = get_type_hints(func)

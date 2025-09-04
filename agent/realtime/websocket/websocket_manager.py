@@ -10,6 +10,7 @@ from typing import Any, Optional
 import websocket
 from dotenv import load_dotenv
 
+from agent.realtime.event_types import RealtimeClientEvent
 from agent.realtime.websocket.realtime_event_dispatcher import RealtimeEventDispatcher
 from agent.realtime.views import RealtimeModel
 from agent.realtime.event_bus import EventBus
@@ -161,7 +162,7 @@ class WebSocketManager(LoggingMixin):
         try:
             base64_data = base64.b64encode(data).decode("utf-8")
             message = {
-                "type": "input_audio_buffer.append",
+                "type": RealtimeClientEvent.INPUT_AUDIO_BUFFER_APPEND,
                 "audio": base64_data,
             }
             return await self.send_message(message)

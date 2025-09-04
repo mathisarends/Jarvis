@@ -11,7 +11,9 @@ import numpy as np
 import pygame
 import pyaudio
 from agent.realtime.event_bus import EventBus
+from agent.realtime.views import ResponseOutputAudioDelta
 from agent.state.base import VoiceAssistantEvent
+import audio
 from audio.config import AudioConfig
 from shared.logging_mixin import LoggingMixin
 from shared.singleton_decorator import singleton
@@ -423,12 +425,14 @@ class SoundPlayer(LoggingMixin):
         return os.path.join(self.sounds_dir, filename)
 
     def _handle_audio_chunk_event(
-        self, event: VoiceAssistantEvent, audio_data: str
+        self,
+        event: VoiceAssistantEvent,
+        response_output_audio_delta: ResponseOutputAudioDelta,
     ) -> None:
         """Handle AUDIO_CHUNK_RECEIVED events by adding the audio to the playback queue"""
         if event == VoiceAssistantEvent.AUDIO_CHUNK_RECEIVED:
             self.logger.debug("Received audio chunk via EventBus")
-            self._add_audio_chunk(audio_data)
+            self._add_audio_chunk(response_output_audio_delta.delta)
 
     def _handle_wake_word_event(self, event: VoiceAssistantEvent) -> None:
         """Handle WAKE_WORD_DETECTED events by playing the wake word sound"""
