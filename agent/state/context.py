@@ -34,11 +34,9 @@ class VoiceAssistantContext(LoggingMixin):
         event_bus: EventBus,
         realtime_api: OpenAIRealtimeAPI,
     ):
-        # Needed for initialization - prevent circular deps
         from agent.state.idle import IdleState
 
         self.state: AssistantState = IdleState()
-        self.session_active = False
         self.wake_word_listener = wake_word_listener
         self.audio_capture = audio_capture
         self.audio_detection_service = audio_detection_service
@@ -48,12 +46,9 @@ class VoiceAssistantContext(LoggingMixin):
 
         loop = asyncio.get_running_loop()
         event_bus.attach_loop(loop)
-
-        # Subscribe to all events and route them to handle_event
         self._setup_event_subscriptions()
-        
+
         self.realtime_task = None
-        self._realtime_session_active = False
 
     def _setup_event_subscriptions(self) -> None:
         """Subscribe to all VoiceAssistantEvents and route them to handle_event"""
@@ -64,158 +59,72 @@ class VoiceAssistantContext(LoggingMixin):
         """Central event router - delegates events to current state"""
         await self.state.handle(event, self)
 
-    def start_session(self) -> None:
-        """Start a new session"""
-        self.session_active = True
-
-    def end_session(self) -> None:
-        """End the current session"""
-        self.session_active = False
-
-    # Not sure about this here
-    def start_realtime_task(self):
-        if not self.realtime_task or self.realtime_task.done():
-            self.realtime_task = asyncio.create_task(self.realtime_api.setup_and_run())
-
     async def start_realtime_session(self) -> bool:
-        """
-        Start a new realtime session with OpenAI.
-        Returns True if started successfully, False otherwise.
-        """
-        if self.is_realtime_session_active():
+        """Start a new realtime session with OpenAI, returns success status"""
+        if self._is_realtime_session_active():
             self.logger.warning("Realtime session already active, skipping start")
             return True
 
         try:
             self.logger.info("Starting realtime session...")
             self.realtime_task = asyncio.create_task(self.realtime_api.setup_and_run())
-            self._realtime_session_active = True
-            
             self.logger.info("Realtime session started successfully")
             return True
-            
         except Exception as e:
             self.logger.error("Failed to start realtime session: %s", e)
-            self._realtime_session_active = False
             return False
 
-    async def close_realtime_session(self, timeout: float = 3.0) -> bool:
-        """
-        Close the realtime session gracefully with timeout.
-        
-        Args:
-            timeout: Maximum time to wait for graceful shutdown in seconds
-            
-        Returns:
-            True if closed successfully, False if force-cancelled
-        """
-        if not self.is_realtime_session_active():
-            self.logger.debug("Realtime session not active, nothing to close")
+    async def close_realtime_session(self, timeout: float = 1.0) -> bool:
+        """Close realtime session, should complete quickly after WebSocket close"""
+        if not self._is_realtime_session_active():
             return True
 
         try:
-            self.logger.info("Closing realtime session...")
-            
-            # 1. Signal graceful shutdown
             await self.realtime_api.close_connection()
-            
-            # 2. Wait for task to complete naturally with timeout
-            if self.realtime_task and not self.realtime_task.done():
-                try:
-                    await asyncio.wait_for(self.realtime_task, timeout=timeout)
-                    self.logger.info("Realtime session closed gracefully")
-                    result = True
-                    
-                except asyncio.TimeoutError:
-                    self.logger.warning(
-                        "Realtime session didn't close within %ss, forcing cancellation", 
-                        timeout
-                    )
-                    
-                    # 3. Force cancel if timeout
-                    self.realtime_task.cancel()
-                    try:
-                        await self.realtime_task
-                    except asyncio.CancelledError:
-                        self.logger.info("Realtime session force-cancelled")
-                    
-                    result = False
-            else:
-                result = True
 
-            # 4. Reset state
-            self._realtime_session_active = False
+            # Task sollte jetzt schnell beenden
+            if self.realtime_task:
+                await asyncio.wait_for(self.realtime_task, timeout=timeout)
+
             self.realtime_task = None
-            
-            return result
-            
-        except Exception as e:
-            self.logger.error("Error closing realtime session: %s", e)
-            self._realtime_session_active = False
+            return True
+
+        except asyncio.TimeoutError:
+            self.logger.error("Task didn't complete - this should not happen!")
+            self.realtime_task.cancel()
             return False
 
-    def pause_realtime_audio(self) -> bool:
-        """
-        Pause the realtime audio streaming.
-        WebSocket connection remains active.
-        
-        Returns:
-            True if paused successfully, False otherwise
-        """
-        if not self.is_realtime_session_active():
-            self.logger.warning("Cannot pause audio - realtime session not active")
-            return False
+    def ensure_realtime_audio_channel_paused(self) -> None:
+        """Ensures realtime audio channel is paused, throws RuntimeError if session inactive"""
+        if not self._is_realtime_session_active():
+            raise RuntimeError("Cannot pause audio - realtime session not active")
 
-        try:
+        if not self._is_realtime_audio_paused():
             self.realtime_api.pause_audio_streaming()
             self.logger.info("Realtime audio streaming paused")
-            return True
-            
-        except Exception as e:
-            self.logger.error("Failed to pause realtime audio: %s", e)
-            return False
 
-    def resume_realtime_audio(self) -> bool:
-        """
-        Resume the realtime audio streaming.
-        
-        Returns:
-            True if resumed successfully, False otherwise
-        """
-        if not self.is_realtime_session_active():
-            self.logger.warning("Cannot resume audio - realtime session not active")
-            return False
+    async def ensure_realtime_audio_channel_connected(self) -> None:
+        """Ensures realtime audio channel is connected, starts session if not active"""
+        if not self._is_realtime_session_active():
+            self.logger.info("Realtime session not active, starting new session...")
+            success = await self.start_realtime_session()
+            if not success:
+                raise RuntimeError("Failed to start realtime session")
 
-        try:
+        if not self.audio_capture.is_active:
+            self.audio_capture.start_stream()
+            self.logger.info("Microphone stream reactivated")
+
+        if self._is_realtime_audio_paused():
             self.realtime_api.resume_audio_streaming()
             self.logger.info("Realtime audio streaming resumed")
-            return True
-            
-        except Exception as e:
-            self.logger.error("Failed to resume realtime audio: %s", e)
-            return False
 
-    def is_realtime_audio_paused(self) -> bool:
-        """
-        Check if realtime audio streaming is currently paused.
-        
-        Returns:
-            True if paused, False if active or session not running
-        """
-        if not self.is_realtime_session_active():
+    def _is_realtime_audio_paused(self) -> bool:
+        """Check if realtime audio streaming is currently paused"""
+        if not self._is_realtime_session_active():
             return False
-            
         return self.realtime_api.is_audio_streaming_paused()
 
-    def is_realtime_session_active(self) -> bool:
-        """
-        Check if the realtime session is currently active.
-        
-        Returns:
-            True if session is active and task is running
-        """
-        return (
-            self._realtime_session_active 
-            and self.realtime_task is not None 
-            and not self.realtime_task.done()
-        )
+    def _is_realtime_session_active(self) -> bool:
+        """Check if the realtime session is currently active"""
+        return self.realtime_task is not None and not self.realtime_task.done()

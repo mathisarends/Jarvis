@@ -59,7 +59,9 @@ class CurrentMessageContext(LoggingMixin):
         """Handle assistant response completed - reset timer and item_id."""
         self._start_time = None
         self._item_id = None
-        self.logger.debug("Assistant response completed - Resetting CurrentMessageContext")
+        self.logger.debug(
+            "Assistant response completed - Resetting CurrentMessageContext"
+        )
 
     def _handle_audio_chunk_received(
         self,

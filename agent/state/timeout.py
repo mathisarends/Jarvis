@@ -13,8 +13,7 @@ class TimeoutState(AssistantState):
             "Entering TimeoutState - user has %s seconds to start speaking",
             context.timeout_service.timeout_seconds,
         )
-        
-        self._ensure_realtime_audio_channel_connected(context)
+        await context.ensure_realtime_audio_channel_connected()
 
         # Start both timeout service and audio detection
         await self._start_timeout_service(context)
@@ -29,7 +28,7 @@ class TimeoutState(AssistantState):
 
         if context.state.state_type == StateType.IDLE:
             await context.event_bus.publish_sync(VoiceAssistantEvent.IDLE_TRANSITION)
-            
+
             self.logger.info("Closing realtime connection due to timeout")
             await context.realtime_api.close_connection()
             await self._stop_audio_detection(context)
@@ -76,14 +75,3 @@ class TimeoutState(AssistantState):
         """Stop audio detection"""
         self.logger.debug("Stopping audio detection")
         await context.audio_detection_service.stop_monitoring()
-
-
-    def _ensure_realtime_audio_channel_connected(self, context: VoiceAssistantContext) -> None:
-        """Ensure realtime audio channel is connected"""
-        if not context.audio_capture.is_active:
-            context.audio_capture.start_stream()
-            self.logger.info("Microphone stream reactivated")
-        else:
-            self.logger.debug("Microphone stream already active")
-            
-        context.resume_realtime_audio()

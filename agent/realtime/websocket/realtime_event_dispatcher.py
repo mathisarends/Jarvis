@@ -39,7 +39,6 @@ class RealtimeEventDispatcher(LoggingMixin):
             RealtimeServerEvent.INPUT_AUDIO_BUFFER_SPEECH_STARTED: self._handle_user_speech_started,
             RealtimeServerEvent.INPUT_AUDIO_BUFFER_SPEECH_STOPPED: self._handle_user_speech_stopped,
             RealtimeServerEvent.RESPONSE_OUTPUT_AUDIO_DELTA: self._handle_audio_chunk_received,
-            RealtimeServerEvent.RESPONSE_DONE: self._handle_response_completed,
             RealtimeServerEvent.CONVERSATION_ITEM_INPUT_AUDIO_TRANSCRIPTION_COMPLETED: self._handle_user_transcript_completed,
             RealtimeServerEvent.RESPONSE_OUTPUT_AUDIO_TRANSCRIPT_DONE: self._handle_assistant_transcript_completed,
             RealtimeServerEvent.RESPONSE_FUNCTION_CALL_ARGUMENTS_DONE: self._handle_response_function_call_completed,
@@ -71,6 +70,7 @@ class RealtimeEventDispatcher(LoggingMixin):
             RealtimeServerEvent.INPUT_AUDIO_BUFFER_TIMEOUT_TRIGGERED,
             # Response events
             RealtimeServerEvent.RESPONSE_CREATED,
+            RealtimeServerEvent.RESPONSE_DONE,
             # Response output events
             RealtimeServerEvent.RESPONSE_OUTPUT_ITEM_ADDED,
             RealtimeServerEvent.RESPONSE_OUTPUT_ITEM_DONE,
@@ -159,11 +159,6 @@ class RealtimeEventDispatcher(LoggingMixin):
         except ValidationError as e:
             self.logger.warning("Invalid audio delta payload: %s", e)
 
-    def _handle_response_completed(self, data: dict[str, Any]) -> None:
-        """Assistant response completed -> ASSISTANT_RESPONSE_COMPLETED"""
-        self.logger.debug("Assistant response completed")
-        self.event_bus.publish_sync(VoiceAssistantEvent.ASSISTANT_RESPONSE_COMPLETED)
-
     def _handle_user_transcript_completed(self, data: dict[str, Any]) -> None:
         """User transcript completed -> USER_TRANSCRIPT_COMPLETED"""
         try:
@@ -203,7 +198,7 @@ class RealtimeEventDispatcher(LoggingMixin):
         """Session updated - debug output"""
         # Handle tool updates here
         pass
-    
+
     def _handle_speech_interruption(self, data: dict[str, Any]) -> None:
         """Handle speech interruption event -> ASSISTANT_SPEECH_INTERRUPTED"""
         truncate_event = ConversationItemTruncatedEvent.model_validate(data)
@@ -215,7 +210,6 @@ class RealtimeEventDispatcher(LoggingMixin):
         self.event_bus.publish_sync(
             VoiceAssistantEvent.ASSISTANT_SPEECH_INTERRUPTED, truncate_event
         )
-
 
     def _handle_api_error(self, data: dict[str, Any]) -> None:
         """API error -> ERROR_OCCURRED"""

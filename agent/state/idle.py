@@ -18,7 +18,6 @@ class IdleState(AssistantState):
 
     async def on_enter(self, context: VoiceAssistantContext) -> None:
         self.logger.info("Entering Idle state - starting wake word detection")
-        context.end_session()
 
         # Start wake word detection
         await self._start_wake_word_detection(context)
@@ -32,7 +31,6 @@ class IdleState(AssistantState):
     ) -> None:
         match event:
             case VoiceAssistantEvent.WAKE_WORD_DETECTED:
-                context.start_session()
                 await self._transition_to_listening(context)
             case _:
                 self.logger.debug("Ignoring event %s in Idle state", event.value)

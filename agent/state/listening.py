@@ -10,7 +10,8 @@ class ListeningState(AssistantState):
 
     async def on_enter(self, context: VoiceAssistantContext) -> None:
         self.logger.info("Entering Listening state - user is speaking")
-        self._ensure_realtime_audio_channel_connected(context)
+        
+        await context.ensure_realtime_audio_channel_connected()
 
         self.logger.debug("Initiating realtime session for user conversation")
         success = await context.start_realtime_session()
@@ -32,14 +33,3 @@ class ListeningState(AssistantState):
                 await self._transition_to_error(context)
             case _:
                 self.logger.debug("Ignoring event %s in Listening state", event.value)
-
-            
-    def _ensure_realtime_audio_channel_connected(self, context: VoiceAssistantContext) -> None:
-        """Ensure realtime audio channel is connected"""
-        if not context.audio_capture.is_active:
-            context.audio_capture.start_stream()
-            self.logger.info("Microphone stream reactivated")
-        else:
-            self.logger.debug("Microphone stream already active")
-            
-        context.resume_realtime_audio()

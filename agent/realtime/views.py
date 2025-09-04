@@ -294,6 +294,7 @@ class ConversationItemTruncateEvent(BaseModel):
     content_index: int = 0
     audio_end_ms: int
 
+
 # Server-side event for truncated conversation item (for acknowledgment)
 class ConversationItemTruncatedEvent(BaseModel):
     "see https://platform.openai.com/docs/api-reference/realtime_server_events/conversation/item/truncated"

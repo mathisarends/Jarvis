@@ -15,9 +15,9 @@ class RespondingState(AssistantState):
         self.logger.info(
             "Entering Responding state - generating and delivering response"
         )
-        
+
         context.pause_realtime_audio()
-        
+
         # Start wake word detection for interruption capability
         await self._start_wake_word_detection(context)
 

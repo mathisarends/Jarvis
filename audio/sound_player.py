@@ -158,24 +158,24 @@ class SoundPlayer(LoggingMixin):
     def is_currently_playing_chunks(self) -> bool:
         """Simple but robust check for active audio playback"""
         current_time = time.time()
-        
+
         with self.state_lock:
             if self.is_busy:
                 return True
-                
+
             if not self.audio_queue.empty():
                 return True
-                
+
             # Check recent state change (buffer drain time)
             time_since_change = current_time - self.last_state_change
             if time_since_change < 0.3:  # 300ms grace period for buffer drain
                 return True
-                
+
             # Check if stream exists and is active
             with self.stream_lock:
                 if self.stream:
                     return self.stream.is_active()
-                        
+
             return False
 
     def get_queue_size(self) -> int:
@@ -477,6 +477,6 @@ class SoundPlayer(LoggingMixin):
                 self.event_bus.publish_sync(
                     VoiceAssistantEvent.ASSISTANT_SPEECH_INTERRUPTED
                 )
-            
+
             self.logger.debug("User started speaking, clearing audio queue")
             self.clear_queue_and_stop_chunks()
