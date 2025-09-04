@@ -4,6 +4,7 @@ agent:
     Be concise and friendly. Answer in German.
   temperature: 0.8
   speed: 1.0
+  model: gpt-realtime
   turn_detection:
     prefix_padding_ms: 300
     silence_duration_ms: 500

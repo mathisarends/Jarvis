@@ -1,10 +1,8 @@
 from enum import StrEnum
-from dataclasses import dataclass
 from typing import Literal, Any, Optional
 from pydantic import BaseModel, Field
 
 from agent.realtime.event_types import RealtimeClientEvent, RealtimeServerEvent
-from audio.wake_word_listener import PorcupineBuiltinKeyword
 
 
 class RealtimeModel(StrEnum):
@@ -52,16 +50,6 @@ class AssistantVoice(StrEnum):
     VERSE = "verse"
     CEDAR = "cedar"  # only available in gpt-realtime
     MARIN = "marin"  # only available in gpt-realtime
-
-
-@dataclass(frozen=True)
-class VoiceAssistantConfig:
-    voice: AssistantVoice = AssistantVoice.ALLOY
-    system_message: str = "You are a friendly assistant."
-    temperature: float = 0.8
-
-    wake_word: PorcupineBuiltinKeyword = PorcupineBuiltinKeyword.PICOVOICE
-    wakeword_sensitivity: float = 0.7
 
 
 class ResponseOutputAudioDelta(BaseModel):

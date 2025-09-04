@@ -1,17 +1,38 @@
+from agent.config.views import VoiceAssistantConfig
 from agent.realtime.current_message_context import CurrentMessageContext
 from agent.realtime.event_bus import EventBus
 from agent.realtime.event_types import RealtimeClientEvent
 from agent.realtime.tools.views import FunctionCallResult
-from agent.realtime.views import ConversationItemTruncateEvent
+from agent.realtime.tools.registry import ToolRegistry
+from agent.realtime.views import (
+    ConversationItemTruncateEvent,
+    SessionUpdateEvent,
+    AudioConfig,
+    AudioOutputConfig,
+    AudioFormatConfig,
+    AudioFormat,
+    SessionConfig,
+    RealtimeModel,
+)
 from agent.realtime.websocket.websocket_manager import WebSocketManager
 from agent.state.base import VoiceAssistantEvent
 from shared.logging_mixin import LoggingMixin
+from typing import Any
 
 
 class RealtimeMessageManager(LoggingMixin):
 
-    def __init__(self, ws_manager: WebSocketManager):
+    def __init__(
+        self,
+        ws_manager: WebSocketManager,
+        tool_registry: ToolRegistry,
+        voice_assistant_config: VoiceAssistantConfig,
+    ):
         self.ws_manager = ws_manager
+        self.tool_registry = tool_registry
+        self.system_message = voice_assistant_config.agent.instructions
+        self.voice = voice_assistant_config.agent.voice
+        self.temperature = voice_assistant_config.agent.temperature
 
         self.event_bus = EventBus()
         self.current_message_timer = CurrentMessageContext()
@@ -119,3 +140,57 @@ class RealtimeMessageManager(LoggingMixin):
             self.logger.error(
                 "Error handling speech interruption: %s", e, exc_info=True
             )
+
+    async def initialize_session(self) -> bool:
+        """
+        Initializes a session with the OpenAI API.
+        """
+        if not self.ws_manager.is_connected():
+            self.logger.error("No connection available for session initialization")
+            return False
+
+        session_update = self._build_session_config()
+
+        try:
+            self.logger.info("Sending session update...")
+            success = await self.ws_manager.send_message(session_update)
+
+            if success:
+                self.logger.info("Session update sent successfully")
+                return True
+
+            self.logger.error("Failed to send session update")
+            return False
+
+        except Exception as e:
+            self.logger.error("Error initializing session: %s", e)
+            return False
+
+    def _build_session_config(self) -> dict[str, Any]:
+        """
+        Creates the session configuration for the OpenAI API.
+        Uses fully typed Pydantic models based on the official API documentation.
+        """
+        # Create audio configuration with nested format objects
+        audio_config = AudioConfig(
+            output=AudioOutputConfig(
+                format=AudioFormatConfig(type=AudioFormat.PCM16),
+                voice=self.voice,
+            )
+        )
+
+        # Create session configuration using typed models
+        session_config = SessionUpdateEvent(
+            type="session.update",  # RealtimeClientEvent.SESSION_UPDATE
+            session=SessionConfig(
+                type="realtime",
+                model=RealtimeModel.GPT_REALTIME,
+                instructions=self.system_message,
+                audio=audio_config,
+                output_modalities=["audio"],
+                max_output_tokens=1024,
+                tools=self.tool_registry.get_openai_schema(),
+            ),
+        )
+
+        return session_config.model_dump(exclude_unset=True)

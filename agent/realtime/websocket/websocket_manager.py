@@ -51,14 +51,18 @@ class WebSocketManager(LoggingMixin):
         self.logger.info("WebSocketManager initialized")
 
     @classmethod
-    def for_gpt_realtime(cls, *, api_key: str | None = None) -> WebSocketManager:
+    def from_model(
+        cls,
+        *,
+        model: RealtimeModel = RealtimeModel.GPT_REALTIME,
+    ) -> WebSocketManager:
         """
-        Convenience factory for 'gpt-realtime'.
+        Create a manager for a given model (enum or raw string).
         """
-        return cls._from_model(
-            api_key=api_key,
-            model=RealtimeModel.GPT_REALTIME,
-        )
+        api_key = cls._get_api_key_from_env()
+        ws_url = cls._get_websocket_url(model.value)
+        headers = cls._get_auth_header(api_key)
+        return cls(ws_url, headers)
 
     async def create_connection(self) -> bool:
         """
@@ -200,21 +204,6 @@ class WebSocketManager(LoggingMixin):
         """Synchronously close WebSocket connection."""
         if self.ws:
             self.ws.close()
-
-    @classmethod
-    def _from_model(
-        cls,
-        *,
-        api_key: str | None = None,
-        model: RealtimeModel = RealtimeModel.GPT_REALTIME,
-    ) -> WebSocketManager:
-        """
-        Create a manager for a given model (enum or raw string).
-        """
-        actual_api_key = api_key or cls._get_api_key_from_env()
-        ws_url = cls._get_websocket_url(model.value)
-        headers = cls._get_auth_header(actual_api_key)
-        return cls(ws_url, headers)
 
     @classmethod
     def _get_websocket_url(cls, model: str) -> str:

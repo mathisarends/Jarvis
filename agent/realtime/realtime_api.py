@@ -1,35 +1,25 @@
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
+from agent.config.views import VoiceAssistantConfig
 from agent.realtime.message_manager import RealtimeMessageManager
 from agent.realtime.tools.registry import ToolRegistry
 from agent.realtime.tools.tool_executor import ToolExecutor
 from agent.realtime.tools.tools import get_current_time
 from agent.realtime.transcription.service import TranscriptionService
 from agent.realtime.websocket.websocket_manager import WebSocketManager
-from agent.realtime.views import (
-    SessionUpdateEvent,
-    AudioConfig,
-    AudioOutputConfig,
-    AudioFormatConfig,
-    AudioFormat,
-    SessionConfig,
-    RealtimeModel,
-)
+
 from audio.capture import AudioCapture
 from shared.logging_mixin import LoggingMixin
-
-if TYPE_CHECKING:
-    from agent.realtime.views import VoiceAssistantConfig
 
 
 class OpenAIRealtimeAPI(LoggingMixin):
 
     def __init__(
         self,
-        realtime_config: VoiceAssistantConfig,
+        voice_assistant_config: VoiceAssistantConfig,
         ws_manager: WebSocketManager,
         audio_capture: AudioCapture,
         transcription_service: TranscriptionService,
@@ -42,16 +32,15 @@ class OpenAIRealtimeAPI(LoggingMixin):
         self.audio_capture = audio_capture
         self.transcription_service = transcription_service
 
-        # Session configuration from realtime_config
-        self.system_message = realtime_config.system_message
-        self.voice = realtime_config.voice
-        self.temperature = realtime_config.temperature
-
-        # instantiate message manager (handles events and websocket messages)
-        self.message_manager = RealtimeMessageManager(self.ws_manager)
-
         self.tool_registry = ToolRegistry()
         self.tool_executor = ToolExecutor(self.tool_registry)
+
+        # instantiate message manager (handles events and websocket messages)
+        self.message_manager = RealtimeMessageManager(
+            ws_manager=self.ws_manager,
+            tool_registry=self.tool_registry,
+            voice_assistant_config=voice_assistant_config,
+        )
 
         # Audio streaming control
         self._audio_streaming_paused = False
@@ -60,7 +49,6 @@ class OpenAIRealtimeAPI(LoggingMixin):
 
         self._register_tools()
 
-    # this should not be possible in lifecycle (start -> setup_and_run -> close) | maybe refactor this
     async def setup_and_run(self) -> bool:
         """
         Sets up the connection and runs the main loop.
@@ -68,7 +56,7 @@ class OpenAIRealtimeAPI(LoggingMixin):
         if not await self.ws_manager.create_connection():
             return False
 
-        if not await self._initialize_session():
+        if not await self.message_manager.initialize_session():
             await self.ws_manager.close()
             return False
 
@@ -118,60 +106,6 @@ class OpenAIRealtimeAPI(LoggingMixin):
         Returns whether the audio streaming is currently paused.
         """
         return self._audio_streaming_paused
-
-    async def _initialize_session(self) -> bool:
-        """
-        Initializes a session with the OpenAI API.
-        """
-        if not self.ws_manager.is_connected():
-            self.logger.error("No connection available for session initialization")
-            return False
-
-        session_update = self._build_session_config()
-
-        try:
-            self.logger.info("Sending session update...")
-            success = await self.ws_manager.send_message(session_update)
-
-            if success:
-                self.logger.info("Session update sent successfully")
-                return True
-
-            self.logger.error("Failed to send session update")
-            return False
-
-        except Exception as e:
-            self.logger.error("Error initializing session: %s", e)
-            return False
-
-    def _build_session_config(self) -> dict[str, Any]:
-        """
-        Creates the session configuration for the OpenAI API.
-        Uses fully typed Pydantic models based on the official API documentation.
-        """
-        # Create audio configuration with nested format objects
-        audio_config = AudioConfig(
-            output=AudioOutputConfig(
-                format=AudioFormatConfig(type=AudioFormat.PCM16),
-                voice="marin",
-            )
-        )
-
-        # Create session configuration using typed models
-        session_config = SessionUpdateEvent(
-            type="session.update",  # RealtimeClientEvent.SESSION_UPDATE
-            session=SessionConfig(
-                type="realtime",
-                model=RealtimeModel.GPT_REALTIME,
-                instructions=self.system_message,
-                audio=audio_config,
-                output_modalities=["audio"],
-                max_output_tokens=1024,
-                tools=self.tool_registry.get_openai_schema(),
-            ),
-        )
-
-        return session_config.model_dump(exclude_unset=True)
 
     async def _send_audio_stream(self) -> None:
         """
