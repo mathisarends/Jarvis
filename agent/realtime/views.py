@@ -286,10 +286,22 @@ class SessionCreatedEvent(BaseModel):
 class ConversationItemTruncateEvent(BaseModel):
     """see https://platform.openai.com/docs/api-reference/realtime_client_events/conversation/item/truncate"""
 
-    event_id: Optional[str]
+    event_id: Optional[str] = None
     type: Literal[RealtimeClientEvent.CONVERSATION_ITEM_TRUNCATE] = (
         RealtimeClientEvent.CONVERSATION_ITEM_TRUNCATE
     )
     item_id: str
     content_index: int = 0
+    audio_end_ms: int
+
+# Server-side event for truncated conversation item (for acknowledgment)
+class ConversationItemTruncatedEvent(BaseModel):
+    "see https://platform.openai.com/docs/api-reference/realtime_server_events/conversation/item/truncated"
+
+    event_id: str
+    type: Literal[RealtimeServerEvent.CONVERSATION_ITEM_TRUNCATED] = (
+        RealtimeServerEvent.CONVERSATION_ITEM_TRUNCATED
+    )
+    item_id: str
+    content_index: int
     audio_end_ms: int

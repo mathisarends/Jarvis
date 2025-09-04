@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING, Any
 
-from agent.realtime.barge_in.current_message_context import CurrentMessageContext
+from agent.realtime.current_message_context import CurrentMessageContext
 from agent.realtime.event_types import RealtimeClientEvent
 from agent.realtime.event_bus import EventBus
 from agent.realtime.tools.registry import ToolRegistry
@@ -21,6 +21,7 @@ from agent.realtime.views import (
     AudioFormat,
     SessionConfig,
     RealtimeModel,
+    ConversationItemTruncateEvent,
 )
 from audio.capture import AudioCapture
 from shared.logging_mixin import LoggingMixin
@@ -68,31 +69,16 @@ class OpenAIRealtimeAPI(LoggingMixin):
             VoiceAssistantEvent.ASSISTANT_RECEIVED_TOOL_CALL_RESULT,
             self._handle_tool_result,
         )
+        
+        # Subscribe to speech interruption events
+        self.event_bus.subscribe(
+            VoiceAssistantEvent.ASSISTANT_SPEECH_INTERRUPTED,
+            self._handle_speech_interruption,
+        )
 
         self._register_tools()
 
-    def pause_audio_streaming(self) -> None:
-        """
-        Pausiert das Audio-Streaming. Die WebSocket-Verbindung bleibt bestehen.
-        """
-        self.logger.info("Pausing audio streaming...")
-        self._audio_streaming_paused = True
-        self._audio_streaming_event.clear()
-
-    def resume_audio_streaming(self) -> None:
-        """
-        Setzt das Audio-Streaming fort.
-        """
-        self.logger.info("Resuming audio streaming...")
-        self._audio_streaming_paused = False
-        self._audio_streaming_event.set()
-
-    def is_audio_streaming_paused(self) -> bool:
-        """
-        Gibt zurück, ob das Audio-Streaming aktuell pausiert ist.
-        """
-        return self._audio_streaming_paused
-
+    # this should not be possible in lifecycle (start -> setup_and_run -> close) | maybe refactor this
     async def setup_and_run(self) -> bool:
         """
         Sets up the connection and runs the main loop.
@@ -113,6 +99,40 @@ class OpenAIRealtimeAPI(LoggingMixin):
             return True
         finally:
             await self.ws_manager.close()
+
+    async def close_connection(self) -> None:
+        """
+        Closes the WebSocket connection programmatically.
+        Can be called externally to terminate the connection.
+        """
+        try:
+            self.logger.info("Closing WebSocket connection programmatically...")
+            await self.ws_manager.close()
+            self.logger.info("WebSocket connection closed successfully")
+        except Exception as e:
+            self.logger.error("Error closing WebSocket connection: %s", e)
+
+    def pause_audio_streaming(self) -> None:
+        """
+        Pauses the audio streaming. The WebSocket connection remains intact.
+        """
+        self.logger.info("Pausing audio streaming...")
+        self._audio_streaming_paused = True
+        self._audio_streaming_event.clear()
+
+    def resume_audio_streaming(self) -> None:
+        """
+        Resumes the audio streaming.
+        """
+        self.logger.info("Resuming audio streaming...")
+        self._audio_streaming_paused = False
+        self._audio_streaming_event.set()
+
+    def is_audio_streaming_paused(self) -> bool:
+        """
+        Returns whether the audio streaming is currently paused.
+        """
+        return self._audio_streaming_paused
 
     async def _initialize_session(self) -> bool:
         """
@@ -267,4 +287,48 @@ class OpenAIRealtimeAPI(LoggingMixin):
                 data.tool_name,
                 e,
                 exc_info=True,
+            )
+
+    async def _handle_speech_interruption(
+        self, event: VoiceAssistantEvent, data=None
+    ) -> None:
+        """Handle speech interruption events and send truncate message."""
+        try:
+            # Get current item_id and duration from current_message_context
+            item_id = self.current_message_timer.item_id
+            duration_ms = self.current_message_timer.current_duration_ms
+            
+            if not item_id:
+                self.logger.warning("Speech interrupted but no current item_id available")
+                return
+            
+            if duration_ms is None:
+                self.logger.warning("Speech interrupted but no current duration available")
+                return
+            
+            self.logger.info(
+                "Speech interrupted - truncating item %s at %d ms", 
+                item_id, 
+                duration_ms
+            )
+            
+            truncate_event = ConversationItemTruncateEvent(
+                type=RealtimeClientEvent.CONVERSATION_ITEM_TRUNCATE,
+                item_id=item_id,
+                content_index=0,
+                audio_end_ms=duration_ms
+            )
+            
+            success = await self.ws_manager.send_message(truncate_event.model_dump(exclude_unset=True))
+            
+            if success:
+                self.logger.info("Truncate message sent successfully for item %s", item_id)
+            else:
+                self.logger.error("Failed to send truncate message for item %s", item_id)
+                
+        except Exception as e:
+            self.logger.error(
+                "Error handling speech interruption: %s", 
+                e, 
+                exc_info=True
             )

@@ -14,8 +14,6 @@ class TimeoutState(AssistantState):
             context.timeout_service.timeout_seconds,
         )
 
-        # Wake word sound is now played automatically via WAKE_WORD_DETECTED event
-
         context.audio_capture.start_stream()
 
         # Start both timeout service and audio detection
@@ -31,6 +29,9 @@ class TimeoutState(AssistantState):
 
         if context.state.state_type == StateType.IDLE:
             await context.event_bus.publish_sync(VoiceAssistantEvent.IDLE_TRANSITION)
+            
+            self.logger.info("Closing realtime connection due to timeout")
+            await context.realtime_api.close_connection()
             await self._stop_audio_detection(context)
 
     async def handle(

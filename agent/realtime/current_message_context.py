@@ -8,6 +8,7 @@ from agent.realtime.views import ResponseOutputAudioDelta
 from agent.state.base import VoiceAssistantEvent
 from shared.logging_mixin import LoggingMixin
 
+
 class CurrentMessageContext(LoggingMixin):
     """
     Context tracker for current assistant message/response.

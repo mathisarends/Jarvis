@@ -13,7 +13,6 @@ import pyaudio
 from agent.realtime.event_bus import EventBus
 from agent.realtime.views import ResponseOutputAudioDelta
 from agent.state.base import VoiceAssistantEvent
-import audio
 from audio.config import AudioConfig
 from shared.logging_mixin import LoggingMixin
 from shared.singleton_decorator import singleton
@@ -455,5 +454,10 @@ class SoundPlayer(LoggingMixin):
     def _handle_user_started_speaking(self, event: VoiceAssistantEvent) -> None:
         """Handle USER_STARTED_SPEAKING events by clearing the audio queue"""
         if event == VoiceAssistantEvent.USER_STARTED_SPEAKING:
+            if self.is_busy:
+                self.event_bus.publish_sync(
+                    VoiceAssistantEvent.ASSISTANT_SPEECH_INTERRUPTED
+                )
+            
             self.logger.debug("User started speaking, clearing audio queue")
             self.clear_queue_and_stop_chunks()

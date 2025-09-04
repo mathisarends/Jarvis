@@ -33,7 +33,7 @@ class IdleState(AssistantState):
         match event:
             case VoiceAssistantEvent.WAKE_WORD_DETECTED:
                 context.start_session()
-                await self._transition_to_timeout(context)
+                await self._transition_to_listening(context)
             case _:
                 self.logger.debug("Ignoring event %s in Idle state", event.value)
 

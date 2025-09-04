@@ -12,10 +12,10 @@ from agent.realtime.transcription.views import (
     ResponseOutputAudioTranscriptDone,
 )
 from agent.realtime.views import (
+    ConversationItemTruncatedEvent,
     ResponseOutputAudioDelta,
     ErrorEvent,
     SessionCreatedEvent,
-    SessionUpdateEvent,
 )
 from shared.logging_mixin import LoggingMixin
 from shared.singleton_decorator import singleton
@@ -45,6 +45,7 @@ class RealtimeEventDispatcher(LoggingMixin):
             RealtimeServerEvent.RESPONSE_FUNCTION_CALL_ARGUMENTS_DONE: self._handle_response_function_call_completed,
             RealtimeServerEvent.SESSION_CREATED: self._handle_session_created,
             RealtimeServerEvent.SESSION_UPDATED: self._handle_session_updated,
+            RealtimeServerEvent.CONVERSATION_ITEM_TRUNCATED: self._handle_speech_interruption,
             RealtimeServerEvent.ERROR: self._handle_api_error,
         }
 
@@ -59,7 +60,6 @@ class RealtimeEventDispatcher(LoggingMixin):
             RealtimeServerEvent.CONVERSATION_ITEM_ADDED,
             RealtimeServerEvent.CONVERSATION_ITEM_DONE,
             RealtimeServerEvent.CONVERSATION_ITEM_RETRIEVED,
-            RealtimeServerEvent.CONVERSATION_ITEM_TRUNCATED,
             RealtimeServerEvent.CONVERSATION_ITEM_DELETED,
             # Input audio transcription events
             RealtimeServerEvent.CONVERSATION_ITEM_INPUT_AUDIO_TRANSCRIPTION_DELTA,
@@ -203,6 +203,19 @@ class RealtimeEventDispatcher(LoggingMixin):
         """Session updated - debug output"""
         # Handle tool updates here
         pass
+    
+    def _handle_speech_interruption(self, data: dict[str, Any]) -> None:
+        """Handle speech interruption event -> ASSISTANT_SPEECH_INTERRUPTED"""
+        truncate_event = ConversationItemTruncatedEvent.model_validate(data)
+        self.logger.info(
+            "Conversation item truncated - Item ID: %s, Audio End MS: %s",
+            truncate_event.item_id,
+            truncate_event.audio_end_ms,
+        )
+        self.event_bus.publish_sync(
+            VoiceAssistantEvent.ASSISTANT_SPEECH_INTERRUPTED, truncate_event
+        )
+
 
     def _handle_api_error(self, data: dict[str, Any]) -> None:
         """API error -> ERROR_OCCURRED"""

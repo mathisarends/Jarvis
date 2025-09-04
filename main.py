@@ -8,6 +8,7 @@ from typing import Optional
 
 from agent.realtime.event_bus import EventBus
 from agent.realtime.realtime_api import OpenAIRealtimeAPI
+from agent.realtime.transcription.service import TranscriptionService
 from agent.realtime.views import VoiceAssistantConfig
 from agent.realtime.websocket.websocket_manager import WebSocketManager
 from agent.state.context import VoiceAssistantContext
@@ -40,9 +41,10 @@ class VoiceAssistantController(LoggingMixin):
         self.timeout_service = TimeoutService(timeout_seconds=10.0)
 
         self.realtime_api = OpenAIRealtimeAPI(
-            realtime_config=VoiceAssistantConfig(),
+            realtime_config=self.config,
             ws_manager=WebSocketManager.for_gpt_realtime(),
             audio_capture=self.audio_capture,
+            transcription_service=TranscriptionService(),
         )
 
         # Context with dependencies
@@ -51,8 +53,8 @@ class VoiceAssistantController(LoggingMixin):
             audio_capture=self.audio_capture,
             audio_detection_service=self.audio_detection_service,
             timeout_service=self.timeout_service,
-            realtime_api=self.realtime_api,
             event_bus=self.event_bus,
+            realtime_api=self.realtime_api,
         )
 
         self._running = False
