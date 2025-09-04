@@ -238,7 +238,7 @@ class SessionConfig(BaseModel):
     Based on the official API documentation.
     """
 
-    type: Literal["realtime"]
+    type: Literal["realtime"] = "realtime"
     model: RealtimeModel = RealtimeModel.GPT_REALTIME
     instructions: str | None = None
     voice: str | None = None
@@ -260,7 +260,7 @@ class SessionUpdateEvent(BaseModel):
     The client may send this at any time to update any field, except for voice.
     """
 
-    type: Literal[RealtimeClientEvent.SESSION_UPDATE]
+    type: Literal[RealtimeClientEvent.SESSION_UPDATE] = RealtimeClientEvent.SESSION_UPDATE
     event_id: str | None = None
     session: SessionConfig
 

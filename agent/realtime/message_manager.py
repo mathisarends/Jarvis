@@ -12,7 +12,6 @@ from agent.realtime.views import (
     AudioFormatConfig,
     AudioFormat,
     SessionConfig,
-    RealtimeModel,
 )
 from agent.realtime.websocket.websocket_manager import WebSocketManager
 from agent.state.base import VoiceAssistantEvent
@@ -30,9 +29,12 @@ class RealtimeMessageManager(LoggingMixin):
     ):
         self.ws_manager = ws_manager
         self.tool_registry = tool_registry
-        self.system_message = voice_assistant_config.agent.instructions
+        
+        self.realtime_model = voice_assistant_config.agent.model
+        self.instructions = voice_assistant_config.agent.instructions
         self.voice = voice_assistant_config.agent.voice
         self.temperature = voice_assistant_config.agent.temperature
+        self.max_output_tokens = voice_assistant_config.agent.max_output_tokens
 
         self.event_bus = EventBus()
         self.current_message_timer = CurrentMessageContext()
@@ -70,10 +72,8 @@ class RealtimeMessageManager(LoggingMixin):
                 data.tool_name,
             )
 
-            # 2) Modell anstoßen, das Ergebnis zu verwenden
-            #    (Du kannst instructions optional leer lassen oder kurz kontextualisieren)
             response_create = {
-                "type": "response.create",
+                "type": RealtimeClientEvent.RESPONSE_CREATE,
             }
 
             ok_resp = await self.ws_manager.send_message(response_create)
@@ -181,14 +181,14 @@ class RealtimeMessageManager(LoggingMixin):
 
         # Create session configuration using typed models
         session_config = SessionUpdateEvent(
-            type="session.update",  # RealtimeClientEvent.SESSION_UPDATE
+            type=RealtimeClientEvent.SESSION_UPDATE,
             session=SessionConfig(
                 type="realtime",
-                model=RealtimeModel.GPT_REALTIME,
-                instructions=self.system_message,
+                model=self.realtime_model,
+                instructions=self.instructions,
                 audio=audio_config,
                 output_modalities=["audio"],
-                max_output_tokens=1024,
+                max_output_tokens=self.max_output_tokens,
                 tools=self.tool_registry.get_openai_schema(),
             ),
         )

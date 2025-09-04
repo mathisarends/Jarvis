@@ -24,6 +24,7 @@ class AgentConfig(BaseModel):
     model: Optional[RealtimeModel] = RealtimeModel.GPT_REALTIME
     voice: AssistantVoice = AssistantVoice.MARIN
     instructions: Optional[str] = None
+    max_output_tokens: Optional[int] = None
     temperature: float = 0.8
     speed: float = 1.0
     turn_detection: Optional[TurnDetectionConfig] = None

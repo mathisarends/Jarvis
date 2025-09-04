@@ -30,6 +30,9 @@ class CurrentMessageContext(LoggingMixin):
         self.event_bus.subscribe(
             VoiceAssistantEvent.ASSISTANT_RESPONSE_COMPLETED, self._on_response_ended
         )
+        self.event_bus.subscribe(
+            VoiceAssistantEvent.ASSISTANT_SPEECH_INTERRUPTED, self._on_response_ended
+        )
         # Subscribe to audio chunk events
         self.event_bus.subscribe(
             VoiceAssistantEvent.AUDIO_CHUNK_RECEIVED, self._handle_audio_chunk_received
@@ -56,12 +59,22 @@ class CurrentMessageContext(LoggingMixin):
         return None
 
     async def _on_response_ended(self, event: VoiceAssistantEvent, data=None) -> None:
-        """Handle assistant response completed - reset timer and item_id."""
+        """Handle assistant response completed or interrupted - reset timer and item_id."""
         self._start_time = None
         self._item_id = None
-        self.logger.debug(
-            "Assistant response completed - Resetting CurrentMessageContext"
-        )
+
+        if event == VoiceAssistantEvent.ASSISTANT_RESPONSE_COMPLETED:
+            self.logger.debug(
+                "Assistant response completed normally - Resetting CurrentMessageContext"
+            )
+        elif event == VoiceAssistantEvent.ASSISTANT_SPEECH_INTERRUPTED:
+            self.logger.debug(
+                "Assistant speech interrupted by user - Resetting CurrentMessageContext"
+            )
+        else:
+            self.logger.debug(
+                "Assistant response ended (unknown reason) - Resetting CurrentMessageContext"
+            )
 
     def _handle_audio_chunk_received(
         self,
