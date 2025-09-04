@@ -10,7 +10,7 @@ class ListeningState(AssistantState):
 
     async def on_enter(self, context: VoiceAssistantContext) -> None:
         self.logger.info("Entering Listening state - user is speaking")
-        
+
         await context.ensure_realtime_audio_channel_connected()
 
         self.logger.debug("Initiating realtime session for user conversation")

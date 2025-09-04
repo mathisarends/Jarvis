@@ -6,6 +6,7 @@ States and services manage their own responsibilities for clean separation of co
 import asyncio
 from typing import Optional
 
+from agent.config.env import validate_environment_variables
 from agent.realtime.event_bus import EventBus
 from agent.realtime.realtime_api import OpenAIRealtimeAPI
 from agent.realtime.transcription.service import TranscriptionService
@@ -115,6 +116,9 @@ class VoiceAssistantController(LoggingMixin):
 
 
 async def main():
+    # Validate required environment variables before starting
+    validate_environment_variables()
+
     ctrl = VoiceAssistantController()
     try:
         await ctrl.start()

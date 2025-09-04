@@ -3,16 +3,12 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING, Any
 
-from agent.realtime.current_message_context import CurrentMessageContext
-from agent.realtime.event_types import RealtimeClientEvent
-from agent.realtime.event_bus import EventBus
+from agent.realtime.message_manager import RealtimeMessageManager
 from agent.realtime.tools.registry import ToolRegistry
 from agent.realtime.tools.tool_executor import ToolExecutor
 from agent.realtime.tools.tools import get_current_time
-from agent.realtime.tools.views import FunctionCallResult
 from agent.realtime.transcription.service import TranscriptionService
 from agent.realtime.websocket.websocket_manager import WebSocketManager
-from agent.state.base import VoiceAssistantEvent
 from agent.realtime.views import (
     SessionUpdateEvent,
     AudioConfig,
@@ -21,7 +17,6 @@ from agent.realtime.views import (
     AudioFormat,
     SessionConfig,
     RealtimeModel,
-    ConversationItemTruncateEvent,
 )
 from audio.capture import AudioCapture
 from shared.logging_mixin import LoggingMixin
@@ -52,29 +47,16 @@ class OpenAIRealtimeAPI(LoggingMixin):
         self.voice = realtime_config.voice
         self.temperature = realtime_config.temperature
 
-        # instantiate event based services
-        self.current_message_timer = CurrentMessageContext()
+        # instantiate message manager (handles events and websocket messages)
+        self.message_manager = RealtimeMessageManager(self.ws_manager)
 
         self.tool_registry = ToolRegistry()
         self.tool_executor = ToolExecutor(self.tool_registry)
-        self.event_bus = EventBus()
 
         # Audio streaming control
         self._audio_streaming_paused = False
         self._audio_streaming_event = asyncio.Event()
         self._audio_streaming_event.set()  # Initially not paused
-
-        # Subscribe to tool result events
-        self.event_bus.subscribe(
-            VoiceAssistantEvent.ASSISTANT_RECEIVED_TOOL_CALL_RESULT,
-            self._handle_tool_result,
-        )
-
-        # Subscribe to speech interruption events
-        self.event_bus.subscribe(
-            VoiceAssistantEvent.ASSISTANT_SPEECH_INTERRUPTED,
-            self._handle_speech_interruption,
-        )
 
         self._register_tools()
 
@@ -177,7 +159,7 @@ class OpenAIRealtimeAPI(LoggingMixin):
 
         # Create session configuration using typed models
         session_config = SessionUpdateEvent(
-            type=RealtimeClientEvent.SESSION_UPDATE,
+            type="session.update",  # RealtimeClientEvent.SESSION_UPDATE
             session=SessionConfig(
                 type="realtime",
                 model=RealtimeModel.GPT_REALTIME,
@@ -194,7 +176,7 @@ class OpenAIRealtimeAPI(LoggingMixin):
     async def _send_audio_stream(self) -> None:
         """
         Sends audio data from the microphone to the OpenAI API.
-        Respektiert das Pause/Resume-System.
+        Respects the pause/resume system.
         """
         if not self.ws_manager.is_connected():
             self.logger.error("No connection available for audio transmission")
@@ -202,142 +184,58 @@ class OpenAIRealtimeAPI(LoggingMixin):
 
         try:
             self.logger.info("Starting audio transmission...")
-            audio_chunks_sent = 0
-
-            while self.audio_capture.is_active and self.ws_manager.is_connected():
-                # Warten bis Audio-Streaming nicht mehr pausiert ist
-                await self._audio_streaming_event.wait()
-
-                # Nochmals prüfen, da sich der Zustand während des Wartens geändert haben könnte
-                if (
-                    not self.audio_capture.is_active
-                    or not self.ws_manager.is_connected()
-                ):
-                    break
-
-                # Wenn pausiert, kurz warten und nochmals prüfen
-                if self._audio_streaming_paused:
-                    await asyncio.sleep(0.01)
-                    continue
-
-                data = self.audio_capture.read_chunk()
-                if not data:
-                    await asyncio.sleep(0.01)
-                    continue
-
-                success = await self.ws_manager.send_audio_stream(data)
-                if success:
-                    audio_chunks_sent += 1
-                    if audio_chunks_sent % 100 == 0:
-                        self.logger.debug("Audio chunks sent: %d", audio_chunks_sent)
-                else:
-                    self.logger.warning("Failed to send audio chunk")
-
-                await asyncio.sleep(0.01)
-
+            audio_chunks_sent = await self._process_audio_loop()
             self.logger.info(
                 "Audio transmission ended. Chunks sent: %d", audio_chunks_sent
             )
-
         except asyncio.TimeoutError as e:
             self.logger.error("Timeout while sending audio: %s", e)
         except Exception as e:
             self.logger.error("Error while sending audio: %s", e)
 
+    async def _process_audio_loop(self) -> int:
+        """Process the main audio streaming loop."""
+        audio_chunks_sent = 0
+
+        while self._should_continue_streaming():
+            await self._wait_for_streaming_resume()
+
+            if not self._should_continue_streaming():
+                break
+
+            if self._audio_streaming_paused:
+                await asyncio.sleep(0.01)
+                continue
+
+            chunk_sent = await self._process_audio_chunk()
+            if chunk_sent:
+                audio_chunks_sent += 1
+
+            await asyncio.sleep(0.01)
+
+        return audio_chunks_sent
+
+    def _should_continue_streaming(self) -> bool:
+        """Check if audio streaming should continue."""
+        return self.audio_capture.is_active and self.ws_manager.is_connected()
+
+    async def _wait_for_streaming_resume(self) -> None:
+        """Wait until audio streaming is not paused."""
+        await self._audio_streaming_event.wait()
+
+    async def _process_audio_chunk(self) -> bool:
+        """Process a single audio chunk. Returns True if chunk was sent successfully."""
+        data = self.audio_capture.read_chunk()
+        if not data:
+            await asyncio.sleep(0.01)
+            return False
+
+        success = await self.ws_manager.send_audio_stream(data)
+        if not success:
+            self.logger.warning("Failed to send audio chunk")
+
+        return success
+
     def _register_tools(self) -> None:
         """Register available tools with the tool registry"""
         self.tool_registry.register(get_current_time)
-
-    async def _handle_tool_result(
-        self, event: VoiceAssistantEvent, data: FunctionCallResult
-    ) -> None:
-        """Handle tool execution results and send them back to OpenAI Realtime API"""
-        try:
-            self.logger.info(
-                "Received tool result for '%s', sending to Realtime API", data.tool_name
-            )
-
-            # 1) Tool-Output als conversation item posten
-            conversation_item = data.to_conversation_item()
-            ok_item = await self.ws_manager.send_message(conversation_item)
-            if not ok_item:
-                self.logger.error(
-                    "Failed to send function_call_output for '%s'", data.tool_name
-                )
-                return
-
-            self.logger.info(
-                "function_call_output for '%s' sent. Triggering response.create...",
-                data.tool_name,
-            )
-
-            # 2) Modell anstoßen, das Ergebnis zu verwenden
-            #    (Du kannst instructions optional leer lassen oder kurz kontextualisieren)
-            response_create = {
-                "type": "response.create",
-            }
-
-            ok_resp = await self.ws_manager.send_message(response_create)
-            if not ok_resp:
-                self.logger.error("Failed to send response.create")
-                return
-
-            self.logger.info("response.create sent successfully")
-
-        except Exception as e:
-            self.logger.error(
-                "Error handling tool result for '%s': %s",
-                data.tool_name,
-                e,
-                exc_info=True,
-            )
-
-    async def _handle_speech_interruption(
-        self, event: VoiceAssistantEvent, data=None
-    ) -> None:
-        """Handle speech interruption events and send truncate message."""
-        try:
-            # Get current item_id and duration from current_message_context
-            item_id = self.current_message_timer.item_id
-            duration_ms = self.current_message_timer.current_duration_ms
-
-            if not item_id:
-                self.logger.warning(
-                    "Speech interrupted but no current item_id available"
-                )
-                return
-
-            if duration_ms is None:
-                self.logger.warning(
-                    "Speech interrupted but no current duration available"
-                )
-                return
-
-            self.logger.info(
-                "Speech interrupted - truncating item %s at %d ms", item_id, duration_ms
-            )
-
-            truncate_event = ConversationItemTruncateEvent(
-                type=RealtimeClientEvent.CONVERSATION_ITEM_TRUNCATE,
-                item_id=item_id,
-                content_index=0,
-                audio_end_ms=duration_ms,
-            )
-
-            success = await self.ws_manager.send_message(
-                truncate_event.model_dump(exclude_unset=True)
-            )
-
-            if success:
-                self.logger.info(
-                    "Truncate message sent successfully for item %s", item_id
-                )
-            else:
-                self.logger.error(
-                    "Failed to send truncate message for item %s", item_id
-                )
-
-        except Exception as e:
-            self.logger.error(
-                "Error handling speech interruption: %s", e, exc_info=True
-            )

@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 
 from agent.realtime.event_types import RealtimeClientEvent
 from agent.realtime.websocket.realtime_event_dispatcher import RealtimeEventDispatcher
-from agent.realtime.views import RealtimeModel
+from agent.realtime.views import InputAudioBufferAppendEvent, RealtimeModel
 from agent.realtime.event_bus import EventBus
 from agent.state.base import VoiceAssistantEvent
 from shared.logging_mixin import LoggingMixin
@@ -67,47 +67,13 @@ class WebSocketManager(LoggingMixin):
         try:
             self.logger.info("Establishing connection to %s...", self.websocket_url)
 
-            def on_open(ws):
-                self.logger.info("Connection successfully established!")
-                self._connected = True
-                self._connection_event.set()
-
-            def on_message(ws, message: str) -> None:
-                try:
-                    data = json.loads(message)
-                    message_type = data.get("type", "")
-                    self.logger.debug("Received message: %s", message_type)
-
-                    # Delegate event processing to RealtimeEventDispatcher
-                    self.event_dispatcher.dispatch_event(data)
-
-                except json.JSONDecodeError as e:
-                    self.logger.warning("Received malformed JSON message: %s", e)
-                except Exception as e:
-                    self.logger.error("Error processing message: %s", e)
-
-            def on_error(ws, error):
-                self.logger.error("WebSocket error: %s", error)
-                self._connected = False
-                # Publish error event
-                self.event_bus.publish_sync(
-                    VoiceAssistantEvent.ERROR_OCCURRED, {"error": str(error)}
-                )
-
-            def on_close(ws, close_status_code, close_msg):
-                self.logger.info(
-                    "Connection closed: %s %s", close_status_code, close_msg
-                )
-                self._connected = False
-                self._running = False
-
             self.ws = websocket.WebSocketApp(
                 self.websocket_url,
                 header=self.headers,
-                on_open=on_open,
-                on_message=on_message,
-                on_error=on_error,
-                on_close=on_close,
+                on_open=self._on_open,
+                on_message=self._on_message,
+                on_error=self._on_error,
+                on_close=self._on_close,
             )
 
             # Start WebSocket in separate thread
@@ -139,12 +105,9 @@ class WebSocketManager(LoggingMixin):
             return False
 
         try:
-
-            def _send():
-                self.ws.send(json.dumps(message))
-                return True
-
-            result = await asyncio.get_event_loop().run_in_executor(None, _send)
+            result = await asyncio.get_event_loop().run_in_executor(
+                None, self._send_message_sync, message
+            )
             return result
         except Exception as e:
             self.logger.error("Error sending message: %s", e)
@@ -159,16 +122,14 @@ class WebSocketManager(LoggingMixin):
             self.logger.error(self.NO_CONNECTION_ERROR_MSG)
             return False
 
-        try:
-            base64_data = base64.b64encode(data).decode("utf-8")
-            message = {
-                "type": RealtimeClientEvent.INPUT_AUDIO_BUFFER_APPEND,
-                "audio": base64_data,
-            }
-            return await self.send_message(message)
-        except Exception as e:
-            self.logger.error("Error sending binary data: %s", e)
-            return False
+        base64_data = base64.b64encode(data).decode("utf-8")
+        input_audio_buffer_append_event = InputAudioBufferAppendEvent(
+            type=RealtimeClientEvent.INPUT_AUDIO_BUFFER_APPEND,
+            audio=base64_data,
+        )
+        return await self.send_message(
+            input_audio_buffer_append_event.model_dump(exclude_unset=True)
+        )
 
     async def close(self) -> None:
         """
@@ -182,11 +143,7 @@ class WebSocketManager(LoggingMixin):
             self._running = False
             self._connected = False
 
-            def _close():
-                if self.ws:
-                    self.ws.close()
-
-            await asyncio.get_event_loop().run_in_executor(None, _close)
+            await asyncio.get_event_loop().run_in_executor(None, self._close_sync)
             self.ws = None
             self.logger.info("Connection closed")
         except Exception as e:
@@ -197,6 +154,52 @@ class WebSocketManager(LoggingMixin):
         Check if the WebSocket connection is established and open.
         """
         return self._connected and self.ws is not None
+
+    def _on_open(self, ws):
+        """Handle WebSocket connection opened."""
+        self.logger.info("Connection successfully established!")
+        self._connected = True
+        self._connection_event.set()
+
+    def _on_message(self, ws, message: str) -> None:
+        """Handle incoming WebSocket messages."""
+        try:
+            data = json.loads(message)
+            message_type = data.get("type", "")
+            self.logger.debug("Received message: %s", message_type)
+
+            # Delegate event processing to RealtimeEventDispatcher
+            self.event_dispatcher.dispatch_event(data)
+
+        except json.JSONDecodeError as e:
+            self.logger.warning("Received malformed JSON message: %s", e)
+        except Exception as e:
+            self.logger.error("Error processing message: %s", e)
+
+    def _on_error(self, ws, error):
+        """Handle WebSocket errors."""
+        self.logger.error("WebSocket error: %s", error)
+        self._connected = False
+        # Publish error event
+        self.event_bus.publish_sync(
+            VoiceAssistantEvent.ERROR_OCCURRED, {"error": str(error)}
+        )
+
+    def _on_close(self, ws, close_status_code, close_msg):
+        """Handle WebSocket connection closed."""
+        self.logger.info("Connection closed: %s %s", close_status_code, close_msg)
+        self._connected = False
+        self._running = False
+
+    def _send_message_sync(self, message: dict[str, Any]) -> bool:
+        """Synchronously send message through WebSocket."""
+        self.ws.send(json.dumps(message))
+        return True
+
+    def _close_sync(self) -> None:
+        """Synchronously close WebSocket connection."""
+        if self.ws:
+            self.ws.close()
 
     @classmethod
     def _from_model(

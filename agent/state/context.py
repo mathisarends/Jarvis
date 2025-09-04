@@ -1,8 +1,3 @@
-"""
-VoiceAssistantContext - Central context holding all services and state management.
-Provides access to audio services, timeout management, and wake word detection.
-"""
-
 from __future__ import annotations
 
 import asyncio
