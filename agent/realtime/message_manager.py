@@ -29,12 +29,20 @@ class RealtimeMessageManager(LoggingMixin):
     ):
         self.ws_manager = ws_manager
         self.tool_registry = tool_registry
-        
+
         self.realtime_model = voice_assistant_config.agent.model
         self.instructions = voice_assistant_config.agent.instructions
         self.voice = voice_assistant_config.agent.voice
         self.temperature = voice_assistant_config.agent.temperature
-        self.max_output_tokens = voice_assistant_config.agent.max_output_tokens
+        self.max_response_output_tokens = (
+            voice_assistant_config.agent.max_response_output_tokens
+        )
+        self.input_audio_transcription = (
+            voice_assistant_config.agent.transcription
+        )  # this field is not working for now (altough described in documentary)
+        self.input_audio_noise_reduction = (
+            voice_assistant_config.agent.input_audio_noise_reduction
+        )  # not working as well
 
         self.event_bus = EventBus()
         self.current_message_timer = CurrentMessageContext()
@@ -179,7 +187,6 @@ class RealtimeMessageManager(LoggingMixin):
             )
         )
 
-        # Create session configuration using typed models
         session_config = SessionUpdateEvent(
             type=RealtimeClientEvent.SESSION_UPDATE,
             session=SessionConfig(
@@ -188,9 +195,14 @@ class RealtimeMessageManager(LoggingMixin):
                 instructions=self.instructions,
                 audio=audio_config,
                 output_modalities=["audio"],
-                max_output_tokens=self.max_output_tokens,
+                max_output_tokens=self.max_response_output_tokens,
                 tools=self.tool_registry.get_openai_schema(),
             ),
         )
+
+        test = session_config.model_dump(exclude_unset=True)
+        import json
+
+        print(json.dumps(test, indent=2))
 
         return session_config.model_dump(exclude_unset=True)

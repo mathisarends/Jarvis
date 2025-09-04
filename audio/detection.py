@@ -106,8 +106,3 @@ class AudioDetectionService(LoggingMixin):
         """Update detection threshold"""
         self.threshold = new_threshold
         self.logger.info("Updated threshold to: %.1f", new_threshold)
-
-    @property
-    def is_monitoring(self) -> bool:
-        """Check if currently monitoring"""
-        return self._is_monitoring
