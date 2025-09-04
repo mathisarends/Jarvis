@@ -17,7 +17,6 @@ class AudioDetectionService(LoggingMixin):
         threshold: float = 40.0,
         check_interval: float = 0.1,
     ):
-        super().__init__()
         self.audio_capture = audio_capture
         self.threshold = threshold
         self.check_interval = check_interval

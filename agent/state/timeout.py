@@ -13,8 +13,8 @@ class TimeoutState(AssistantState):
             "Entering TimeoutState - user has %s seconds to start speaking",
             context.timeout_service.timeout_seconds,
         )
-
-        context.audio_capture.start_stream()
+        
+        self._ensure_realtime_audio_channel_connected(context)
 
         # Start both timeout service and audio detection
         await self._start_timeout_service(context)
@@ -76,3 +76,14 @@ class TimeoutState(AssistantState):
         """Stop audio detection"""
         self.logger.debug("Stopping audio detection")
         await context.audio_detection_service.stop_monitoring()
+
+
+    def _ensure_realtime_audio_channel_connected(self, context: VoiceAssistantContext) -> None:
+        """Ensure realtime audio channel is connected"""
+        if not context.audio_capture.is_active:
+            context.audio_capture.start_stream()
+            self.logger.info("Microphone stream reactivated")
+        else:
+            self.logger.debug("Microphone stream already active")
+            
+        context.resume_realtime_audio()

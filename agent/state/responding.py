@@ -15,20 +15,15 @@ class RespondingState(AssistantState):
         self.logger.info(
             "Entering Responding state - generating and delivering response"
         )
-
-        # Deactivate microphone stream while assistant is speaking
-        if context.audio_capture.is_active:
-            context.audio_capture.stop_stream()
-            self.logger.info("Microphone stream deactivated - assistant is speaking")
-
+        
+        context.pause_realtime_audio()
+        
         # Start wake word detection for interruption capability
         await self._start_wake_word_detection(context)
 
     async def on_exit(self, context: VoiceAssistantContext) -> None:
         # Stop wake word detection when leaving responding state
         await self._stop_wake_word_detection(context)
-
-        self.logger.info("Exiting Responding state")
 
     async def handle(
         self, event: VoiceAssistantEvent, context: VoiceAssistantContext

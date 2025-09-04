@@ -18,7 +18,10 @@ class AudioCapture(LoggingMixin):
     def start_stream(self):
         """Start the microphone stream"""
         if self.stream is not None:
-            self.stop_stream()
+            self.logger.warning(
+                "Attempting to start stream but one is already active"
+            )
+            return
 
         self.stream = self.p.open(
             format=self.config.format,

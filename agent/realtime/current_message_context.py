@@ -52,14 +52,14 @@ class CurrentMessageContext(LoggingMixin):
     async def _on_response_started(self, event: VoiceAssistantEvent, data=None) -> None:
         """Handle assistant started responding - start timer and return None."""
         self._start_time = time.time()
-        self.logger.info("Assistant response started - timer started")
+        self.logger.debug("Assistant response started - timer started")
         return None
 
     async def _on_response_ended(self, event: VoiceAssistantEvent, data=None) -> None:
         """Handle assistant response completed - reset timer and item_id."""
         self._start_time = None
         self._item_id = None
-        self.logger.info("Assistant response completed - context reset")
+        self.logger.debug("Assistant response completed - Resetting CurrentMessageContext")
 
     def _handle_audio_chunk_received(
         self,
@@ -72,4 +72,4 @@ class CurrentMessageContext(LoggingMixin):
             return
 
         self._item_id = response_output_audio_delta.item_id
-        self.logger.info("Set item_id to: %s", self._item_id)
+        self.logger.debug("Set item_id to: %s", self._item_id)
