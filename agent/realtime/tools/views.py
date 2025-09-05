@@ -4,7 +4,7 @@ from unittest import result
 from pydantic import BaseModel, field_validator
 import json
 
-from agent.realtime.event_types import RealtimeServerEvent
+from agent.realtime.event_types import RealtimeClientEvent, RealtimeServerEvent
 
 
 class FunctionCallItem(BaseModel):
@@ -48,7 +48,7 @@ class FunctionCallResult(BaseModel):
 
     def to_conversation_item(self) -> dict:
         return {
-            "type": "conversation.item.create",
+            "type": RealtimeClientEvent.CONVERSATION_ITEM_CREATE,
             "item": {
                 "type": "function_call_output",
                 "call_id": self.call_id,

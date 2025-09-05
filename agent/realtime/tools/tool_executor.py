@@ -9,15 +9,19 @@ from agent.state.base import VoiceAssistantEvent
 from shared.logging_mixin import LoggingMixin
 
 
+from agent.realtime.message_manager import RealtimeMessageManager
+
+
 class ToolExecutor(LoggingMixin):
     """
     Executes tools based on function call events from the Realtime API.
     Subscribes to ASSISTANT_STARTED_TOOL_CALL events and executes the requested tools.
     """
 
-    def __init__(self, tool_registry: ToolRegistry):
+    def __init__(self, tool_registry: ToolRegistry, message_manager: RealtimeMessageManager):
         super().__init__()
         self.tool_registry = tool_registry
+        self.message_manager = message_manager
         self.event_bus = EventBus()
 
         self.event_bus.subscribe(
@@ -45,10 +49,10 @@ class ToolExecutor(LoggingMixin):
             )
             self.logger.info(f"Tool Result ({function_name}): {result}")
 
-            function_call_response = FunctionCallResult(
+            function_call_result = FunctionCallResult(
                 tool_name=data.name, call_id=data.call_id, output=result
             )
-            await self._send_tool_result(function_call_response)
+            await self.message_manager.send_tool_result(function_call_result)
 
         except Exception as e:
             self.logger.error(
@@ -66,25 +70,3 @@ class ToolExecutor(LoggingMixin):
             raise ValueError(f"Tool '{name}' not found")
 
         return await tool.execute(arguments)
-
-    async def _send_tool_result(
-        self, function_call_response: FunctionCallResult
-    ) -> None:
-        """Send tool execution result back to OpenAI Realtime API."""
-        try:
-            tool_name = function_call_response.tool_name
-            self.logger.info(
-                "Sending tool result for '%s' back to Realtime API", tool_name
-            )
-
-            await self.event_bus.publish_async(
-                VoiceAssistantEvent.ASSISTANT_RECEIVED_TOOL_CALL_RESULT,
-                function_call_response,
-            )
-
-            self.logger.debug("Tool result for '%s' sent successfully", tool_name)
-
-        except Exception as e:
-            self.logger.error(
-                "Failed to send tool result for '%s': %s", tool_name, e, exc_info=True
-            )

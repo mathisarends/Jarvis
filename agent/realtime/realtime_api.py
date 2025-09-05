@@ -33,7 +33,6 @@ class OpenAIRealtimeAPI(LoggingMixin):
         self.transcription_service = transcription_service
 
         self.tool_registry = ToolRegistry()
-        self.tool_executor = ToolExecutor(self.tool_registry)
 
         # instantiate message manager (handles events and websocket messages)
         self.message_manager = RealtimeMessageManager(
@@ -41,6 +40,8 @@ class OpenAIRealtimeAPI(LoggingMixin):
             tool_registry=self.tool_registry,
             voice_assistant_config=voice_assistant_config,
         )
+        
+        self.tool_executor = ToolExecutor(self.tool_registry, self.message_manager)
 
         # Audio streaming control
         self._audio_streaming_paused = False

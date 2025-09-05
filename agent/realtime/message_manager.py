@@ -46,38 +46,33 @@ class RealtimeMessageManager(LoggingMixin):
 
         self.event_bus = EventBus()
         self.current_message_timer = CurrentMessageContext()
-
-        self.event_bus.subscribe(
-            VoiceAssistantEvent.ASSISTANT_RECEIVED_TOOL_CALL_RESULT,
-            self._handle_tool_result,
-        )
-
+        
         self.event_bus.subscribe(
             VoiceAssistantEvent.ASSISTANT_SPEECH_INTERRUPTED,
             self._handle_speech_interruption,
         )
 
-    async def _handle_tool_result(
-        self, event: VoiceAssistantEvent, data: FunctionCallResult
+    async def send_tool_result(
+        self, function_call_result: FunctionCallResult
     ) -> None:
         """Handle tool execution results and send them back to OpenAI Realtime API"""
         try:
             self.logger.info(
-                "Received tool result for '%s', sending to Realtime API", data.tool_name
+                "Received tool result for '%s', sending to Realtime API", function_call_result.tool_name
             )
 
             # 1) Tool-Output als conversation item posten
-            conversation_item = data.to_conversation_item()
+            conversation_item = function_call_result.to_conversation_item()
             ok_item = await self.ws_manager.send_message(conversation_item)
             if not ok_item:
                 self.logger.error(
-                    "Failed to send function_call_output for '%s'", data.tool_name
+                    "Failed to send function_call_output for '%s'", function_call_result.tool_name
                 )
                 return
 
             self.logger.info(
                 "function_call_output for '%s' sent. Triggering response.create...",
-                data.tool_name,
+                function_call_result.tool_name,
             )
 
             response_create = {
@@ -94,10 +89,11 @@ class RealtimeMessageManager(LoggingMixin):
         except Exception as e:
             self.logger.error(
                 "Error handling tool result for '%s': %s",
-                data.tool_name,
+                function_call_result.tool_name,
                 e,
                 exc_info=True,
             )
+
 
     async def _handle_speech_interruption(
         self, event: VoiceAssistantEvent, data=None
@@ -199,10 +195,5 @@ class RealtimeMessageManager(LoggingMixin):
                 tools=self.tool_registry.get_openai_schema(),
             ),
         )
-
-        test = session_config.model_dump(exclude_unset=True)
-        import json
-
-        print(json.dumps(test, indent=2))
 
         return session_config.model_dump(exclude_unset=True)
