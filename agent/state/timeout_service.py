@@ -9,7 +9,7 @@ from shared.logging_mixin import LoggingMixin
 class TimeoutService(LoggingMixin):
     """Service for managing timeouts with EventBus integration"""
 
-    def __init__(self, timeout_seconds: float = 10.0):
+    def __init__(self, timeout_seconds: float = 20.0):
         super().__init__()
         self.timeout_seconds = timeout_seconds
         self.event_bus = EventBus()

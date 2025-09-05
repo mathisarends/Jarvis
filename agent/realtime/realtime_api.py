@@ -7,7 +7,7 @@ from agent.config.views import VoiceAssistantConfig
 from agent.realtime.message_manager import RealtimeMessageManager
 from agent.realtime.tools.registry import ToolRegistry
 from agent.realtime.tools.tool_executor import ToolExecutor
-from agent.realtime.tools.tools import get_current_time
+from agent.realtime.tools.tools import get_current_time, mock_long_running_analysis
 from agent.realtime.transcription.service import TranscriptionService
 from agent.realtime.websocket.websocket_manager import WebSocketManager
 
@@ -174,3 +174,4 @@ class OpenAIRealtimeAPI(LoggingMixin):
     def _register_tools(self) -> None:
         """Register available tools with the tool registry"""
         self.tool_registry.register(get_current_time)
+        self.tool_registry.register(mock_long_running_analysis)

@@ -4,6 +4,7 @@ from agent.state.base import AssistantState, StateType, VoiceAssistantEvent
 from agent.state.context import VoiceAssistantContext
 
 
+# TODO: Hier muss geblockt werden, dass der hier den zustand wechseln kann wenn der tool call läuft
 class RespondingState(AssistantState):
     """State when generating and delivering response to user"""
 
