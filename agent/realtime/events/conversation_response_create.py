@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Literal, Optional
 
 from openai import BaseModel
@@ -9,7 +11,15 @@ class ResponseInstructions(BaseModel):
 
 
 class ConversationResponseCreateEvent(BaseModel):
-    type: Literal[RealtimeClientEvent.RESPONSE_CREATE] = (
-        RealtimeClientEvent.RESPONSE_CREATE
-    )
+    type: Literal[RealtimeClientEvent.RESPONSE_CREATE]
     response: Optional[ResponseInstructions] = None
+
+    @classmethod
+    def with_instructions(cls, text: str) -> ConversationResponseCreateEvent:
+        """
+        Factory to quickly create a response.create event with simple instructions.
+        """
+        return cls(
+            type=RealtimeClientEvent.RESPONSE_CREATE,
+            response=ResponseInstructions(instructions=text),
+        )

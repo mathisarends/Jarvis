@@ -379,11 +379,3 @@ class ConversationItemTruncatedEvent(BaseModel):
     item_id: str
     content_index: int
     audio_end_ms: int
-
-
-class InputAudioBufferAppendEvent(BaseModel):
-    """Model for 'input_audio_buffer' event (base64-encoded audio chunk)."""
-
-    type: Literal[RealtimeClientEvent.INPUT_AUDIO_BUFFER_APPEND]
-    event_id: Optional[str] = None
-    audio: str  # base64-encoded audio bytes

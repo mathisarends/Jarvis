@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 from typing import Any
 
 from agent.config.views import VoiceAssistantConfig
+from agent.realtime.events.input_audio_buffer_append import InputAudioBufferAppendEvent
 from agent.realtime.message_manager import RealtimeMessageManager
 from agent.realtime.tools.registry import ToolRegistry
 from agent.realtime.tools.tool_executor import ToolExecutor
@@ -164,8 +166,11 @@ class OpenAIRealtimeAPI(LoggingMixin):
         if not data:
             await asyncio.sleep(0.01)
             return False
+        
+        base64_data = base64.b64encode(data).decode("utf-8")
+        input_audio_buffer_append_event = InputAudioBufferAppendEvent.from_audio(base64_data)
 
-        success = await self.ws_manager.send_audio_stream(data)
+        success = await self.ws_manager.send_message(input_audio_buffer_append_event)
         if not success:
             self.logger.warning("Failed to send audio chunk")
 

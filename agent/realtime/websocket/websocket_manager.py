@@ -7,12 +7,12 @@ import os
 import threading
 from typing import Any, Optional
 
+from pydantic import BaseModel
 import websocket
 from dotenv import load_dotenv
 
-from agent.realtime.event_types import RealtimeClientEvent
 from agent.realtime.websocket.realtime_event_dispatcher import RealtimeEventDispatcher
-from agent.realtime.views import InputAudioBufferAppendEvent, RealtimeModel
+from agent.realtime.views import RealtimeModel
 from agent.realtime.event_bus import EventBus
 from agent.state.base import VoiceAssistantEvent
 from shared.logging_mixin import LoggingMixin
@@ -100,7 +100,7 @@ class WebSocketManager(LoggingMixin):
             self.logger.error("Error creating connection: %s", e)
             return False
 
-    async def send_message(self, message: dict[str, Any]) -> bool:
+    async def send_message(self, message: dict[str, Any] | BaseModel) -> bool:
         """
         Send a JSON message through the WebSocket connection.
         """
@@ -108,32 +108,19 @@ class WebSocketManager(LoggingMixin):
             self.logger.error(self.NO_CONNECTION_ERROR_MSG)
             return False
 
+        if isinstance(message, BaseModel):
+            payload = message.model_dump(exclude_unset=True)
+        else:
+            payload = message
+
         try:
             result = await asyncio.get_event_loop().run_in_executor(
-                None, self._send_message_sync, message
+                None, self._send_message_sync, payload
             )
             return result
         except Exception as e:
             self.logger.error("Error sending message: %s", e)
             return False
-
-    async def send_audio_stream(self, data: bytes) -> bool:
-        """
-        Send audio data through the WebSocket connection.
-        For audio streaming, data is typically encoded in base64.
-        """
-        if not self._connected or not self.ws:
-            self.logger.error(self.NO_CONNECTION_ERROR_MSG)
-            return False
-
-        base64_data = base64.b64encode(data).decode("utf-8")
-        input_audio_buffer_append_event = InputAudioBufferAppendEvent(
-            type=RealtimeClientEvent.INPUT_AUDIO_BUFFER_APPEND,
-            audio=base64_data,
-        )
-        return await self.send_message(
-            input_audio_buffer_append_event.model_dump(exclude_unset=True)
-        )
 
     async def close(self) -> None:
         """

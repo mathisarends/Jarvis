@@ -4,10 +4,7 @@ from agent.config.views import VoiceAssistantConfig
 from agent.realtime.current_message_context import CurrentMessageContext
 from agent.realtime.event_bus import EventBus
 from agent.realtime.event_types import RealtimeClientEvent
-from agent.realtime.events.conversation_item_create import (
-    ConversationItemCreateEvent,
-    ConversationItemFactory,
-)
+from agent.realtime.events.conversation_item_create import ConversationItemCreateEvent
 from agent.realtime.events.conversation_response_create import (
     ConversationResponseCreateEvent,
     ResponseInstructions,
@@ -166,14 +163,9 @@ class RealtimeMessageManager(LoggingMixin):
         """Implementation of sending loading message."""
         try:
             self.logger.info("Sending loading message for long-running tool call")
-            conversation_item = {
-                "type": RealtimeClientEvent.CONVERSATION_ITEM_CREATE,
-                "item": {
-                    "type": "message",
-                    "role": "assistant",
-                    "content": [{"type": "output_text", "text": loading_message}],
-                },
-            }
+            conversation_item = ConversationItemCreateEvent.assistant_message(
+                loading_message
+            )
 
             ok_item = await self.ws_manager.send_message(conversation_item)
             if not ok_item:
@@ -182,17 +174,13 @@ class RealtimeMessageManager(LoggingMixin):
 
             self.logger.info("Loading message sent. Triggering response.create...")
 
-            conversation_response_create_event = ConversationResponseCreateEvent(
-                type=RealtimeClientEvent.RESPONSE_CREATE,
-                response=ResponseInstructions(
-                    instructions="Briefly inform the user that the requested tool is running. Keep it short and status-like."
-                ),
+            conversation_response_create_event = ConversationResponseCreateEvent.with_instructions(
+                "Briefly inform the user that the requested tool is running. Keep it short and status-like."
             )
 
-            response_dict = conversation_response_create_event.model_dump(
-                exclude_unset=True
+            ok_resp = await self.ws_manager.send_message(
+                conversation_response_create_event
             )
-            ok_resp = await self.ws_manager.send_message(response_dict)
             if not ok_resp:
                 self.logger.error("Failed to send response.create for loading message")
                 return
@@ -238,9 +226,7 @@ class RealtimeMessageManager(LoggingMixin):
                 audio_end_ms=duration_ms,
             )
 
-            success = await self.ws_manager.send_message(
-                truncate_event.model_dump(exclude_unset=True)
-            )
+            success = await self.ws_manager.send_message(truncate_event)
 
             if success:
                 self.logger.info(
