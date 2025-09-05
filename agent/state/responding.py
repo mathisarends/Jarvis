@@ -18,26 +18,17 @@ class RespondingState(AssistantState):
 
         context.ensure_realtime_audio_channel_paused()
 
-        # Start wake word detection for interruption capability
         await self._start_wake_word_detection(context)
 
     async def on_exit(self, context: VoiceAssistantContext) -> None:
-        # Stop wake word detection when leaving responding state
         await self._stop_wake_word_detection(context)
 
     async def handle(
         self, event: VoiceAssistantEvent, context: VoiceAssistantContext
     ) -> None:
         match event:
-            case VoiceAssistantEvent.ASSISTANT_STARTED_RESPONDING:
-                self.logger.info("Assistant started responding")
-                # Stay in responding state
             case VoiceAssistantEvent.ASSISTANT_STARTED_TOOL_CALL:
-                self.logger.info("Assistant started tool call")
-                # Stay in responding state during tool calls
-            case VoiceAssistantEvent.ASSISTANT_RECEIVED_TOOL_CALL_RESULT:
-                self.logger.info("Assistant completed tool call")
-                # Stay in responding state - might have more to say
+                await self._transition_to_tool_calling(context)                
             case VoiceAssistantEvent.ASSISTANT_RESPONSE_COMPLETED:
                 self.logger.info(
                     "Assistant response completed - returning to waiting for user input"

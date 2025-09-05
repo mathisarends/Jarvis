@@ -1,8 +1,7 @@
 from datetime import datetime
-from agent.realtime.tools.simple_tool import tool
+from agent.realtime.tools.tool import tool
 
 
-@tool()
+@tool(description="Get the current local time")
 def get_current_time() -> str:
-    """Get the current local time."""
     return datetime.now().strftime("%H:%M:%S")

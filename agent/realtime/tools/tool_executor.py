@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from json import tool
-from operator import call
 from typing import Any
 
 from agent.realtime.event_bus import EventBus

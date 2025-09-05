@@ -116,6 +116,7 @@ class AssistantState(ABC, LoggingMixin):
         from agent.state.error import ErrorState
 
         await self._transition_to(ErrorState(), context)
+        
 
     async def _transition_to(
         self, new_state: AssistantState, context: VoiceAssistantContext
