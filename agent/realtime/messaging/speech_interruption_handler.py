@@ -1,6 +1,6 @@
 from agent.realtime.current_message_context import CurrentMessageContext
 from agent.realtime.event_types import RealtimeClientEvent
-from agent.realtime.views import ConversationItemTruncateEvent
+from agent.realtime.events.client.conversation_item_truncate import ConversationItemTruncateEvent
 from agent.realtime.websocket.websocket_manager import WebSocketManager
 from shared.logging_mixin import LoggingMixin
 
@@ -29,7 +29,6 @@ class SpeechInterruptionHandler(LoggingMixin):
             self.logger.info("Truncating item %s at %d ms", item_id, duration_ms)
 
             truncate_event = ConversationItemTruncateEvent(
-                type=RealtimeClientEvent.CONVERSATION_ITEM_TRUNCATE,
                 item_id=item_id,
                 content_index=0,
                 audio_end_ms=duration_ms,

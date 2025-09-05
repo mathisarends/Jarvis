@@ -109,7 +109,7 @@ class WebSocketManager(LoggingMixin):
             return False
 
         if isinstance(message, BaseModel):
-            payload = message.model_dump(exclude_unset=True)
+            payload = message.model_dump(exclude_none=True)
         else:
             payload = message
 

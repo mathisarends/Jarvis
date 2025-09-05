@@ -144,6 +144,7 @@ class AudioFormatConfig(BaseModel):
     """Audio format configuration object."""
 
     type: AudioFormat = AudioFormat.PCM16
+    rate: int = 24000
 
 
 class AudioInputConfig(BaseModel):
@@ -319,8 +320,6 @@ class SessionConfig(BaseModel):
     model: RealtimeModel = RealtimeModel.GPT_REALTIME
     instructions: str | None = None
     voice: str | None = None
-    speed: float = Field(default=1.0, ge=0.25, le=1.5)
-    temperature: float = Field(default=0.8, ge=0.6, le=1.2)
     audio: AudioConfig = Field(default_factory=AudioConfig)
     client_secret: ClientSecretConfig | None = None
     include: list[str] | None = None
@@ -354,19 +353,6 @@ class SessionCreatedEvent(BaseModel):
     type: Literal[RealtimeServerEvent.SESSION_CREATED]
     event_id: str | None = None
     session: SessionConfig
-
-
-class ConversationItemTruncateEvent(BaseModel):
-    """see https://platform.openai.com/docs/api-reference/realtime_client_events/conversation/item/truncate"""
-
-    event_id: Optional[str] = None
-    type: Literal[RealtimeClientEvent.CONVERSATION_ITEM_TRUNCATE] = (
-        RealtimeClientEvent.CONVERSATION_ITEM_TRUNCATE
-    )
-    item_id: str
-    content_index: int = 0
-    audio_end_ms: int
-
 
 # Server-side event for truncated conversation item (for acknowledgment)
 class ConversationItemTruncatedEvent(BaseModel):

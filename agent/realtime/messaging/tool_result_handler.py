@@ -1,5 +1,5 @@
 from agent.realtime.tools.views import FunctionCallResult
-from agent.realtime.events.conversation_response_create import (
+from agent.realtime.events.client.conversation_response_create import (
     ConversationResponseCreateEvent,
 )
 from agent.realtime.websocket.websocket_manager import WebSocketManager

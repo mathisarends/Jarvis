@@ -57,7 +57,6 @@ class SessionManager(LoggingMixin):
         )
 
         return SessionUpdateEvent(
-            type=RealtimeClientEvent.SESSION_UPDATE,
             session=SessionConfig(
                 type="realtime",
                 model=self.agent_config.model,
