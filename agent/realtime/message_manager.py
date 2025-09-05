@@ -2,7 +2,10 @@ from agent.config.views import VoiceAssistantConfig
 from agent.realtime.current_message_context import CurrentMessageContext
 from agent.realtime.event_bus import EventBus
 from agent.realtime.event_types import RealtimeClientEvent
-from agent.realtime.events.conversation_response_create import ConversationResponseCreateEvent, ResponseInstructions
+from agent.realtime.events.conversation_response_create import (
+    ConversationResponseCreateEvent,
+    ResponseInstructions,
+)
 from agent.realtime.tools.views import FunctionCallResult
 from agent.realtime.tools.registry import ToolRegistry
 from agent.realtime.views import (
@@ -19,7 +22,8 @@ from agent.state.base import VoiceAssistantEvent
 from shared.logging_mixin import LoggingMixin
 from typing import Any
 
-# Hier brauche ich utils wie send_converation_item oder so 
+
+# Hier brauche ich utils wie send_converation_item oder so
 class RealtimeMessageManager(LoggingMixin):
 
     def __init__(
@@ -80,10 +84,12 @@ class RealtimeMessageManager(LoggingMixin):
                 type=RealtimeClientEvent.RESPONSE_CREATE,
                 response=ResponseInstructions(
                     instructions=function_call_result.result_context
-                )
+                ),
             )
-            
-            response_dict = conversation_response_create_event.model_dump(exclude_unset=True)
+
+            response_dict = conversation_response_create_event.model_dump(
+                exclude_unset=True
+            )
 
             ok_resp = await self.ws_manager.send_message(response_dict)
             if not ok_resp:
@@ -99,7 +105,7 @@ class RealtimeMessageManager(LoggingMixin):
                 e,
                 exc_info=True,
             )
-            
+
     async def initialize_session(self) -> bool:
         """
         Initializes a session with the OpenAI API.
@@ -124,8 +130,10 @@ class RealtimeMessageManager(LoggingMixin):
         except Exception as e:
             self.logger.error("Error initializing session: %s", e)
             return False
-        
-    async def send_loading_message_for_long_running_tool_call(self, loading_message: str) -> None:
+
+    async def send_loading_message_for_long_running_tool_call(
+        self, loading_message: str
+    ) -> None:
         try:
             self.logger.info("Sending loading message for long-running tool call")
             conversation_item = {
@@ -133,41 +141,37 @@ class RealtimeMessageManager(LoggingMixin):
                 "item": {
                     "type": "message",
                     "role": "assistant",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": loading_message
-                        }
-                    ]
-                }
+                    "content": [{"type": "text", "text": loading_message}],
+                },
             }
-            
+
             ok_item = await self.ws_manager.send_message(conversation_item)
             if not ok_item:
                 self.logger.error("Failed to send loading message conversation item")
                 return
-            
+
             self.logger.info("Loading message sent. Triggering response.create...")
-            
+
             conversation_response_create_event = ConversationResponseCreateEvent(
                 type=RealtimeClientEvent.RESPONSE_CREATE,
             )
-            
-            response_dict = conversation_response_create_event.model_dump(exclude_unset=True)
+
+            response_dict = conversation_response_create_event.model_dump(
+                exclude_unset=True
+            )
             ok_resp = await self.ws_manager.send_message(response_dict)
             if not ok_resp:
                 self.logger.error("Failed to send response.create for loading message")
                 return
-            
+
             self.logger.info("Response.create sent successfully for loading message")
-        
+
         except Exception as e:
             self.logger.error(
                 "Error sending loading message for long-running tool call: %s",
                 e,
                 exc_info=True,
             )
-
 
     async def _handle_speech_interruption(
         self, event: VoiceAssistantEvent, data=None

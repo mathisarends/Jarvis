@@ -9,16 +9,16 @@ def get_current_time() -> str:
 
 
 @tool(
-    description="Analyze complex data and generate insights", 
+    description="Analyze complex data and generate insights",
     long_running=True,
     loading_message="Ich analysiere gerade die Daten und generiere Insights... Das kann einen Moment dauern.",
-    result_context="Die Analyse sollte als strukturierte Zusammenfassung mit Erkenntnissen präsentiert werden."
+    result_context="Die Analyse sollte als strukturierte Zusammenfassung mit Erkenntnissen präsentiert werden.",
 )
 async def mock_long_running_analysis(query: str = "default analysis") -> str:
     """Mock tool that simulates a long-running data analysis."""
     # Simulate long-running work
     await asyncio.sleep(10)
-    
+
     # Return semantic mock response
     return f"""📊 Analyse-Ergebnisse für: "{query}"
 

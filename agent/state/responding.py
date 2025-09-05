@@ -28,6 +28,8 @@ class RespondingState(AssistantState):
         self, event: VoiceAssistantEvent, context: VoiceAssistantContext
     ) -> None:
         match event:
+            case VoiceAssistantEvent.ASSISTANT_STARTED_TOOL_CALL:
+                await self._transition_to_tool_calling(context)
             case VoiceAssistantEvent.ASSISTANT_RESPONSE_COMPLETED:
                 self.logger.info(
                     "Assistant response completed - returning to waiting for user input"
@@ -46,8 +48,6 @@ class RespondingState(AssistantState):
             case VoiceAssistantEvent.IDLE_TRANSITION:
                 self.logger.info("Idle transition in Responding state")
                 await self._transition_to_idle(context)
-            case VoiceAssistantEvent.ERROR_OCCURRED:
-                await self._transition_to_error(context)
             case _:
                 self.logger.debug("Ignoring event %s in Responding state", event.value)
 

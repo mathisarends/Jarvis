@@ -29,7 +29,5 @@ class ListeningState(AssistantState):
             case VoiceAssistantEvent.USER_SPEECH_ENDED:
                 self.logger.info("User finished speaking")
                 return await self._transition_to_responding(context)
-            case VoiceAssistantEvent.ERROR_OCCURRED:
-                await self._transition_to_error(context)
             case _:
                 self.logger.debug("Ignoring event %s in Listening state", event.value)

@@ -49,8 +49,6 @@ class TimeoutState(AssistantState):
             case VoiceAssistantEvent.IDLE_TRANSITION:
                 self.logger.info("Idle transition in TimeoutState")
                 await self._transition_to_idle(context)
-            case VoiceAssistantEvent.ERROR_OCCURRED:
-                await self._transition_to_error(context)
             case _:
                 self.logger.debug("Ignoring event %s in TimeoutState", event.value)
 

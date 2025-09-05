@@ -110,12 +110,12 @@ class AssistantState(ABC, LoggingMixin):
         from agent.state.responding import RespondingState
 
         await self._transition_to(RespondingState(), context)
+        
+    async def _transition_to_tool_calling(self, context: VoiceAssistantContext) -> None:
+        """Transition to ToolCallingState"""
+        from agent.state.tool_calling import ToolCallingState
 
-    async def _transition_to_error(self, context: VoiceAssistantContext) -> None:
-        """Transition to ErrorState"""
-        from agent.state.error import ErrorState
-
-        await self._transition_to(ErrorState(), context)
+        await self._transition_to(ToolCallingState(), context)
 
     async def _transition_to(
         self, new_state: AssistantState, context: VoiceAssistantContext
