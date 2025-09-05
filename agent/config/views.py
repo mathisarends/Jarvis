@@ -4,11 +4,9 @@ from typing import Literal, Optional, Any
 
 from pydantic import BaseModel, Field, field_validator
 
+from agent.realtime.events.client.session_update import InputAudioNoiseReductionConfig, RealtimeModel
 from agent.realtime.views import (
     AssistantVoice,
-    InputAudioNoiseReductionConfig,
-    InputAudioTranscriptionConfig,
-    RealtimeModel,
 )
 from audio.wake_word_listener import PorcupineBuiltinKeyword
 
@@ -32,7 +30,6 @@ class AgentConfig(BaseModel):
     temperature: float = 0.8
     speed: float = 1.0
     turn_detection: Optional[TurnDetectionConfig] = None
-    transcription: Optional[InputAudioTranscriptionConfig] = None
     input_audio_noise_reduction: Optional[InputAudioNoiseReductionConfig] = None
 
     @field_validator("voice", mode="before")
@@ -57,49 +54,63 @@ class AgentConfig(BaseModel):
         Validate max_response_output_tokens according to OpenAI Realtime API spec.
         Must be an integer between 1 and 4096, or "inf" for maximum.
         """
-        if v == "inf" or v == float("inf"):
+        # Handle infinity cases
+        if cls._is_infinity_value(v):
             return "inf"
 
-        # Handle integer cases
+        # Handle numeric values
         if isinstance(v, (int, float)):
-            # Convert float to int if it's a whole number
-            if isinstance(v, float):
-                if v.is_integer():
-                    v = int(v)
-                else:
-                    raise ValueError(
-                        f"max_response_output_tokens must be an integer between 1 and 4096, or 'inf'. Got: {v!r}"
-                    )
+            return cls._validate_numeric_value(v)
 
-            # Validate range
-            if not (1 <= v <= 4096):
-                raise ValueError(
-                    f"max_response_output_tokens must be between 1 and 4096 (inclusive). Got: {v}"
-                )
-            return v
-
-        # Handle string representations of numbers
+        # Handle string values
         if isinstance(v, str):
-            v_stripped = v.strip()
+            return cls._validate_string_value(v)
 
-            # Check for "inf" again (case-insensitive)
-            if v_stripped.lower() == "inf":
-                return "inf"
-
-            # Try to parse as integer
-            try:
-                parsed = int(v_stripped)
-                if not (1 <= parsed <= 4096):
-                    raise ValueError(
-                        f"max_response_output_tokens must be between 1 and 4096 (inclusive). Got: {parsed}"
-                    )
-                return parsed
-            except ValueError:
-                pass  # Fall through to error below
-
+        # Invalid type
         raise ValueError(
             f"max_response_output_tokens must be an integer between 1 and 4096, or 'inf'. Got: {v!r}"
         )
+
+    @classmethod
+    def _is_infinity_value(cls, v: Any) -> bool:
+        """Check if value represents infinity."""
+        return v == "inf" or v == float("inf") or (isinstance(v, str) and v.strip().lower() == "inf")
+
+    @classmethod
+    def _validate_numeric_value(cls, v: Any) -> int:
+        """Validate numeric values (int/float)."""
+        # Convert float to int if it's a whole number
+        if isinstance(v, float):
+            if not v.is_integer():
+                raise ValueError(
+                    f"max_response_output_tokens must be an integer between 1 and 4096, or 'inf'. Got: {v!r}"
+                )
+            v = int(v)
+
+        # Validate range
+        if not (1 <= v <= 4096):
+            raise ValueError(
+                f"max_response_output_tokens must be between 1 and 4096 (inclusive). Got: {v}"
+            )
+        return v
+
+    @classmethod
+    def _validate_string_value(cls, v: str) -> int | Literal["inf"]:
+        """Validate string values."""
+        v_stripped = v.strip()
+
+        # Check for infinity
+        if v_stripped.lower() == "inf":
+            return "inf"
+
+        # Try to parse as integer
+        try:
+            parsed = int(v_stripped)
+            return cls._validate_numeric_value(parsed)
+        except ValueError:
+            raise ValueError(
+                f"max_response_output_tokens must be an integer between 1 and 4096, or 'inf'. Got: {v!r}"
+            )
 
 
 class WakeWordConfig(BaseModel):

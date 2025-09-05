@@ -1,14 +1,15 @@
 from agent.config.views import AgentConfig
-from agent.realtime.tools.registry import ToolRegistry
-from agent.realtime.views import (
+from agent.realtime.events.client.session_update import (
     AudioFormat,
     AudioFormatConfig,
+    AudioInputConfig,
     AudioOutputConfig,
+    RealtimeSessionConfig,
     SessionUpdateEvent,
-    SessionConfig,
     AudioConfig,
+    TranscriptionConfig
 )
-from agent.realtime.event_types import RealtimeClientEvent
+from agent.realtime.tools.registry import ToolRegistry
 from agent.realtime.websocket.websocket_manager import WebSocketManager
 from shared.logging_mixin import LoggingMixin
 
@@ -53,11 +54,16 @@ class SessionManager(LoggingMixin):
             output=AudioOutputConfig(
                 format=AudioFormatConfig(type=AudioFormat.PCM16),
                 voice=self.agent_config.voice,
+            ),
+            input=AudioInputConfig(
+                transcription=TranscriptionConfig(
+                    language="de"
+                )
             )
         )
 
         return SessionUpdateEvent(
-            session=SessionConfig(
+            session=RealtimeSessionConfig(
                 type="realtime",
                 model=self.agent_config.model,
                 instructions=self.agent_config.instructions,

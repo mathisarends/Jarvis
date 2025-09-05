@@ -1,4 +1,6 @@
-from agent.realtime.events.client.conversation_item_create import ConversationItemCreateEvent
+from agent.realtime.events.client.conversation_item_create import (
+    ConversationItemCreateEvent,
+)
 from agent.realtime.events.client.conversation_response_create import (
     ConversationResponseCreateEvent,
 )

@@ -3,7 +3,7 @@ from __future__ import annotations
 import inspect
 from typing import Any, Callable, Optional, get_type_hints, get_origin, get_args
 
-from agent.realtime.views import FunctionTool
+from agent.realtime.events.client.session_update import FunctionTool
 from shared.logging_mixin import LoggingMixin
 
 

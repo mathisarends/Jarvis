@@ -1,6 +1,8 @@
 from agent.realtime.current_message_context import CurrentMessageContext
 from agent.realtime.event_types import RealtimeClientEvent
-from agent.realtime.events.client.conversation_item_truncate import ConversationItemTruncateEvent
+from agent.realtime.events.client.conversation_item_truncate import (
+    ConversationItemTruncateEvent,
+)
 from agent.realtime.websocket.websocket_manager import WebSocketManager
 from shared.logging_mixin import LoggingMixin
 

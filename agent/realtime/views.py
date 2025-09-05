@@ -1,14 +1,14 @@
 from enum import StrEnum
-from typing import Literal, Any, Optional
-from pydantic import BaseModel, Field, field_validator
+from typing import Literal
+from pydantic import BaseModel
 
-from agent.realtime.event_types import RealtimeClientEvent, RealtimeServerEvent
+from agent.realtime.event_types import RealtimeServerEvent
+from agent.realtime.events.client.session_update import RealtimeSessionConfig
 
 
-class RealtimeModel(StrEnum):
-    """Available OpenAI Realtime models."""
-
-    GPT_REALTIME = "gpt-realtime"
+# ============================================================================
+# UNIQUE ENUMS (not in the other file)
+# ============================================================================
 
 
 class AssistantVoice(StrEnum):
@@ -52,6 +52,11 @@ class AssistantVoice(StrEnum):
     MARIN = "marin"  # only available in gpt-realtime
 
 
+# ============================================================================
+# SERVER EVENTS (unique to this file)
+# ============================================================================
+
+
 class ResponseOutputAudioDelta(BaseModel):
     """Model for 'response.output_audio.delta' (base64-encoded audio chunk)."""
 
@@ -89,274 +94,16 @@ class ErrorEvent(BaseModel):
     error: ErrorDetails
 
 
-# Session Configuration Models
-
-
-class AudioFormat(StrEnum):
-    """Supported audio formats for input/output."""
-
-    PCM16 = "audio/pcm"
-    PCM16U = "audio/pcmu"
-
-
-class NoiseReductionConfig(BaseModel):
-    """Configuration for input audio noise reduction."""
-
-    type: Literal["near_field", "far_field"] = "near_field"
-
-
-class TranscriptionConfig(BaseModel):
-    """Configuration for input audio transcription."""
-
-    model: str = "whisper-1"
-    language: str | None = None
-    prompt: str | None = None
-
-
-class ServerVadConfig(BaseModel):
-    """Configuration for Server VAD turn detection."""
-
-    type: Literal["server_vad"]
-    threshold: float = Field(default=0.5, ge=0.0, le=1.0)
-    prefix_padding_ms: int = 300
-    silence_duration_ms: int = 500
-
-
-class SemanticVadConfig(BaseModel):
-    """Configuration for Semantic VAD turn detection."""
-
-    type: Literal["semantic_vad"]
-    eagerness: Literal["low", "medium", "high", "auto"] = "auto"
-    idle_timeout_ms: int | None = None
-
-
-class TurnDetectionConfig(BaseModel):
-    """Configuration for turn detection."""
-
-    create_response: bool = True
-    interrupt_response: bool = True
-    # Union of VAD configurations
-    server_vad: ServerVadConfig | None = None
-    semantic_vad: SemanticVadConfig | None = None
-
-
-class AudioFormatConfig(BaseModel):
-    """Audio format configuration object."""
-
-    type: AudioFormat = AudioFormat.PCM16
-    rate: int = 24000
-
-
-class AudioInputConfig(BaseModel):
-    """Configuration for input audio."""
-
-    format: AudioFormatConfig = Field(
-        default_factory=lambda: AudioFormatConfig(type=AudioFormat.PCM16)
-    )
-    noise_reduction: NoiseReductionConfig | None = None
-    transcription: TranscriptionConfig | None = None
-    turn_detection: TurnDetectionConfig | None = None
-
-
-class AudioOutputConfig(BaseModel):
-    """Configuration for output audio."""
-
-    voice: str = "alloy"
-    speed: float = Field(default=1.0, ge=0.25, le=1.5)
-
-
-class AudioConfig(BaseModel):
-    """Configuration for input and output audio."""
-
-    input: AudioInputConfig = Field(default_factory=AudioInputConfig)
-    output: AudioOutputConfig = Field(default_factory=AudioOutputConfig)
-
-
-class ClientSecretConfig(BaseModel):
-    """Configuration for ephemeral token expiration."""
-
-    expires_after: dict[str, Any] | None = None
-
-
-class ToolChoiceMode(StrEnum):
-    """Tool choice modes."""
-
-    NONE = "none"
-    AUTO = "auto"
-    REQUIRED = "required"
-
-
-class FunctionTool(BaseModel):
-    """Function tool configuration."""
-
-    type: Literal["function"]
-    name: str
-    description: str | None = None
-    parameters: dict[str, Any] | None = None
-
-
-class MCPTool(BaseModel):
-    """MCP tool configuration."""
-
-    type: Literal["mcp"]
-    # MCP specific fields would go here
-
-
-class ToolChoice(BaseModel):
-    """Tool choice configuration."""
-
-    mode: ToolChoiceMode = ToolChoiceMode.AUTO
-    function: FunctionTool | None = None
-    mcp: MCPTool | None = None
-
-
-class TracingConfig(BaseModel):
-    """Configuration for tracing."""
-
-    workflow_name: str | None = None
-    group_id: str | None = None
-    metadata: dict[str, Any] | None = None
-
-
-class RetentionRatioTruncation(BaseModel):
-    """Retention ratio truncation configuration."""
-
-    type: Literal["retention_ratio"]
-    retention_ratio: float = Field(ge=0.0, le=1.0)
-    post_instructions_token_limit: int | None = None
-
-
-class TruncationConfig(BaseModel):
-    """Configuration for conversation truncation."""
-
-    type: str = "auto"
-    retention_ratio: RetentionRatioTruncation | None = None
-
-
-class TranscriptionModel(StrEnum):
-    """Supported transcription models for input_audio_transcription."""
-
-    WHISPER_1 = "whisper-1"
-    GPT_4O_TRANSCRIBE = "gpt-4o-transcribe"
-    GPT_4O_MINI_TRANSCRIBE = "gpt-4o-mini-transcribe"
-
-    @field_validator("model", mode="before")
-    @classmethod
-    def _coerce_model(cls, v: Any) -> Any:
-        if v is None or isinstance(v, TranscriptionModel):
-            return v
-        if isinstance(v, str):
-            s = v.strip()
-            # Try by name
-            try:
-                return TranscriptionModel[s.upper().replace("-", "_")]
-            except Exception:
-                # Fallback by value
-                for m in TranscriptionModel:
-                    if m.value.lower() == s.lower():
-                        return m
-        raise ValueError(f"Invalid transcription model: {v!r}")
-
-
-class InputAudioTranscriptionConfig(BaseModel):
-    """Configuration for input audio transcription."""
-
-    model: TranscriptionModel = TranscriptionModel.WHISPER_1
-    language: str | None = None  # ISO-639-1 code, e.g. "en" for English
-    prompt: str | None = None  # Keywords for whisper, free text for gpt-4o models
-
-    @field_validator("model", mode="before")
-    @classmethod
-    def validate_model(cls, v: Any) -> TranscriptionModel:
-        """Validate and coerce transcription model."""
-        if v is None:
-            return TranscriptionModel.WHISPER_1
-        if isinstance(v, TranscriptionModel):
-            return v
-        if isinstance(v, str):
-            s = v.strip()
-            # Try by enum name first
-            try:
-                return TranscriptionModel[s.upper().replace("-", "_")]
-            except KeyError:
-                # Try by value
-                for model in TranscriptionModel:
-                    if model.value.lower() == s.lower():
-                        return model
-        raise ValueError(f"Invalid transcription model: {v!r}")
-
-    @field_validator("language", mode="before")
-    @classmethod
-    def validate_language(cls, v: Any) -> str | None:
-        """Validate language code format."""
-        if v is None or v == "":
-            return None
-        if isinstance(v, str):
-            lang = v.strip().lower()
-            # Basic validation for ISO-639-1 format (2-letter codes)
-            if len(lang) == 2 and lang.isalpha():
-                return lang
-            # Allow some common 3-letter codes too
-            if len(lang) == 3 and lang.isalpha():
-                return lang
-        raise ValueError(
-            f"Invalid language code: {v!r}. Expected ISO-639-1 format (e.g., 'en', 'de')"
-        )
-
-
-class InputAudioNoiseReductionConfig(BaseModel):
-    """Configuration for input audio noise reduction."""
-
-    type: Literal["near_field", "far_field"] = "near_field"
-
-
-class SessionConfig(BaseModel):
-    """
-    Complete OpenAI Realtime API session configuration.
-    Based on the official API documentation.
-    """
-
-    type: Literal["realtime"] = "realtime"
-    model: RealtimeModel = RealtimeModel.GPT_REALTIME
-    instructions: str | None = None
-    voice: str | None = None
-    audio: AudioConfig = Field(default_factory=AudioConfig)
-    client_secret: ClientSecretConfig | None = None
-    include: list[str] | None = None
-    max_output_tokens: int | Literal["inf"] = "inf"
-    input_audio_transcription: Optional[InputAudioTranscriptionConfig] = (
-        None  # field not workign
-    )
-    input_audio_noise_reduction: Optional[InputAudioNoiseReductionConfig] = None
-    output_modalities: list[str] = ["text", "audio"]
-    prompt: dict[str, Any] | None = None
-    tool_choice: ToolChoice | ToolChoiceMode = ToolChoiceMode.AUTO
-    tools: list[FunctionTool | MCPTool] | None = None
-    tracing: TracingConfig | str | None = None  # Can be "auto" or TracingConfig
-    truncation: TruncationConfig | str = "auto"  # Can be "auto" or TruncationConfig
-
-
-class SessionUpdateEvent(BaseModel):
-    """
-    Event to update the session's default configuration.
-    The client may send this at any time to update any field, except for voice.
-    """
-
-    type: Literal[RealtimeClientEvent.SESSION_UPDATE] = (
-        RealtimeClientEvent.SESSION_UPDATE
-    )
-    event_id: str | None = None
-    session: SessionConfig
-
-
 class SessionCreatedEvent(BaseModel):
+    """Server event when session is created."""
+
     type: Literal[RealtimeServerEvent.SESSION_CREATED]
     event_id: str | None = None
-    session: SessionConfig
+    session: RealtimeSessionConfig
 
-# Server-side event for truncated conversation item (for acknowledgment)
+
 class ConversationItemTruncatedEvent(BaseModel):
-    "see https://platform.openai.com/docs/api-reference/realtime_server_events/conversation/item/truncated"
+    """Server-side event for truncated conversation item (for acknowledgment)."""
 
     event_id: str
     type: Literal[RealtimeServerEvent.CONVERSATION_ITEM_TRUNCATED] = (

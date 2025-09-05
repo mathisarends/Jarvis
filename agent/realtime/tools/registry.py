@@ -1,9 +1,8 @@
-from __future__ import annotations
 from typing import Optional
 
+from agent.realtime.events.client.session_update import FunctionTool
 from agent.realtime.tools.tool import Tool
 
-from agent.realtime.views import FunctionTool
 from shared.logging_mixin import LoggingMixin
 from shared.singleton_decorator import singleton
 
