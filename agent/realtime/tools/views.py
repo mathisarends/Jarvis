@@ -45,6 +45,7 @@ class FunctionCallResult(BaseModel):
     tool_name: str
     call_id: str
     output: Any
+    result_context: Optional[str] = None
 
     def to_conversation_item(self) -> dict:
         return {

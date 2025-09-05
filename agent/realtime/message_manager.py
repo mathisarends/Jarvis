@@ -2,6 +2,7 @@ from agent.config.views import VoiceAssistantConfig
 from agent.realtime.current_message_context import CurrentMessageContext
 from agent.realtime.event_bus import EventBus
 from agent.realtime.event_types import RealtimeClientEvent
+from agent.realtime.events.conversation_response_create import ConversationResponseCreateEvent, ResponseInstructions
 from agent.realtime.tools.views import FunctionCallResult
 from agent.realtime.tools.registry import ToolRegistry
 from agent.realtime.views import (
@@ -46,19 +47,18 @@ class RealtimeMessageManager(LoggingMixin):
 
         self.event_bus = EventBus()
         self.current_message_timer = CurrentMessageContext()
-        
+
         self.event_bus.subscribe(
             VoiceAssistantEvent.ASSISTANT_SPEECH_INTERRUPTED,
             self._handle_speech_interruption,
         )
 
-    async def send_tool_result(
-        self, function_call_result: FunctionCallResult
-    ) -> None:
+    async def send_tool_result(self, function_call_result: FunctionCallResult) -> None:
         """Handle tool execution results and send them back to OpenAI Realtime API"""
         try:
             self.logger.info(
-                "Received tool result for '%s', sending to Realtime API", function_call_result.tool_name
+                "Received tool result for '%s', sending to Realtime API",
+                function_call_result.tool_name,
             )
 
             # 1) Tool-Output als conversation item posten
@@ -66,7 +66,8 @@ class RealtimeMessageManager(LoggingMixin):
             ok_item = await self.ws_manager.send_message(conversation_item)
             if not ok_item:
                 self.logger.error(
-                    "Failed to send function_call_output for '%s'", function_call_result.tool_name
+                    "Failed to send function_call_output for '%s'",
+                    function_call_result.tool_name,
                 )
                 return
 
@@ -75,11 +76,17 @@ class RealtimeMessageManager(LoggingMixin):
                 function_call_result.tool_name,
             )
 
-            response_create = {
-                "type": RealtimeClientEvent.RESPONSE_CREATE,
-            }
+            conversation_response_create_event = ConversationResponseCreateEvent(
+                type=RealtimeClientEvent.RESPONSE_CREATE,
+                response=ResponseInstructions(
+                    instructions=function_call_result.result_context
+                )
+            )
+            
+            response_dict = conversation_response_create_event.model_dump(exclude_unset=True)
+            print("response_dict", response_dict)
 
-            ok_resp = await self.ws_manager.send_message(response_create)
+            ok_resp = await self.ws_manager.send_message(response_dict)
             if not ok_resp:
                 self.logger.error("Failed to send response.create")
                 return
@@ -93,7 +100,6 @@ class RealtimeMessageManager(LoggingMixin):
                 e,
                 exc_info=True,
             )
-
 
     async def _handle_speech_interruption(
         self, event: VoiceAssistantEvent, data=None

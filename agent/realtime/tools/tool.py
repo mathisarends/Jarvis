@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 import inspect
@@ -45,18 +44,10 @@ class Tool(LoggingMixin):
             parameters=self.schema,
         )
 
-    def get_loading_message(self) -> Optional[str]:
-        """Get the loading message for this tool."""
-        return self.loading_message
-
-    def get_result_context(self) -> Optional[str]:
-        """Get the result context for this tool."""
-        return self.result_context
-
 
 def tool(
-    description: str, 
-    name: Optional[str] = None, 
+    description: str,
+    name: Optional[str] = None,
     long_running: bool = False,
     loading_message: Optional[str] = None,
     result_context: Optional[str] = None,
@@ -77,7 +68,7 @@ def tool(
         return datetime.now().strftime("%H:%M:%S")
 
     @tool(
-        "Search for information online", 
+        "Search for information online",
         long_running=True,
         loading_message="Ich durchsuche gerade das Internet nach Informationen...",
         result_context="Die gefundenen Informationen sollten kritisch bewertet und zusammengefasst werden."

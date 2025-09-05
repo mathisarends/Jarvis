@@ -27,8 +27,6 @@ class RespondingState(AssistantState):
         self, event: VoiceAssistantEvent, context: VoiceAssistantContext
     ) -> None:
         match event:
-            case VoiceAssistantEvent.ASSISTANT_STARTED_TOOL_CALL:
-                await self._transition_to_tool_calling(context)                
             case VoiceAssistantEvent.ASSISTANT_RESPONSE_COMPLETED:
                 self.logger.info(
                     "Assistant response completed - returning to waiting for user input"

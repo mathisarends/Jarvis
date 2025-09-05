@@ -4,6 +4,7 @@ from typing import Any
 
 from agent.realtime.event_bus import EventBus
 from agent.realtime.tools.registry import ToolRegistry
+from agent.realtime.tools.tool import Tool
 from agent.realtime.tools.views import FunctionCallItem, FunctionCallResult
 from agent.state.base import VoiceAssistantEvent
 from shared.logging_mixin import LoggingMixin
@@ -18,7 +19,9 @@ class ToolExecutor(LoggingMixin):
     Subscribes to ASSISTANT_STARTED_TOOL_CALL events and executes the requested tools.
     """
 
-    def __init__(self, tool_registry: ToolRegistry, message_manager: RealtimeMessageManager):
+    def __init__(
+        self, tool_registry: ToolRegistry, message_manager: RealtimeMessageManager
+    ):
         super().__init__()
         self.tool_registry = tool_registry
         self.message_manager = message_manager
@@ -42,7 +45,8 @@ class ToolExecutor(LoggingMixin):
             )
 
             # Execute tool and get result
-            result = await self._execute_tool(function_name, arguments)
+            tool = self._retrieve_tool_from_registry(function_name)
+            result = await tool.execute(arguments)
 
             self.logger.info(
                 "Tool '%s' executed successfully with result: %s", function_name, result
@@ -50,7 +54,10 @@ class ToolExecutor(LoggingMixin):
             self.logger.info(f"Tool Result ({function_name}): {result}")
 
             function_call_result = FunctionCallResult(
-                tool_name=data.name, call_id=data.call_id, output=result
+                tool_name=data.name,
+                call_id=data.call_id,
+                output=result,
+                result_context=tool.result_context,
             )
             await self.message_manager.send_tool_result(function_call_result)
 
@@ -63,10 +70,10 @@ class ToolExecutor(LoggingMixin):
             )
             print(f"Tool Execution Error: {e}")
 
-    async def _execute_tool(self, name: str, arguments: dict[str, Any]) -> Any:
+    def _retrieve_tool_from_registry(self, name: str) -> Tool:
         """Execute a tool by name."""
         tool = self.tool_registry.get(name)
         if not tool:
             raise ValueError(f"Tool '{name}' not found")
 
-        return await tool.execute(arguments)
+        return tool
