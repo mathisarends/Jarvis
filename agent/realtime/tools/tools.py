@@ -1,9 +1,9 @@
-import asyncio
 from datetime import datetime
 from typing import AsyncGenerator
 from agent.realtime.tools.tool import tool
 
 from agent.realtime.tools.weather import get_weather_for_current_location
+from agent.realtime.tools.browser_search import perform_browser_search
 
 
 @tool(description="Get the current local time")
@@ -21,26 +21,9 @@ async def get_weather() -> str:
 
 
 @tool(
-    description="Simuliert eine Browser-Automation und streamt Statusupdates einer Recherche.",
-    result_context="Stellt die einzelnen Schritte einer Online-Recherche dar.",
+    description="Performs web search using an automated browser"
 )
-async def stream_browser_search(topic: str) -> AsyncGenerator[str, None]:
-    """Führt eine simulierte Browser-Recherche zu einem Thema durch und streamt den Fortschritt."""
-
-    # Natürlicher, menschlicher formuliert
-    yield "Okay, ich öffne jetzt den Browser"
-    await asyncio.sleep(8)
-
-    yield f"Ich suche gerade nach aktuellen Informationen zu {topic}"
-    await asyncio.sleep(8)
-
-    yield f"Super, ich finde schon erste interessante Artikel zu {topic}"
-    await asyncio.sleep(8)
-
-    yield f"Ich schaue mir gerade die neuesten Nachrichten zu {topic} an"
-    await asyncio.sleep(8)
-
-    yield "Ich erweitere die Suche um verwandte Themen"
-    await asyncio.sleep(8)
-
-    yield "Perfekt, die Recherche ist abgeschlossen!"
+async def perform_browser_search_tool(query: str) -> AsyncGenerator[str, None]:
+    """Perform a browser search and yield results in real-time."""
+    async for message in perform_browser_search(query):
+        yield message

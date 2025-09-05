@@ -111,7 +111,7 @@ class ToolExecutor(LoggingMixin):
                 await self._send_async_generator_updates(result)
             else:
                 await self._send_sync_generator_updates(result)
-        
+
             self.logger.info("Generator tool '%s' completed successfully", tool.name)
 
         except Exception as e:
@@ -122,17 +122,13 @@ class ToolExecutor(LoggingMixin):
     async def _send_async_generator_updates(self, generator) -> None:
         """Send updates for an async generator."""
         async for chunk in generator:
-            await self.message_manager.send_update_for_generator_tool(
-                chunk
-            )
+            await self.message_manager.send_update_for_generator_tool(chunk)
             self.logger.debug("Generator yielded: %s", chunk)
 
     async def _send_sync_generator_updates(self, generator) -> None:
         """Send updates for a sync generator."""
         for chunk in generator:
-            await self.message_manager.send_update_for_generator_tool(
-                chunk
-            )
+            await self.message_manager.send_update_for_generator_tool(chunk)
             self.logger.debug("Generator yielded: %s", chunk)
 
     async def _handle_tool_error(
