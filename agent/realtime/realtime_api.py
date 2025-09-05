@@ -6,7 +6,7 @@ from typing import Any
 
 from agent.config.views import VoiceAssistantConfig
 from agent.realtime.events.input_audio_buffer_append import InputAudioBufferAppendEvent
-from agent.realtime.message_manager import RealtimeMessageManager
+from agent.realtime.messaging.message_manager import RealtimeMessageManager
 from agent.realtime.tools.registry import ToolRegistry
 from agent.realtime.tools.tool_executor import ToolExecutor
 from agent.realtime.tools.tools import get_current_time, get_weather

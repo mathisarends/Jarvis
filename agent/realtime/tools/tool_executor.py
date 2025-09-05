@@ -9,7 +9,7 @@ from agent.realtime.tools.tool import Tool
 from agent.realtime.tools.views import FunctionCallItem, FunctionCallResult
 from agent.state.base import VoiceAssistantEvent
 from shared.logging_mixin import LoggingMixin
-from agent.realtime.message_manager import RealtimeMessageManager
+from agent.realtime.messaging.message_manager import RealtimeMessageManager
 
 
 class ToolExecutor(LoggingMixin):
