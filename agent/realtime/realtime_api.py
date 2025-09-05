@@ -11,7 +11,11 @@ from agent.realtime.events.client.input_audio_buffer_append import (
 from agent.realtime.messaging.message_manager import RealtimeMessageManager
 from agent.realtime.tools.registry import ToolRegistry
 from agent.realtime.tools.tool_executor import ToolExecutor
-from agent.realtime.tools.tools import get_current_time, get_weather
+from agent.realtime.tools.tools import (
+    get_current_time,
+    get_weather,
+    stream_browser_search,
+)
 from agent.realtime.transcription.service import TranscriptionService
 from agent.realtime.websocket.websocket_manager import WebSocketManager
 
@@ -184,3 +188,4 @@ class OpenAIRealtimeAPI(LoggingMixin):
         """Register available tools with the tool registry"""
         self.tool_registry.register(get_current_time)
         self.tool_registry.register(get_weather)
+        self.tool_registry.register(stream_browser_search)

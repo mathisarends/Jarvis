@@ -6,8 +6,8 @@ from agent.realtime.websocket.websocket_manager import WebSocketManager
 from shared.logging_mixin import LoggingMixin
 
 
-class ToolResultHandler(LoggingMixin):
-    """Handles tool execution results."""
+class ToolMessageHandler(LoggingMixin):
+    """Handles tool execution results and generator updates."""
 
     def __init__(self, ws_manager: WebSocketManager):
         self.ws_manager = ws_manager
@@ -34,6 +34,23 @@ class ToolResultHandler(LoggingMixin):
                 exc_info=True,
             )
 
+    async def send_update_for_generator_tool(self, message: str) -> None:
+        """Send update message for generator tool progress."""
+        try:
+            self.logger.info("Sending generator tool update")
+
+            response_event = ConversationResponseCreateEvent.with_instructions(
+                f"Say exactly: '{message}'. Do not add any information not in this message."
+            )
+
+            if await self.ws_manager.send_message(response_event):
+                self.logger.info("Generator tool update sent successfully")
+            else:
+                self.logger.error("Failed to send response.create for generator update")
+
+        except Exception as e:
+            self.logger.error("Error sending generator update: %s", e, exc_info=True)
+
     async def _send_conversation_item(self, result: FunctionCallResult) -> bool:
         """Send function call output as conversation item."""
         conversation_item = result.to_conversation_item()
@@ -50,10 +67,6 @@ class ToolResultHandler(LoggingMixin):
         """Trigger response creation."""
         response_event = ConversationResponseCreateEvent.with_instructions(
             result.result_context
+            or "Process the tool result and provide a helpful response."
         )
-
-        success = await self.ws_manager.send_message(response_event)
-        if success:
-            self.logger.info("Response.create sent successfully")
-        else:
-            self.logger.error("Failed to send response.create")
+        await self.ws_manager.send_message(response_event)

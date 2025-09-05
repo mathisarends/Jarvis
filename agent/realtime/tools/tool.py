@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import inspect
 from typing import Any, Callable, Optional, get_type_hints, get_origin, get_args
+import collections.abc
 
 from agent.realtime.events.client.session_update import FunctionTool
 from shared.logging_mixin import LoggingMixin
@@ -16,17 +17,15 @@ class Tool(LoggingMixin):
         description: str,
         function: Callable,
         schema: dict[str, Any],
-        long_running: bool = False,
-        loading_message: Optional[str] = None,
         result_context: Optional[str] = None,
+        is_generator: bool = False,
     ):
         self.name = name
         self.description = description
         self.function = function
         self.schema = schema
-        self.long_running = long_running
-        self.loading_message = loading_message
         self.result_context = result_context
+        self.is_generator = is_generator
 
     async def execute(self, arguments: dict[str, Any]) -> Any:
         """Execute the tool function."""
@@ -48,8 +47,6 @@ class Tool(LoggingMixin):
 def tool(
     description: str,
     name: Optional[str] = None,
-    long_running: bool = False,
-    loading_message: Optional[str] = None,
     result_context: Optional[str] = None,
 ):
     """
@@ -58,8 +55,6 @@ def tool(
     Args:
         description: Required description of the tool's functionality
         name: Optional custom name for the tool (defaults to function name)
-        long_running: Flag indicating if this is a long-running operation
-        loading_message: Message to show while the tool is running (e.g. "Ich schaue das eben im Browser nach...")
         result_context: Context information for handling the tool result (e.g. "Das Ergebnis sollte als Markdown formatiert werden")
 
     Usage:
@@ -69,8 +64,6 @@ def tool(
 
     @tool(
         "Search for information online",
-        long_running=True,
-        loading_message="Ich durchsuche gerade das Internet nach Informationen...",
         result_context="Die gefundenen Informationen sollten kritisch bewertet und zusammengefasst werden."
     )
     def web_search(query: str) -> str:
@@ -79,8 +72,7 @@ def tool(
 
     @tool(
         "Analyze data from uploaded file",
-        loading_message="Ich analysiere die hochgeladene Datei...",
-        result_context="Die Analyse sollte in strukturierter Form mit Diagrammen präsentiert werden."
+        e ="Die Analyse sollte in strukturierter Form mit Diagrammen präsentiert werden."
     )
     def analyze_file(file_path: str) -> dict:
         # Analysis implementation
@@ -90,22 +82,62 @@ def tool(
     def decorator(func: Callable) -> Tool:
         tool_name = name or func.__name__
         schema = _generate_schema_from_function(func)
-
-        default_loading_message = None
-        if long_running and loading_message is None:
-            default_loading_message = f"Executing {tool_name} ..."
+        is_generator = _is_generator_function(func)
 
         return Tool(
             name=tool_name,
             description=description,
             function=func,
             schema=schema,
-            long_running=long_running,
-            loading_message=loading_message or default_loading_message,
             result_context=result_context,
+            is_generator=is_generator,
         )
 
     return decorator
+
+
+def _is_generator_function(func: Callable) -> bool:
+    """Check if a function is a generator based on its return type hints."""
+    type_hints = get_type_hints(func)
+    return_type = type_hints.get("return")
+    return _is_generator_type(return_type)
+
+
+def _is_generator_type(return_type: Any) -> bool:
+    """Check if the return type indicates a generator function."""
+    if return_type is None:
+        return False
+
+    # Handle typing module types
+    origin = get_origin(return_type)
+    if origin is not None:
+        # Check for Generator or AsyncGenerator
+        if origin in (collections.abc.Generator, collections.abc.AsyncGenerator):
+            return True
+        # Check for typing.Generator or typing.AsyncGenerator
+        try:
+            import typing
+
+            if origin in (typing.Generator, typing.AsyncGenerator):
+                return True
+        except ImportError:
+            pass
+
+    # Check for direct Generator/AsyncGenerator types
+    try:
+        import types
+
+        if hasattr(types, "GeneratorType") and return_type == types.GeneratorType:
+            return True
+        if (
+            hasattr(types, "AsyncGeneratorType")
+            and return_type == types.AsyncGeneratorType
+        ):
+            return True
+    except ImportError:
+        pass
+
+    return False
 
 
 def _generate_schema_from_function(func: Callable) -> dict[str, Any]:

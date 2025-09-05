@@ -7,7 +7,6 @@ from agent.realtime.events.client.session_update import (
     RealtimeSessionConfig,
     SessionUpdateEvent,
     AudioConfig,
-    TranscriptionConfig
 )
 from agent.realtime.tools.registry import ToolRegistry
 from agent.realtime.websocket.websocket_manager import WebSocketManager
@@ -53,13 +52,13 @@ class SessionManager(LoggingMixin):
         audio_config = AudioConfig(
             output=AudioOutputConfig(
                 format=AudioFormatConfig(type=AudioFormat.PCM16),
+                speed=self.agent_config.speed,
                 voice=self.agent_config.voice,
             ),
             input=AudioInputConfig(
-                transcription=TranscriptionConfig(
-                    language="de"
-                )
-            )
+                transcription=self.agent_config.transcription,
+                noise_reduction=self.agent_config.input_audio_noise_reduction,
+            ),
         )
 
         return SessionUpdateEvent(

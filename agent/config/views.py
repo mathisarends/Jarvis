@@ -4,20 +4,15 @@ from typing import Literal, Optional, Any
 
 from pydantic import BaseModel, Field, field_validator
 
-from agent.realtime.events.client.session_update import InputAudioNoiseReductionConfig, RealtimeModel
+from agent.realtime.events.client.session_update import (
+    InputAudioNoiseReductionConfig,
+    InputAudioTranscriptionConfig,
+    RealtimeModel,
+)
 from agent.realtime.views import (
     AssistantVoice,
 )
 from audio.wake_word_listener import PorcupineBuiltinKeyword
-
-
-class TurnDetectionConfig(BaseModel):
-    """Configuration for turn detection"""
-
-    prefix_padding_ms: int = 300
-    silence_duration_ms: int = 500
-    threshold: float = Field(0.5, ge=0.0, le=1.0)
-    type: str = "server_vad"
 
 
 class AgentConfig(BaseModel):
@@ -25,27 +20,12 @@ class AgentConfig(BaseModel):
 
     model: Optional[RealtimeModel] = RealtimeModel.GPT_REALTIME
     voice: AssistantVoice = AssistantVoice.MARIN
+    speed: float = 1.0
     instructions: Optional[str] = None
     max_response_output_tokens: int | Literal["inf"] = "inf"
     temperature: float = 0.8
-    speed: float = 1.0
-    turn_detection: Optional[TurnDetectionConfig] = None
     input_audio_noise_reduction: Optional[InputAudioNoiseReductionConfig] = None
-
-    @field_validator("voice", mode="before")
-    @classmethod
-    def _coerce_voice(cls, v: Any) -> Any:
-        if isinstance(v, AssistantVoice) or v is None:
-            return v
-        if isinstance(v, str):
-            name = v.strip().upper()
-            try:
-                return AssistantVoice[name]
-            except Exception:
-                for member in AssistantVoice:
-                    if member.value.lower() == v.strip().lower():
-                        return member
-        raise ValueError(f"Invalid voice: {v!r}")
+    transcription: Optional[InputAudioTranscriptionConfig] = None
 
     @field_validator("max_response_output_tokens", mode="before")
     @classmethod
@@ -74,7 +54,11 @@ class AgentConfig(BaseModel):
     @classmethod
     def _is_infinity_value(cls, v: Any) -> bool:
         """Check if value represents infinity."""
-        return v == "inf" or v == float("inf") or (isinstance(v, str) and v.strip().lower() == "inf")
+        return (
+            v == "inf"
+            or v == float("inf")
+            or (isinstance(v, str) and v.strip().lower() == "inf")
+        )
 
     @classmethod
     def _validate_numeric_value(cls, v: Any) -> int:

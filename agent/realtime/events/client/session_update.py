@@ -75,19 +75,13 @@ class AudioOutputConfig(BaseModel):
     speed: float = Field(default=1.0, ge=0.25, le=1.5)
 
 
-class NoiseReductionConfig(BaseModel):
-    """Configuration for input audio noise reduction."""
-
-    type: NoiseReductionType = NoiseReductionType.NEAR_FIELD
-
-
-class TranscriptionConfig(BaseModel):
+class InputAudioTranscriptionConfig(BaseModel):
     """Configuration for input audio transcription."""
 
     model: TranscriptionModel = TranscriptionModel.WHISPER_1
     language: str | None = None
     prompt: str | None = None
-    
+
     @field_validator("language", mode="before")
     @classmethod
     def validate_language(cls, v: Any) -> str | None:
@@ -111,6 +105,7 @@ class InputAudioNoiseReductionConfig(BaseModel):
     """Configuration for input audio noise reduction."""
 
     type: NoiseReductionType = NoiseReductionType.NEAR_FIELD
+
 
 # ============================================================================
 # VAD (Voice Activity Detection) CONFIGURATIONS
@@ -155,8 +150,8 @@ class AudioInputConfig(BaseModel):
     format: AudioFormatConfig = Field(
         default_factory=lambda: AudioFormatConfig(type=AudioFormat.PCM16)
     )
-    noise_reduction: NoiseReductionConfig | None = None
-    transcription: TranscriptionConfig | None = None
+    noise_reduction: InputAudioNoiseReductionConfig | None = None
+    transcription: InputAudioTranscriptionConfig | None = None
     turn_detection: TurnDetectionConfig | None = None
 
 
@@ -218,9 +213,6 @@ class RealtimeSessionConfig(BaseModel):
     output_modalities: list[str] = ["text", "audio"]
     tool_choice: ToolChoice | ToolChoiceMode = ToolChoiceMode.AUTO
     tools: list[FunctionTool | MCPTool] | None = None
-
-
-
 
 
 # ============================================================================

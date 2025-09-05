@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any
+from typing import Any, AsyncGenerator, Generator
+import inspect
 
 from agent.realtime.event_bus import EventBus
 from agent.realtime.tools.registry import ToolRegistry
@@ -15,11 +16,7 @@ from agent.realtime.messaging.message_manager import RealtimeMessageManager
 class ToolExecutor(LoggingMixin):
     """
     Executes tools based on function call events from the Realtime API.
-    Supports both synchronous and long-running background tools.
     """
-
-    # Constants for log messages
-    LOADING_MESSAGE_SENT = "Loading message sent for tool: %s"
 
     def __init__(
         self, tool_registry: ToolRegistry, message_manager: RealtimeMessageManager
@@ -27,9 +24,7 @@ class ToolExecutor(LoggingMixin):
         self.tool_registry = tool_registry
         self.message_manager = message_manager
         self.event_bus = EventBus()
-
-        # Track running background tasks
-        self.background_tasks: dict[str, asyncio.Task] = {}
+        self._background_tasks = set()  # Keep track of background tasks
 
         self.event_bus.subscribe(
             VoiceAssistantEvent.ASSISTANT_STARTED_TOOL_CALL, self._handle_tool_call
@@ -50,144 +45,39 @@ class ToolExecutor(LoggingMixin):
 
             tool = self._retrieve_tool_from_registry(function_name)
 
-            # Send loading message if available
-            if tool.loading_message:
-                await self.message_manager.send_loading_message_for_long_running_tool_call(
-                    tool.loading_message
-                )
-                self.logger.info(self.LOADING_MESSAGE_SENT, tool.name)
-
-            if tool.long_running:
-                await self._handle_long_running_tool(tool, data)
-            else:
-                await self._handle_default_tool(tool, data)
+            await self._execute_tool(tool, data)
 
         except Exception as e:
-            self.logger.error(
-                "Error handling tool call '%s': %s",
-                data.name if data else "unknown",
-                e,
-                exc_info=True,
-            )
-            await self._send_error_result(data, str(e))
+            await self._handle_tool_error(data, e, "handling tool call")
 
-    async def _handle_default_tool(self, tool: Tool, data: FunctionCallItem) -> None:
-        """Handle synchronous tool execution."""
-        try:
-            self.logger.info("Executing tool: %s", tool.name)
+    async def _execute_tool(self, tool: Tool, data: FunctionCallItem) -> None:
+        """Execute a tool synchronously or as background task for generators."""
+        self.logger.info("Executing tool: %s", tool.name)
 
-            # Execute tool synchronously
+        if tool.is_generator:
+            task = asyncio.create_task(self._execute_generator_tool(tool, data))
+            self._background_tasks.add(task)
+            task.add_done_callback(self._background_tasks.discard)
+        else:
+            # Execute regular tools synchronously
             result = await tool.execute(data.arguments or {})
-
-            self.logger.info(
-                "Tool '%s' executed successfully with result: %s", tool.name, result
-            )
-
-            # Send result immediately
+            self.logger.info("Tool '%s' executed successfully", tool.name)
             await self._send_tool_result(data, result, tool.result_context)
-
-        except Exception as e:
-            self.logger.error(
-                "Error executing tool '%s': %s", tool.name, e, exc_info=True
-            )
-            await self._send_error_result(data, str(e))
-
-    async def _handle_long_running_tool(
-        self, tool: Tool, data: FunctionCallItem
-    ) -> None:
-        """Handle long-running tool execution in background."""
-        try:
-            self.logger.info("Starting long-running tool: %s", tool.name)
-
-            # Start background execution
-            task = asyncio.create_task(
-                self._execute_long_running_tool_in_background(tool, data)
-            )
-
-            # Track the task
-            task_id = f"{tool.name}_{data.call_id}"
-            self.background_tasks[task_id] = task
-
-            # Clean up task when done (don't await here!)
-            task.add_done_callback(lambda t: self._cleanup_background_task(task_id))
-
-            self.logger.info("Long-running tool '%s' started in background", tool.name)
-
-        except Exception as e:
-            self.logger.error(
-                "Error starting long-running tool '%s': %s", tool.name, e, exc_info=True
-            )
-            await self._send_error_result(data, str(e))
-
-    async def _execute_long_running_tool_in_background(
-        self, tool: Tool, data: FunctionCallItem
-    ) -> None:
-        """Execute a long-running tool in the background and send result when done."""
-        try:
-            self.logger.info("Background execution started for tool: %s", tool.name)
-
-            # Execute the tool
-            result = await tool.execute(data.arguments or {})
-
-            self.logger.info(
-                "Long-running tool '%s' completed with result: %s", tool.name, result
-            )
-
-            # Send the result
-            await self._send_tool_result(data, result, tool.result_context)
-
-        except Exception as e:
-            self.logger.error(
-                "Error in background execution of tool '%s': %s",
-                tool.name,
-                e,
-                exc_info=True,
-            )
-            await self._send_error_result(data, str(e))
 
     async def _send_tool_result(
         self, data: FunctionCallItem, result: Any, result_context: str = None
     ) -> None:
         """Send tool execution result."""
-        try:
-            function_call_result = FunctionCallResult(
-                tool_name=data.name,
-                call_id=data.call_id,
-                output=result,
-                result_context=result_context,
-            )
-            await self.message_manager.send_tool_result(function_call_result)
-            self.logger.info("Tool result sent successfully for: %s", data.name)
+        function_call_result = FunctionCallResult(
+            tool_name=data.name,
+            call_id=data.call_id,
+            output=result,
+            result_context=result_context,
+        )
+        await self.message_manager.send_tool_result(function_call_result)
+        self.logger.info("Tool result sent for: %s", data.name)
 
-            # Check if all tools are finished and publish event
-            await self._check_and_publish_all_tools_finished()
-
-        except Exception as e:
-            self.logger.error(
-                "Error sending tool result for '%s': %s", data.name, e, exc_info=True
-            )
-
-    async def _send_error_result(
-        self, data: FunctionCallItem, error_message: str
-    ) -> None:
-        """Send error result for failed tool execution."""
-        try:
-            function_call_result = FunctionCallResult(
-                tool_name=data.name,
-                call_id=data.call_id,
-                output=f"Error: {error_message}",
-                result_context="Tool execution failed",
-            )
-            await self.message_manager.send_tool_result(function_call_result)
-            self.logger.info("Error result sent for tool: %s", data.name)
-
-            # Check if all tools are finished and publish event
-            await self._check_and_publish_all_tools_finished()
-
-        except Exception as e:
-            self.logger.error(
-                "Error sending error result for '%s': %s", data.name, e, exc_info=True
-            )
+        await self._check_and_publish_all_tools_finished()
 
     def _retrieve_tool_from_registry(self, name: str) -> Tool:
         """Retrieve a tool from the registry."""
@@ -196,58 +86,70 @@ class ToolExecutor(LoggingMixin):
             raise ValueError(f"Tool '{name}' not found in registry")
         return tool
 
-    def _cleanup_background_task(self, task_id: str) -> None:
-        """Clean up completed background task."""
-        if task_id in self.background_tasks:
-            task = self.background_tasks.pop(task_id)
-            if task.exception():
-                self.logger.error(
-                    "Background task '%s' completed with exception: %s",
-                    task_id,
-                    task.exception(),
-                )
-            else:
-                self.logger.info("Background task '%s' completed successfully", task_id)
-
-            # Check if all tools are finished after cleanup (fire and forget)
-            _ = asyncio.create_task(self._check_and_publish_all_tools_finished())
-
     async def _check_and_publish_all_tools_finished(self) -> None:
         """Check if all tools are finished and publish event if so."""
-        if self.background_tasks:
-            self.logger.debug(
-                "Still %d background tools running", len(self.background_tasks)
-            )
-            return
-
         self.logger.info(
-            "All tools finished - publishing ASSISTANT_RECEIVED_TOOL_CALL_RESULT event"
+            "Tool finished - publishing ASSISTANT_RECEIVED_TOOL_CALL_RESULT event"
         )
         await self.event_bus.publish_async(
             VoiceAssistantEvent.ASSISTANT_RECEIVED_TOOL_CALL_RESULT
         )
 
-    async def shutdown(self) -> None:
-        """Gracefully shutdown the tool executor."""
-        self.logger.info("Shutting down ToolExecutor...")
+    async def _execute_generator_tool(self, tool: Tool, data: FunctionCallItem) -> None:
+        """Execute a generator tool in the background with status updates."""
+        try:
+            self.logger.info("Starting generator tool execution: %s", tool.name)
 
-        # Cancel all running background tasks
-        if self.background_tasks:
-            self.logger.info(
-                "Cancelling %d background tasks", len(self.background_tasks)
+            result = await tool.execute(data.arguments or {})
+
+            # Early return if not a generator
+            if not (inspect.isgenerator(result) or inspect.isasyncgen(result)):
+                await self._send_tool_result(data, result, tool.result_context)
+                return
+
+            if inspect.isasyncgen(result):
+                await self._send_async_generator_updates(result)
+            else:
+                await self._send_sync_generator_updates(result)
+        
+            self.logger.info("Generator tool '%s' completed successfully", tool.name)
+
+        except Exception as e:
+            await self._handle_tool_error(
+                data, e, f"executing generator tool '{tool.name}'"
             )
 
-            for task_id, task in self.background_tasks.items():
-                if not task.done():
-                    task.cancel()
-                    self.logger.info("Cancelled background task: %s", task_id)
+    async def _send_async_generator_updates(self, generator) -> None:
+        """Send updates for an async generator."""
+        async for chunk in generator:
+            await self.message_manager.send_update_for_generator_tool(
+                chunk
+            )
+            self.logger.debug("Generator yielded: %s", chunk)
 
-            # Wait for all tasks to complete/cancel
-            if self.background_tasks:
-                await asyncio.gather(
-                    *self.background_tasks.values(), return_exceptions=True
-                )
+    async def _send_sync_generator_updates(self, generator) -> None:
+        """Send updates for a sync generator."""
+        for chunk in generator:
+            await self.message_manager.send_update_for_generator_tool(
+                chunk
+            )
+            self.logger.debug("Generator yielded: %s", chunk)
 
-            self.background_tasks.clear()
+    async def _handle_tool_error(
+        self, data: FunctionCallItem, error: Exception, context: str
+    ) -> None:
+        """Handle tool execution errors."""
+        error_message = f"Error {context}: {str(error)}"
+        self.logger.error(error_message, exc_info=True)
 
-        self.logger.info("ToolExecutor shutdown complete")
+        # Send error result
+        function_call_result = FunctionCallResult(
+            tool_name=data.name,
+            call_id=data.call_id,
+            output=f"Error: {str(error)}",
+            result_context="This is an error message that should be communicated to the user",
+        )
+        await self.message_manager.send_tool_result(function_call_result)
+
+        # Still publish the finished event to prevent hanging
+        await self._check_and_publish_all_tools_finished()

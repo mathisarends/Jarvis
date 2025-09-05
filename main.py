@@ -22,6 +22,7 @@ class VoiceAssistantApp:
             # Setup
             validate_environment_variables()
             config = load_config_from_yaml()
+            print("config", config)
 
             # Run
             self._controller = VoiceAssistantController(config)
