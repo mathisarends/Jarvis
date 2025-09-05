@@ -1,7 +1,13 @@
+import asyncio
+from collections import deque
 from agent.config.views import VoiceAssistantConfig
 from agent.realtime.current_message_context import CurrentMessageContext
 from agent.realtime.event_bus import EventBus
 from agent.realtime.event_types import RealtimeClientEvent
+from agent.realtime.events.conversation_item_create import (
+    ConversationItemCreateEvent,
+    ConversationItemFactory,
+)
 from agent.realtime.events.conversation_response_create import (
     ConversationResponseCreateEvent,
     ResponseInstructions,
@@ -52,13 +58,32 @@ class RealtimeMessageManager(LoggingMixin):
         self.event_bus = EventBus()
         self.current_message_timer = CurrentMessageContext()
 
+        # Queue management for responses
+        self._response_active = False
+        self._message_queue = deque()
+        self._queue_processing = False
+
         self.event_bus.subscribe(
             VoiceAssistantEvent.ASSISTANT_SPEECH_INTERRUPTED,
             self._handle_speech_interruption,
         )
+        self.event_bus.subscribe(
+            VoiceAssistantEvent.ASSISTANT_STARTED_RESPONSE,
+            self._handle_response_started,
+        )
+        self.event_bus.subscribe(
+            VoiceAssistantEvent.ASSISTANT_COMPLETED_RESPONSE,
+            self._handle_response_completed,
+        )
 
     async def send_tool_result(self, function_call_result: FunctionCallResult) -> None:
         """Handle tool execution results and send them back to OpenAI Realtime API"""
+        await self._queue_message(self._send_tool_result_impl, function_call_result)
+
+    async def _send_tool_result_impl(
+        self, function_call_result: FunctionCallResult
+    ) -> None:
+        """Implementation of sending tool result."""
         try:
             self.logger.info(
                 "Received tool result for '%s', sending to Realtime API",
@@ -134,6 +159,11 @@ class RealtimeMessageManager(LoggingMixin):
     async def send_loading_message_for_long_running_tool_call(
         self, loading_message: str
     ) -> None:
+        """Queue loading message if response is active, otherwise send immediately."""
+        await self._queue_message(self._send_loading_message_impl, loading_message)
+
+    async def _send_loading_message_impl(self, loading_message: str) -> None:
+        """Implementation of sending loading message."""
         try:
             self.logger.info("Sending loading message for long-running tool call")
             conversation_item = {
@@ -141,7 +171,7 @@ class RealtimeMessageManager(LoggingMixin):
                 "item": {
                     "type": "message",
                     "role": "assistant",
-                    "content": [{"type": "text", "text": loading_message}],
+                    "content": [{"type": "output_text", "text": loading_message}],
                 },
             }
 
@@ -154,6 +184,9 @@ class RealtimeMessageManager(LoggingMixin):
 
             conversation_response_create_event = ConversationResponseCreateEvent(
                 type=RealtimeClientEvent.RESPONSE_CREATE,
+                response=ResponseInstructions(
+                    instructions="Briefly inform the user that the requested tool is running. Keep it short and status-like."
+                ),
             )
 
             response_dict = conversation_response_create_event.model_dump(
@@ -222,6 +255,51 @@ class RealtimeMessageManager(LoggingMixin):
             self.logger.error(
                 "Error handling speech interruption: %s", e, exc_info=True
             )
+
+    async def _handle_response_started(
+        self, event: VoiceAssistantEvent, data=None
+    ) -> None:
+        """Handle when assistant starts responding."""
+        self.logger.debug("Assistant response started - marking as active")
+        self._response_active = True
+
+    async def _handle_response_completed(
+        self, event: VoiceAssistantEvent, data=None
+    ) -> None:
+        """Handle when assistant completes responding and process queue."""
+        self.logger.debug("Assistant response completed - processing queue")
+        self._response_active = False
+        await self._process_message_queue()
+
+    async def _queue_message(self, message_func, *args, **kwargs) -> None:
+        """Add a message to the queue if response is active, otherwise send immediately."""
+        if self._response_active:
+            self.logger.debug("Response active - queueing message")
+            self._message_queue.append((message_func, args, kwargs))
+        else:
+            self.logger.debug("No active response - sending message immediately")
+            await message_func(*args, **kwargs)
+
+    async def _process_message_queue(self) -> None:
+        """Process all queued messages."""
+        if self._queue_processing:
+            return  # Already processing
+
+        self._queue_processing = True
+
+        try:
+            while self._message_queue and not self._response_active:
+                message_func, args, kwargs = self._message_queue.popleft()
+                self.logger.debug("Processing queued message")
+                await message_func(*args, **kwargs)
+
+                # Small delay to prevent overwhelming the API
+                await asyncio.sleep(0.1)
+
+        except Exception as e:
+            self.logger.error("Error processing message queue: %s", e, exc_info=True)
+        finally:
+            self._queue_processing = False
 
     def _build_session_config(self) -> dict[str, Any]:
         """

@@ -1,6 +1,7 @@
-import asyncio
 from datetime import datetime
 from agent.realtime.tools.tool import tool
+
+from agent.realtime.tools.weather import get_weather_for_current_location
 
 
 @tool(description="Get the current local time")
@@ -9,27 +10,11 @@ def get_current_time() -> str:
 
 
 @tool(
-    description="Analyze complex data and generate insights",
-    long_running=True,
-    loading_message="Ich analysiere gerade die Daten und generiere Insights... Das kann einen Moment dauern.",
-    result_context="Die Analyse sollte als strukturierte Zusammenfassung mit Erkenntnissen präsentiert werden.",
+    description="Get comprehensive 3-day weather forecast for your current location. Automatically detects your location via IP and fetches detailed weather data including current conditions and hourly forecasts.",
+    loading_message="Featching weather data...",
+    result_context="Focus on today's weather progression and upcoming changes. Leave out the rest of the forecast.",
+    long_running=False,
 )
-async def mock_long_running_analysis(query: str = "default analysis") -> str:
-    """Mock tool that simulates a long-running data analysis."""
-    # Simulate long-running work
-    await asyncio.sleep(10)
-
-    # Return semantic mock response
-    return f"""📊 Analyse-Ergebnisse für: "{query}"
-
-    🔍 **Wichtigste Erkenntnisse:**
-    - Trend 1: Starke Korrelation zwischen Variablen A und B (r=0.87)
-    - Trend 2: Saisonale Muster alle 3 Monate erkennbar
-    - Anomalie: Ungewöhnlicher Spike am 15. des Monats
-
-    📈 **Empfehlungen:**
-    1. Fokus auf Variable A zur Optimierung
-    2. Berücksichtigung saisonaler Effekte bei Planung  
-    3. Weitere Untersuchung der Anomalie erforderlich
-
-    ✅ **Analyse abgeschlossen** - Verarbeitungszeit: 10 Sekunden"""
+async def get_weather() -> str:
+    """Get weather report for current location with 3-day forecast."""
+    return await get_weather_for_current_location()

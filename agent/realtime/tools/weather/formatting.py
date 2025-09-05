@@ -289,4 +289,4 @@ def _get_forecast_sections(hourly_forecast: HourlyForecast) -> list[str]:
 
 def _format_footer() -> str:
     """Format report footer with timestamp."""
-    return f"\n\n**Last updated:** {datetime.now().strftime('%H:%M:%S')}"
+    return f"\n\n**Requestet at:** {datetime.now().strftime('%H:%M:%S')}"

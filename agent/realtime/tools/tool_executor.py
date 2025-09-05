@@ -18,6 +18,9 @@ class ToolExecutor(LoggingMixin):
     Supports both synchronous and long-running background tools.
     """
 
+    # Constants for log messages
+    LOADING_MESSAGE_SENT = "Loading message sent for tool: %s"
+
     def __init__(
         self, tool_registry: ToolRegistry, message_manager: RealtimeMessageManager
     ):
@@ -47,6 +50,13 @@ class ToolExecutor(LoggingMixin):
 
             tool = self._retrieve_tool_from_registry(function_name)
 
+            # Send loading message if available
+            if tool.loading_message:
+                await self.message_manager.send_loading_message_for_long_running_tool_call(
+                    tool.loading_message
+                )
+                self.logger.info(self.LOADING_MESSAGE_SENT, tool.name)
+
             if tool.long_running:
                 await self._handle_long_running_tool(tool, data)
             else:
@@ -64,7 +74,7 @@ class ToolExecutor(LoggingMixin):
     async def _handle_default_tool(self, tool: Tool, data: FunctionCallItem) -> None:
         """Handle synchronous tool execution."""
         try:
-            self.logger.info("Executing synchronous tool: %s", tool.name)
+            self.logger.info("Executing tool: %s", tool.name)
 
             # Execute tool synchronously
             result = await tool.execute(data.arguments or {})
@@ -78,7 +88,7 @@ class ToolExecutor(LoggingMixin):
 
         except Exception as e:
             self.logger.error(
-                "Error executing synchronous tool '%s': %s", tool.name, e, exc_info=True
+                "Error executing tool '%s': %s", tool.name, e, exc_info=True
             )
             await self._send_error_result(data, str(e))
 
@@ -88,13 +98,6 @@ class ToolExecutor(LoggingMixin):
         """Handle long-running tool execution in background."""
         try:
             self.logger.info("Starting long-running tool: %s", tool.name)
-
-            # Send loading message if available
-            if tool.loading_message:
-                await self.message_manager.send_loading_message_for_long_running_tool_call(
-                    tool.loading_message
-                )
-                self.logger.info("Loading message sent for tool: %s", tool.name)
 
             # Start background execution
             task = asyncio.create_task(

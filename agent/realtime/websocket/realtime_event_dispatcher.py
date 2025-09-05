@@ -45,6 +45,9 @@ class RealtimeEventDispatcher(LoggingMixin):
             RealtimeServerEvent.SESSION_CREATED: self._handle_session_created,
             RealtimeServerEvent.SESSION_UPDATED: self._handle_session_updated,
             RealtimeServerEvent.CONVERSATION_ITEM_TRUNCATED: self._handle_speech_interruption,
+            # Response events
+            RealtimeServerEvent.RESPONSE_CREATED: self._handle_response_created,
+            RealtimeServerEvent.RESPONSE_DONE: self._handle_response_done,
             RealtimeServerEvent.ERROR: self._handle_api_error,
         }
 
@@ -68,9 +71,6 @@ class RealtimeEventDispatcher(LoggingMixin):
             RealtimeServerEvent.INPUT_AUDIO_BUFFER_COMMITTED,
             RealtimeServerEvent.INPUT_AUDIO_BUFFER_CLEARED,
             RealtimeServerEvent.INPUT_AUDIO_BUFFER_TIMEOUT_TRIGGERED,
-            # Response events
-            RealtimeServerEvent.RESPONSE_CREATED,
-            RealtimeServerEvent.RESPONSE_DONE,
             # Response output events
             RealtimeServerEvent.RESPONSE_OUTPUT_ITEM_ADDED,
             RealtimeServerEvent.RESPONSE_OUTPUT_ITEM_DONE,
@@ -210,6 +210,16 @@ class RealtimeEventDispatcher(LoggingMixin):
         self.event_bus.publish_sync(
             VoiceAssistantEvent.ASSISTANT_SPEECH_INTERRUPTED, truncate_event
         )
+
+    def _handle_response_created(self, data: dict[str, Any]) -> None:
+        """Response created -> ASSISTANT_STARTED_RESPONSE"""
+        self.logger.debug("Assistant response started")
+        self.event_bus.publish_sync(VoiceAssistantEvent.ASSISTANT_STARTED_RESPONSE)
+
+    def _handle_response_done(self, data: dict[str, Any]) -> None:
+        """Response done -> ASSISTANT_COMPLETED_RESPONSE"""
+        self.logger.debug("Assistant response completed")
+        self.event_bus.publish_sync(VoiceAssistantEvent.ASSISTANT_COMPLETED_RESPONSE)
 
     def _handle_api_error(self, data: dict[str, Any]) -> None:
         """API error -> ERROR_OCCURRED"""

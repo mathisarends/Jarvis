@@ -30,6 +30,10 @@ class VoiceAssistantEvent(Enum):
     ASSISTANT_RESPONSE_COMPLETED = "assistant_response_completed"
     ASSISTANT_SPEECH_INTERRUPTED = "assistant_speech_interrupted"
 
+    # these events have nothing to to with the audio streaming, but with the data which is sent and received
+    ASSISTANT_STARTED_RESPONSE = "assistant_started_response"
+    ASSISTANT_COMPLETED_RESPONSE = "assistant_completed_response"
+
     ASSISTANT_TRANSCRIPT_CHUNK_RECEIVED = "assistant_transcript_chunk_received"
     ASSISTANT_TRANSCRIPT_COMPLETED = "assistant_transcript_completed"
 
