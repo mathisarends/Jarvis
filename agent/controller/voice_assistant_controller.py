@@ -13,8 +13,8 @@ from agent.state.context import VoiceAssistantContext
 from agent.state.timeout_service import TimeoutService
 from audio.capture import AudioCapture
 from audio.detection import AudioDetectionService
+from audio.player.sound_player import SoundPlayer
 from audio.sound_event_handler import SoundEventHandler
-from audio.sound_player import SoundPlayer
 from audio.wake_word_listener import WakeWordListener
 from shared.logging_mixin import LoggingMixin
 
