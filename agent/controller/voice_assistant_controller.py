@@ -13,6 +13,7 @@ from agent.state.context import VoiceAssistantContext
 from agent.state.timeout_service import TimeoutService
 from audio.capture import AudioCapture
 from audio.detection import AudioDetectionService
+from audio.sound_event_handler import SoundEventHandler
 from audio.sound_player import SoundPlayer
 from audio.wake_word_listener import WakeWordListener
 from shared.logging_mixin import LoggingMixin
@@ -66,6 +67,7 @@ class VoiceAssistantController(LoggingMixin):
         """Initialize core services."""
         self.sound_player = SoundPlayer()
         self.event_bus = EventBus()
+        self.sound_event_handler = SoundEventHandler(self.sound_player, self.event_bus)
         self.timeout_service = TimeoutService(timeout_seconds=10.0)
 
     def _init_audio_services(self) -> None:

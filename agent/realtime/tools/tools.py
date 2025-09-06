@@ -20,9 +20,7 @@ async def get_weather() -> str:
     return await get_weather_for_current_location()
 
 
-@tool(
-    description="Performs web search using an automated browser"
-)
+@tool(description="Performs web search using an automated browser")
 async def perform_browser_search_tool(query: str) -> AsyncGenerator[str, None]:
     """Perform a browser search and yield results in real-time."""
     async for message in perform_browser_search(query):

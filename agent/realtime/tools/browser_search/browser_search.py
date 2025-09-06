@@ -6,20 +6,21 @@ from browser_use.agent.views import AgentOutput
 from browser_use.llm import ChatOpenAI, SystemMessage, UserMessage
 import asyncio
 
+
 class BrowserSearchManager:
     """Manages browser search operations with state management."""
-    
+
     def __init__(self):
         self._llm = ChatOpenAI(model="gpt-5-mini")
         self.message_queue = None
         self.task = None
         self.agent_task = None
-    
+
     async def search(self, topic: str) -> AsyncGenerator[str, None]:
         """Performs a browser search on a topic and streams the progress."""
         self.message_queue = asyncio.Queue()
         self.task = "Find online information on the following topic: " + topic
-        
+
         agent = Agent(
             llm=self._llm,
             task=self.task,
@@ -64,7 +65,9 @@ class BrowserSearchManager:
         )
 
         # Generiere Zusammenfassung
-        summary_response = await self._llm.ainvoke(messages=[system_message, human_message])
+        summary_response = await self._llm.ainvoke(
+            messages=[system_message, human_message]
+        )
         summary = summary_response.completion
 
         await self.message_queue.put(summary)
@@ -129,7 +132,9 @@ class BrowserSearchManager:
         )
 
         # Generiere natürliches Status-Update
-        status_response = await self._llm.ainvoke(messages=[system_message, human_message])
+        status_response = await self._llm.ainvoke(
+            messages=[system_message, human_message]
+        )
         natural_status = status_response.completion
 
         # Status-Message in Queue einreihen
