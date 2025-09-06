@@ -13,7 +13,8 @@ from agent.state.context import VoiceAssistantContext
 from agent.state.timeout_service import TimeoutService
 from audio.capture import AudioCapture
 from audio.detection import AudioDetectionService
-from audio.player.sound_player import SoundPlayer
+from audio.player.audio_manager import AudioManager
+from audio.player.audio_strategy import AudioStrategy
 from audio.sound_event_handler import SoundEventHandler
 from audio.wake_word_listener import WakeWordListener
 from shared.logging_mixin import LoggingMixin
@@ -45,7 +46,7 @@ class VoiceAssistantController(LoggingMixin):
 
         self.logger.info("Starting Voice Assistant Controller")
         self._running = True
-        self.sound_player.play_startup_sound()
+        self.audio_strategy.play_startup_sound()
 
         try:
             await self._run_application()
@@ -65,9 +66,13 @@ class VoiceAssistantController(LoggingMixin):
 
     def _init_core_services(self) -> None:
         """Initialize core services."""
-        self.sound_player = SoundPlayer()
         self.event_bus = EventBus()
-        self.sound_event_handler = SoundEventHandler(self.sound_player, self.event_bus)
+
+        self.audio_manager = AudioManager()
+        self.audio_strategy = self.audio_manager.get_strategy()
+        self.sound_event_handler = SoundEventHandler(
+            self.audio_strategy, self.event_bus
+        )
         self.timeout_service = TimeoutService(timeout_seconds=10.0)
 
     def _init_audio_services(self) -> None:
@@ -148,4 +153,4 @@ class VoiceAssistantController(LoggingMixin):
 
     async def _cleanup_sound_service(self) -> None:
         """Cleanup sound playback."""
-        self.sound_player.stop_sounds()
+        self.audio_strategy.stop_sounds()
