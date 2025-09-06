@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
-from typing import Any, Dict, get_type_hints
+from typing import Any, get_type_hints
 
 from agent.realtime.event_bus import EventBus
 from agent.realtime.tools.registry import ToolRegistry
@@ -62,7 +62,7 @@ class ToolExecutor(LoggingMixin):
             await self._handle_tool_error(data, e, "handling tool call")
 
     async def _execute_tool(
-        self, tool: Tool, data: FunctionCallItem, llm_arguments: Dict[str, Any]
+        self, tool: Tool, data: FunctionCallItem, llm_arguments: dict[str, Any]
     ) -> None:
         """Execute a tool synchronously or as background task for generators."""
         self.logger.info("Executing tool: %s", tool.name)
@@ -126,7 +126,7 @@ class ToolExecutor(LoggingMixin):
         )
 
     async def _execute_generator_tool(
-        self, tool: Tool, data: FunctionCallItem, final_arguments: Dict[str, Any]
+        self, tool: Tool, data: FunctionCallItem, final_arguments: dict[str, Any]
     ) -> None:
         """Execute a generator tool in the background with status updates."""
         try:
@@ -183,8 +183,8 @@ class ToolExecutor(LoggingMixin):
         await self._check_and_publish_all_tools_finished()
 
     def _inject_special_parameters(
-        self, func: callable, llm_arguments: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        self, func: callable, llm_arguments: dict[str, Any]
+    ) -> dict[str, Any]:
         """
         Inject special parameters into function arguments if the function expects them.
 

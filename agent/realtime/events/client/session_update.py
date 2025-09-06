@@ -1,3 +1,4 @@
+from __future__ import annotations
 from typing import Any, Literal, Optional
 
 from enum import StrEnum
@@ -166,6 +167,26 @@ class AudioConfig(BaseModel):
 # TOOL CONFIGURATIONS
 # ============================================================================
 
+JsonType = Literal["object", "array", "string", "number", "integer", "boolean"]
+
+
+class FunctionParameterProperty(BaseModel):
+    """
+    Property schema for function parameters.
+    Minimal: nur was du in deinem Beispiel brauchst.
+    """
+
+    type: JsonType
+    description: Optional[str] = None
+
+
+class FunctionParameters(BaseModel):
+    type: str = "object"
+    strict: bool = True
+
+    properties: dict[str, FunctionParameterProperty] = Field(default_factory=dict)
+    required: list[str] = Field(default_factory=list)
+
 
 class FunctionTool(BaseModel):
     """Function tool configuration."""
@@ -173,7 +194,7 @@ class FunctionTool(BaseModel):
     type: Literal["function"]
     name: str
     description: str | None = None
-    parameters: dict[str, Any] | None = None
+    parameters: FunctionParameters
 
 
 class MCPTool(BaseModel):

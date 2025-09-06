@@ -61,6 +61,11 @@ class SessionManager(LoggingMixin):
             ),
         )
 
+        import json
+
+        test = self.tool_registry.get_openai_schema()
+        print(json.dumps([tool.model_dump() for tool in test], indent=2))
+
         return SessionUpdateEvent(
             session=RealtimeSessionConfig(
                 type="realtime",

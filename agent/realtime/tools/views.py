@@ -46,7 +46,7 @@ class FunctionCallItem(BaseModel):
 class FunctionCallResult(BaseModel):
     tool_name: str
     call_id: str
-    output: Any
+    output: Optional[Any] = None
     result_context: Optional[str] = None
 
     def to_conversation_item(self) -> dict:
@@ -55,9 +55,20 @@ class FunctionCallResult(BaseModel):
             "item": {
                 "type": "function_call_output",
                 "call_id": self.call_id,
-                "output": self.output,
+                "output": self._format_output(),
             },
         }
+
+    def _format_output(self) -> str:
+        """Private Methode zur Formatierung des Outputs als String."""
+        if self.output is None:
+            return ""
+        if isinstance(self.output, str):
+            return self.output
+        try:
+            return json.dumps(self.output, ensure_ascii=False)
+        except (TypeError, ValueError):
+            return str(self.output)
 
 
 class SpecialToolParameters(BaseModel):

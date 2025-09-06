@@ -184,13 +184,14 @@ class RealtimeEventDispatcher(LoggingMixin):
         try:
             function_call_item = FunctionCallItem.model_validate(data)
             self.logger.info(
-                "Function call completed - Tool: %s, Args: %s",
+                "Function call initiated - Tool: %s, Args: %s",
                 function_call_item.name,
                 function_call_item.arguments,
             )
             self.event_bus.publish_sync(
                 VoiceAssistantEvent.ASSISTANT_STARTED_TOOL_CALL, function_call_item
             )
+            
         except ValidationError as e:
             self.logger.error("Failed to validate function call item: %s", e)
 

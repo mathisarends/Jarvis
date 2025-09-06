@@ -29,6 +29,9 @@ class RespondingState(AssistantState):
     ) -> None:
         match event:
             case VoiceAssistantEvent.ASSISTANT_STARTED_TOOL_CALL:
+                self.logger.info(
+                    "Assistant started tool call - transitioning to Tool Calling"
+                )
                 await self._transition_to_tool_calling(context)
             case VoiceAssistantEvent.ASSISTANT_RESPONSE_COMPLETED:
                 self.logger.info(

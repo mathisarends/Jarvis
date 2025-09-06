@@ -13,6 +13,7 @@ from agent.realtime.messaging.message_manager import RealtimeMessageManager
 from agent.realtime.tools.registry import ToolRegistry
 from agent.realtime.tools.tool_executor import ToolExecutor
 from agent.realtime.tools.tools import (
+    adjust_volume,
     get_current_time,
     get_weather,
     delegate_task_to_web_search_agent,
@@ -54,7 +55,9 @@ class OpenAIRealtimeAPI(LoggingMixin):
             voice_assistant_config=voice_assistant_config,
         )
 
-        self.tool_executor = ToolExecutor(self.tool_registry, self.message_manager, audio_manager)
+        self.tool_executor = ToolExecutor(
+            self.tool_registry, self.message_manager, audio_manager
+        )
 
         # Audio streaming control
         self._audio_streaming_paused = False
@@ -195,3 +198,4 @@ class OpenAIRealtimeAPI(LoggingMixin):
         self.tool_registry.register(get_weather)
         self.tool_registry.register(delegate_task_to_web_search_agent)
         self.tool_registry.register(play_sound)
+        self.tool_registry.register(adjust_volume)
