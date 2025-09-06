@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import inspect
-from typing import Any, Callable, Optional, get_type_hints, get_origin, get_args
+from typing import Any, Callable, Optional, get_type_hints, get_origin, get_args, Union
 import collections.abc
 
 from agent.realtime.events.client.session_update import FunctionTool
+from agent.realtime.tools.views import SpecialToolParameters
 from shared.logging_mixin import LoggingMixin
 
 
@@ -55,7 +56,8 @@ def tool(
     Args:
         description: Required description of the tool's functionality
         name: Optional custom name for the tool (defaults to function name)
-        result_context: Context information for handling the tool result (e.g. "Das Ergebnis sollte als Markdown formatiert werden")
+        result_context: Context information for handling the tool result
+                        (e.g. "Das Ergebnis sollte als Markdown formatiert werden")
 
     Usage:
     @tool("Get the current local time")
@@ -72,7 +74,7 @@ def tool(
 
     @tool(
         "Analyze data from uploaded file",
-        e ="Die Analyse sollte in strukturierter Form mit Diagrammen präsentiert werden."
+        result_context="Die Analyse sollte in strukturierter Form mit Diagrammen präsentiert werden."
     )
     def analyze_file(file_path: str) -> dict:
         # Analysis implementation
@@ -108,13 +110,12 @@ def _is_generator_type(return_type: Any) -> bool:
     if return_type is None:
         return False
 
-    # Handle typing module types
     origin = get_origin(return_type)
     if origin is not None:
-        # Check for Generator or AsyncGenerator
+        # collections.abc.Generator / AsyncGenerator
         if origin in (collections.abc.Generator, collections.abc.AsyncGenerator):
             return True
-        # Check for typing.Generator or typing.AsyncGenerator
+        # typing.Generator / typing.AsyncGenerator (kompatibel)
         try:
             import typing
 
@@ -123,7 +124,7 @@ def _is_generator_type(return_type: Any) -> bool:
         except ImportError:
             pass
 
-    # Check for direct Generator/AsyncGenerator types
+    # Fallback auf types.* (selten relevant)
     try:
         import types
 
@@ -140,59 +141,121 @@ def _is_generator_type(return_type: Any) -> bool:
     return False
 
 
+def _extract_special_parameter_types() -> set[type]:
+    """Extract types from SpecialToolParameters for filtering."""
+    special_types: set[type] = set()
+
+    for field in SpecialToolParameters.model_fields.values():
+        annotation = field.annotation
+        # Resolve Optional[T] / Union[T, None]
+        origin = get_origin(annotation)
+        if origin is Union:
+            non_none_types = [
+                arg for arg in get_args(annotation) if arg is not type(None)
+            ]
+            if non_none_types:
+                annotation = non_none_types[0]
+
+        if isinstance(annotation, type):
+            special_types.add(annotation)
+
+    return special_types
+
+
+def _is_special_type(type_hint: Any, special_param_types: set[type]) -> bool:
+    """Check if a type hint represents a special parameter type."""
+    # Optional/Union entpacken
+    origin = get_origin(type_hint)
+    if origin is Union:
+        union_args = get_args(type_hint)
+        non_none_args = [arg for arg in union_args if arg is not type(None)]
+        return any(_is_special_type(arg, special_param_types) for arg in non_none_args)
+
+    # Direkte Typzuordnung
+    return isinstance(type_hint, type) and type_hint in special_param_types
+
+
 def _generate_schema_from_function(func: Callable) -> dict[str, Any]:
-    """Generate JSON schema from function signature."""
+    """
+    Generate JSON schema from function signature for LLM tools.
+
+    Important:
+    - Filters out all parameters defined in SpecialToolParameters
+      (both by name and type) so they don't reach the LLM schema.
+    """
     signature = inspect.signature(func)
     type_hints = get_type_hints(func)
 
-    properties = {}
-    required = []
+    properties: dict[str, Any] = {}
+    required_params: list[str] = []
+
+    # Extract special parameter names and types for filtering
+    special_param_names = set(SpecialToolParameters.model_fields.keys())
+    special_param_types = _extract_special_parameter_types()
 
     for param_name, param in signature.parameters.items():
-        # Skip self and cls parameters
+        # Skip 'self'/'cls'
         if param_name in ("self", "cls"):
             continue
 
-        param_type = type_hints.get(param_name, str)
-        param_schema = _type_to_json_schema(param_type)
+        # EXCLUDE: name-based filtering
+        if param_name in special_param_names:
+            continue
 
-        properties[param_name] = param_schema
+        param_annotation = type_hints.get(param_name, str)
 
-        # Add to required if no default value
+        # EXCLUDE: type-based filtering (more robust)
+        if _is_special_type(param_annotation, special_param_types):
+            continue
+
+        # Include in schema
+        properties[param_name] = _type_to_json_schema(param_annotation)
+
         if param.default == inspect.Parameter.empty:
-            required.append(param_name)
+            required_params.append(param_name)
 
     return {
         "type": "object",
         "properties": properties,
-        "required": required,
+        "required": required_params,
         "additionalProperties": False,
     }
 
 
-def _type_to_json_schema(python_type: type) -> dict[str, Any]:
+def _type_to_json_schema(python_type: Any) -> dict[str, Any]:
     """Convert Python type to JSON schema."""
     origin = get_origin(python_type)
 
-    # Handle Optional types (Union[T, None])
-    if origin is type(int | None):  # Union type
-        args = get_args(python_type)
-        if len(args) == 2 and type(None) in args:
-            # This is Optional[T], get the non-None type
-            non_none_type = args[0] if args[1] is type(None) else args[1]
-            return _type_to_json_schema(non_none_type)
+    # Optional[T] / Union[T, None]
+    if origin is Union:
+        union_args = [arg for arg in get_args(python_type) if arg is not type(None)]
+        if len(union_args) == 1:
+            # Optional[T] -> T
+            return _type_to_json_schema(union_args[0])
+        # Complex unions: compact fallback (alternatively: build anyOf)
+        return {"type": "string"}
 
-    # Handle List types
+    # List[T]
     if origin is list:
-        args = get_args(python_type)
-        item_type = args[0] if args else str
+        list_args = get_args(python_type)
+        item_type = list_args[0] if list_args else str
         return {"type": "array", "items": _type_to_json_schema(item_type)}
 
-    # Handle Dict types
+    # Dict[K, V]
     if origin is dict:
         return {"type": "object", "additionalProperties": True}
 
-    # Basic types
+    # collections.abc.Sequence[T] / Iterable[T] etc. – optional if needed:
+    if origin in (
+        collections.abc.Sequence,
+        collections.abc.Iterable,
+        collections.abc.Collection,
+    ):
+        collection_args = get_args(python_type)
+        item_type = collection_args[0] if collection_args else str
+        return {"type": "array", "items": _type_to_json_schema(item_type)}
+
+    # Primitive types
     type_mapping = {
         str: {"type": "string"},
         int: {"type": "integer"},
@@ -202,4 +265,17 @@ def _type_to_json_schema(python_type: type) -> dict[str, Any]:
         dict: {"type": "object", "additionalProperties": True},
     }
 
-    return type_mapping.get(python_type, {"type": "string"})
+    mapped_type = type_mapping.get(python_type)
+    if mapped_type:
+        return mapped_type
+
+    # Unknown / complex types (including Pydantic models) → generic as object
+    try:
+        from pydantic import BaseModel
+
+        if isinstance(python_type, type) and issubclass(python_type, BaseModel):
+            return {"type": "object", "additionalProperties": True}
+    except Exception:
+        pass
+
+    return {"type": "string"}

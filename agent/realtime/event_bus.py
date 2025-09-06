@@ -108,9 +108,6 @@ class EventBus:
         self, callback: Callable, event: VoiceAssistantEvent, data: Any = None
     ) -> None:
         sig = inspect.signature(callback)
-        print(
-            f"DEBUG: {callback.__name__} has {len(sig.parameters)} parameters: {list(sig.parameters.keys())}"
-        )
         n = len(sig.parameters)
         if n == 0:
             await callback()

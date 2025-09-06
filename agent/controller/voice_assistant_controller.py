@@ -13,8 +13,8 @@ from agent.state.context import VoiceAssistantContext
 from agent.state.timeout_service import TimeoutService
 from audio.capture import AudioCapture
 from audio.detection import AudioDetectionService
+from audio.player import audio_manager
 from audio.player.audio_manager import AudioManager
-from audio.player.audio_strategy import AudioStrategy
 from audio.sound_event_handler import SoundEventHandler
 from audio.wake_word_listener import WakeWordListener
 from shared.logging_mixin import LoggingMixin
@@ -93,6 +93,7 @@ class VoiceAssistantController(LoggingMixin):
             ws_manager=WebSocketManager.from_model(model=self._config.agent.model),
             audio_capture=self.audio_capture,
             transcription_service=TranscriptionService(),
+            audio_manager=self.audio_manager,
         )
 
     def _init_context(self) -> None:

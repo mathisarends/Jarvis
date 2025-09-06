@@ -1,9 +1,9 @@
 from datetime import datetime
-from typing import AsyncGenerator
 from agent.realtime.tools.tool import tool
 
 from agent.realtime.tools.weather import get_weather_for_current_location
-from agent.realtime.tools.browser_search import perform_browser_search
+from agent.realtime.tools.web_search import run_web_search_agent
+from audio.player.audio_manager import AudioManager
 
 
 @tool(description="Get the current local time")
@@ -20,8 +20,16 @@ async def get_weather() -> str:
     return await get_weather_for_current_location()
 
 
-@tool(description="Performs web search using an automated browser")
-async def perform_browser_search_tool(query: str) -> AsyncGenerator[str, None]:
-    """Perform a browser search and yield results in real-time."""
-    async for message in perform_browser_search(query):
-        yield message
+@tool(
+    description=(
+        "Delegates a task to a specialized web search agent that automatically optimizes the query with contextual information and returns aggregated search results from the web."
+    ),
+)
+async def delegate_task_to_web_search_agent(query: str) -> str:
+    """Perform a web search and return the aggregated results."""
+    return await run_web_search_agent(query)
+
+
+@tool("Play a sound")
+async def play_sound(name: str, audio_manager: AudioManager) -> str:
+    audio_manager.get_strategy().play_startup_sound()

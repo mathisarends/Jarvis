@@ -1,10 +1,12 @@
 from __future__ import annotations
 from typing import Any, Optional, Literal
 from unittest import result
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator
 import json
 
+from agent.controller import voice_assistant_controller
 from agent.realtime.event_types import RealtimeClientEvent, RealtimeServerEvent
+from audio.player.audio_manager import AudioManager
 
 
 class FunctionCallItem(BaseModel):
@@ -56,3 +58,11 @@ class FunctionCallResult(BaseModel):
                 "output": self.output,
             },
         }
+
+
+class SpecialToolParameters(BaseModel):
+    """Model defining all special parameters that can be injected into actions"""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    audio_manager: AudioManager

@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import base64
-from typing import Any
+
+from openai import audio
 
 from agent.config.views import VoiceAssistantConfig
 from agent.realtime.events.client.input_audio_buffer_append import (
@@ -14,12 +15,14 @@ from agent.realtime.tools.tool_executor import ToolExecutor
 from agent.realtime.tools.tools import (
     get_current_time,
     get_weather,
-    perform_browser_search_tool,
+    delegate_task_to_web_search_agent,
+    play_sound,
 )
 from agent.realtime.transcription.service import TranscriptionService
 from agent.realtime.websocket.websocket_manager import WebSocketManager
 
 from audio.capture import AudioCapture
+from audio.player.audio_manager import AudioManager
 from shared.logging_mixin import LoggingMixin
 
 
@@ -31,6 +34,7 @@ class OpenAIRealtimeAPI(LoggingMixin):
         ws_manager: WebSocketManager,
         audio_capture: AudioCapture,
         transcription_service: TranscriptionService,
+        audio_manager: AudioManager,
     ):
         """
         Initializes the OpenAI Realtime API client.
@@ -39,6 +43,7 @@ class OpenAIRealtimeAPI(LoggingMixin):
         self.ws_manager = ws_manager
         self.audio_capture = audio_capture
         self.transcription_service = transcription_service
+        self.audio_manager = audio_manager
 
         self.tool_registry = ToolRegistry()
 
@@ -49,7 +54,7 @@ class OpenAIRealtimeAPI(LoggingMixin):
             voice_assistant_config=voice_assistant_config,
         )
 
-        self.tool_executor = ToolExecutor(self.tool_registry, self.message_manager)
+        self.tool_executor = ToolExecutor(self.tool_registry, self.message_manager, audio_manager)
 
         # Audio streaming control
         self._audio_streaming_paused = False
@@ -188,4 +193,5 @@ class OpenAIRealtimeAPI(LoggingMixin):
         """Register available tools with the tool registry"""
         self.tool_registry.register(get_current_time)
         self.tool_registry.register(get_weather)
-        self.tool_registry.register(perform_browser_search_tool)
+        self.tool_registry.register(delegate_task_to_web_search_agent)
+        self.tool_registry.register(play_sound)
