@@ -191,7 +191,7 @@ class RealtimeEventDispatcher(LoggingMixin):
             self.event_bus.publish_sync(
                 VoiceAssistantEvent.ASSISTANT_STARTED_TOOL_CALL, function_call_item
             )
-            
+
         except ValidationError as e:
             self.logger.error("Failed to validate function call item: %s", e)
 

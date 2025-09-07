@@ -37,17 +37,19 @@ async def delegate_task_to_web_search_agent(
     return await run_web_search_agent(query)
 
 
-@tool(description="Play startup sound")
-async def play_sound(audio_manager: AudioManager) -> None:
-    audio_manager.get_strategy().play_startup_sound()
-
-
-@tool(description="Adjust assistant volume level")
+@tool(description="Adjust volume level.")
 async def adjust_volume(
     level: Annotated[float, "Volume level from 0.0 (0%) to 1.0 (100%)"],
     audio_manager: AudioManager,
 ) -> None:
     audio_manager.get_strategy().set_volume_level(level)
+
+
+@tool(
+    description="Stop the assistant run. Call this when the user says 'stop', 'cancel', or 'abort'. The assistant should respond with 'Stopping now.'"
+)
+async def stop_assistant_run() -> None:
+    pass
 
 
 # Tools for stopping agent run

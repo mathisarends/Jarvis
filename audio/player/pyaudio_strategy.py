@@ -177,22 +177,6 @@ class PyAudioStrategy(AudioStrategy, LoggingMixin):
         self.logger.info("Volume set to: %.2f", self.volume)
         return self.volume
 
-    def play_startup_sound(self) -> bool:
-        """Play the startup sound"""
-        return self.play_sound_file(SoundFile.STARTUP)
-
-    def play_wake_word_sound(self) -> bool:
-        """Play the wake word sound"""
-        return self.play_sound_file(SoundFile.WAKE_WORD)
-
-    def play_return_to_idle_sound(self) -> bool:
-        """Play the return to idle sound"""
-        return self.play_sound_file(SoundFile.RETURN_TO_IDLE)
-
-    def play_error_sound(self) -> bool:
-        """Play the error sound"""
-        return self.play_sound_file(SoundFile.ERROR)
-
     def play_sound_file(self, sound_file: SoundFile) -> bool:
         """Play a sound using the SoundFile enum"""
         return self.play_sound(sound_file.value)

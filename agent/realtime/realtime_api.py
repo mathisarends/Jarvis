@@ -17,7 +17,6 @@ from agent.realtime.tools.tools import (
     get_current_time,
     get_weather,
     delegate_task_to_web_search_agent,
-    play_sound,
 )
 from agent.realtime.transcription.service import TranscriptionService
 from agent.realtime.websocket.websocket_manager import WebSocketManager
@@ -197,5 +196,4 @@ class OpenAIRealtimeAPI(LoggingMixin):
         self.tool_registry.register(get_current_time)
         self.tool_registry.register(get_weather)
         self.tool_registry.register(delegate_task_to_web_search_agent)
-        self.tool_registry.register(play_sound)
         self.tool_registry.register(adjust_volume)
