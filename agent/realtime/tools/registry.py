@@ -1,13 +1,11 @@
-from typing import Optional
+from typing import Optional, Callable
 
 from agent.realtime.events.client.session_update import FunctionTool
 from agent.realtime.tools.tool import Tool
 
 from shared.logging_mixin import LoggingMixin
-from shared.singleton_decorator import singleton
 
-
-@singleton
+# bei mir ist dsa quasi das hier den wrapper den ich hier für tool geschireben habe ich will aber dass das hier jetzt in der registry hier stattfindet weißt du:
 class ToolRegistry(LoggingMixin):
     """
     Registry for OpenAI Agents SDK FunctionTool objects.
@@ -27,14 +25,6 @@ class ToolRegistry(LoggingMixin):
     def get(self, name: str) -> Optional[Tool]:
         """Get a tool by name."""
         return self._tools.get(name)
-
-    def list_names(self) -> list[str]:
-        """List all tool names."""
-        return list(self._tools.keys())
-
-    def get_all(self) -> list[Tool]:
-        """Get all tools."""
-        return list(self._tools.values())
 
     def get_openai_schema(self) -> list[FunctionTool]:
         """Convert all tools to Pydantic FunctionTool format."""

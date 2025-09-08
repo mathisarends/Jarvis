@@ -3,8 +3,6 @@ from __future__ import annotations
 import asyncio
 import base64
 
-from openai import audio
-
 from agent.config.views import VoiceAssistantConfig
 from agent.realtime.events.client.input_audio_buffer_append import (
     InputAudioBufferAppendEvent,
