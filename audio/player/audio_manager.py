@@ -19,6 +19,7 @@ class AudioManager(LoggingMixin):
         self.logger.info(f"Switching from {old_name} to {new_name}")
         self._strategy = strategy
 
-    def get_strategy(self) -> AudioStrategy:
-        """Get current strategy for direct access"""
+    @property
+    def strategy(self) -> AudioStrategy:
+        """Get current strategy for direct access (readonly)"""
         return self._strategy

@@ -4,6 +4,7 @@ import asyncio
 import inspect
 from typing import Any, get_type_hints
 
+from agent.config.views import AgentConfig
 from agent.realtime.event_bus import EventBus
 from agent.realtime.tools.registry import ToolRegistry
 from agent.realtime.tools.tool import Tool
@@ -28,10 +29,12 @@ class ToolExecutor(LoggingMixin):
         tool_registry: ToolRegistry,
         message_manager: RealtimeMessageManager,
         audio_manager: AudioManager,
+        agent_config: AgentConfig
     ):
         self.tool_registry = tool_registry
         self.message_manager = message_manager
         self.audio_manager = audio_manager
+        self.agent_config = agent_config
         self.event_bus = EventBus()
         self._background_tasks = set()  # Keep track of background tasks
 
@@ -205,6 +208,7 @@ class ToolExecutor(LoggingMixin):
         special_param_names = set(SpecialToolParameters.model_fields.keys())
 
         for param_name, param in signature.parameters.items():
+            print("param", param_name, param)
             # Skip if already provided by LLM
             if param_name in final_arguments:
                 continue
@@ -234,6 +238,8 @@ class ToolExecutor(LoggingMixin):
         """Get the value for a special parameter by name."""
         special_params_map = {
             "audio_manager": self.audio_manager,
+            "event_bus": self.event_bus,
+            "agent_config": self.agent_config,
             # Hier können weitere special parameters hinzugefügt werden:
             # 'message_manager': self.message_manager,
             # 'event_bus': self.event_bus,

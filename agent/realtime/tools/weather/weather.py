@@ -1,7 +1,8 @@
 import asyncio
 import aiohttp
+from typing import Literal
 
-from agent.realtime.tools.location.location import get_current_location
+from agent.realtime.tools.location.location import get_current_location, Location
 from agent.realtime.tools.weather.views import OpenMeteoApiResponse, WeatherData
 from agent.realtime.tools.weather.formatting import (
     format_weather_report,
@@ -9,20 +10,27 @@ from agent.realtime.tools.weather.formatting import (
 )
 
 
-async def fetch_weather_data(latitude: float, longitude: float) -> WeatherData:
-    """Fetch weather data from Open-Meteo API and transform to domain models."""
+async def fetch_weather_data(
+    location: Location, forecast_days: Literal[1, 3] = 3
+) -> WeatherData:
+    """Fetch weather data from Open-Meteo API and transform to domain models.
+
+    Args:
+        location: Location object with latitude/longitude
+        forecast_days: Number of forecast days (1 for today only, 3 for 3-day forecast)
+    """
 
     async with aiohttp.ClientSession() as session:
         url = "https://api.open-meteo.com/v1/forecast"
         params = {
-            "latitude": str(latitude),
-            "longitude": str(longitude),
+            "latitude": str(location.latitude),
+            "longitude": str(location.longitude),
             "current": "temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,pressure_msl",
             "hourly": "temperature_2m,weather_code,precipitation_probability,wind_speed_10m",
             "daily": "temperature_2m_max,temperature_2m_min,weather_code,precipitation_sum,wind_speed_10m_max",
             "timezone": "auto",
             "wind_speed_unit": "ms",
-            "forecast_days": 3,
+            "forecast_days": forecast_days,
         }
 
         async with session.get(url, params=params) as response:
@@ -39,13 +47,13 @@ async def fetch_weather_data(latitude: float, longitude: float) -> WeatherData:
             return weather_data
 
 
-async def get_weather_for_current_location() -> str:
+async def get_weather_for_current_location(forecast_days: Literal[1, 3] = 3) -> str:
     """Main function: Get location and fetch 3-day weather report."""
 
     try:
         location = await get_current_location()
 
-        weather_data = await fetch_weather_data(location.latitude, location.longitude)
+        weather_data = await fetch_weather_data(location, forecast_days)
 
         return format_weather_report(weather_data, location)
 

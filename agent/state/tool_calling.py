@@ -25,6 +25,9 @@ class ToolCallingState(AssistantState):
             case VoiceAssistantEvent.ASSISTANT_RECEIVED_TOOL_CALL_RESULT:
                 self.logger.info("Tool call result received")
                 await self._transition_to_responding(context)
+            case VoiceAssistantEvent.IDLE_TRANSITION:
+                self.logger.info("Idle transition in Tool Calling state")
+                await self._transition_to_idle(context)
             case _:
                 self.logger.debug(
                     "Ignoring event %s in Tool Calling state", event.value

@@ -25,13 +25,15 @@ class RealtimeMessageManager(LoggingMixin):
         ws_manager: WebSocketManager,
         tool_registry: ToolRegistry,
         voice_assistant_config: VoiceAssistantConfig,
+        event_bus: EventBus,
     ):
         self.ws_manager = ws_manager
+        self.event_bus = event_bus
 
         # Initialize specialized components
         self.queue = MessageQueue()
         self.session_manager = SessionManager(
-            voice_assistant_config.agent, tool_registry, ws_manager
+            voice_assistant_config.agent, tool_registry, ws_manager, event_bus
         )
         self.tool_message_handler = ToolMessageHandler(ws_manager)
         self.interruption_handler = SpeechInterruptionHandler(

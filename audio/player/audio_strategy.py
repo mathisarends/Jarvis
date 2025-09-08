@@ -62,11 +62,3 @@ class AudioStrategy(ABC):
     def play_error_sound(self) -> bool:
         """Play the error sound"""
         return self.play_sound_file(SoundFile.ERROR)
-
-    def play_sound_check(self) -> bool:
-        """Play the sound check sound"""
-        return self.play_sound_file(SoundFile.SOUND_CHECK)
-
-    def play_assistant_interrupted_sound(self) -> bool:
-        """Play the assistant interrupted sound"""
-        return self.play_sound_file(SoundFile.ASSISTANT_INTERRUPTED)

@@ -13,7 +13,6 @@ from agent.state.context import VoiceAssistantContext
 from agent.state.timeout_service import TimeoutService
 from audio.capture import AudioCapture
 from audio.detection import AudioDetectionService
-from audio.player import audio_manager
 from audio.player.audio_manager import AudioManager
 from audio.sound_event_handler import SoundEventHandler
 from audio.wake_word_listener import WakeWordListener
@@ -69,7 +68,7 @@ class VoiceAssistantController(LoggingMixin):
         self.event_bus = EventBus()
 
         self.audio_manager = AudioManager()
-        self.audio_strategy = self.audio_manager.get_strategy()
+        self.audio_strategy = self.audio_manager.strategy
         self.sound_event_handler = SoundEventHandler(
             self.audio_strategy, self.event_bus
         )
@@ -94,6 +93,7 @@ class VoiceAssistantController(LoggingMixin):
             audio_capture=self.audio_capture,
             transcription_service=TranscriptionService(),
             audio_manager=self.audio_manager,
+            event_bus=self.event_bus,
         )
 
     def _init_context(self) -> None:
@@ -103,6 +103,7 @@ class VoiceAssistantController(LoggingMixin):
             audio_capture=self.audio_capture,
             audio_detection_service=self.audio_detection_service,
             timeout_service=self.timeout_service,
+            audio_manager=self.audio_manager,
             event_bus=self.event_bus,
             realtime_api=self.realtime_api,
         )

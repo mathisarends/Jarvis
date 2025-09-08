@@ -9,14 +9,17 @@ from agent.config.views import VoiceAssistantConfig
 from agent.realtime.events.client.input_audio_buffer_append import (
     InputAudioBufferAppendEvent,
 )
+from agent.realtime.event_bus import EventBus
 from agent.realtime.messaging.message_manager import RealtimeMessageManager
 from agent.realtime.tools.registry import ToolRegistry
 from agent.realtime.tools.tool_executor import ToolExecutor
 from agent.realtime.tools.tools import (
     adjust_volume,
+    change_assistant_response_speed,
     get_current_time,
     get_weather,
     delegate_task_to_web_search_agent,
+    stop_assistant_run,
 )
 from agent.realtime.transcription.service import TranscriptionService
 from agent.realtime.websocket.websocket_manager import WebSocketManager
@@ -35,6 +38,7 @@ class OpenAIRealtimeAPI(LoggingMixin):
         audio_capture: AudioCapture,
         transcription_service: TranscriptionService,
         audio_manager: AudioManager,
+        event_bus: EventBus,
     ):
         """
         Initializes the OpenAI Realtime API client.
@@ -44,6 +48,7 @@ class OpenAIRealtimeAPI(LoggingMixin):
         self.audio_capture = audio_capture
         self.transcription_service = transcription_service
         self.audio_manager = audio_manager
+        self.event_bus = event_bus
 
         self.tool_registry = ToolRegistry()
 
@@ -52,10 +57,11 @@ class OpenAIRealtimeAPI(LoggingMixin):
             ws_manager=self.ws_manager,
             tool_registry=self.tool_registry,
             voice_assistant_config=voice_assistant_config,
+            event_bus=self.event_bus,
         )
 
         self.tool_executor = ToolExecutor(
-            self.tool_registry, self.message_manager, audio_manager
+            self.tool_registry, self.message_manager, audio_manager, voice_assistant_config.agent
         )
 
         # Audio streaming control
@@ -197,3 +203,5 @@ class OpenAIRealtimeAPI(LoggingMixin):
         self.tool_registry.register(get_weather)
         self.tool_registry.register(delegate_task_to_web_search_agent)
         self.tool_registry.register(adjust_volume)
+        self.tool_registry.register(change_assistant_response_speed)
+        self.tool_registry.register(stop_assistant_run)

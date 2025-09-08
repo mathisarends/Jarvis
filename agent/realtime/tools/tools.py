@@ -1,9 +1,13 @@
 from datetime import datetime
 from typing import Annotated
+from agent.config.views import AgentConfig
+from agent.realtime.event_bus import EventBus
 from agent.realtime.tools.tool import tool
 
 from agent.realtime.tools.weather import get_weather_for_current_location
 from agent.realtime.tools.web_search import run_web_search_agent
+from agent.realtime.tools.assistant import run_volume_adjustment_agent
+from agent.state.base import VoiceAssistantEvent
 from audio.player.audio_manager import AudioManager
 
 # provide more guidance in description when to call the tool and what the assistant should say when calling it
@@ -15,17 +19,22 @@ def get_current_time() -> str:
 
 
 @tool(
-    description="Get comprehensive 3-day weather forecast for your current location. Automatically detects your location via IP and fetches detailed weather data including current conditions and hourly forecasts.",
-    result_context="Focus on today's weather progression and upcoming changes. Leave out the rest of the forecast.",
+    description="Get weather forecast for your current location. Automatically detects your location via IP and fetches detailed weather data including current conditions and forecasts.",
+    result_context="State the number of forecast days: 1 for today only, 3 for 3-day forecast (default: 1).",
 )
-async def get_weather() -> str:
-    """Get weather report for current location with 3-day forecast."""
-    return await get_weather_for_current_location()
+async def get_weather(
+    forecast_days: Annotated[
+        int,
+        "Number of forecast days: 1 for today only, 3 for 3-day forecast (default: 1)",
+    ] = 1,
+) -> str:
+    """Get weather report for current location with configurable forecast days."""
+    return await get_weather_for_current_location(forecast_days)
 
 
 @tool(
     description=(
-        "Delegates a task to a specialized web search agent that automatically optimizes the query with contextual information and returns aggregated search results from the web."
+        "Delegates a task to a specialized web search agent that automatically optimizes the query with contextual information and returns aggregated search results from the web. Use this whenever the user asks for information that requires up-to-date knowledge or specific details from the web."
     ),
 )
 async def delegate_task_to_web_search_agent(
@@ -38,20 +47,39 @@ async def delegate_task_to_web_search_agent(
 
 
 @tool(description="Adjust volume level.")
-async def adjust_volume(
+def adjust_volume(
     level: Annotated[float, "Volume level from 0.0 (0%) to 1.0 (100%)"],
     audio_manager: AudioManager,
 ) -> None:
-    audio_manager.get_strategy().set_volume_level(level)
+    audio_manager.strategy.set_volume_level(level)
 
 
 @tool(
-    description="Stop the assistant run. Call this when the user says 'stop', 'cancel', or 'abort'. The assistant should respond with 'Stopping now.'"
+    description=(
+        "Change the assistant's talking speed by a relative amount. Acknowledge the change before calling the tool."
+        "The tool internally retrieves the current speed and adjusts it relative to the current rate."
+    ),
+    result_context="Answer with an acknowledgement and state the new speed in percent (e.g. 1.5 = 150%)",
 )
-async def stop_assistant_run() -> None:
-    pass
+async def change_assistant_response_speed(
+    instructions: Annotated[str, "Natural language command: 'faster' or 'slower'"],
+    agent_config: AgentConfig,
+    event_bus: EventBus,
+) -> str:
+    response_speed_adjustment_result = await run_volume_adjustment_agent(
+        instructions, agent_config
+    )
+    new_response_speed = response_speed_adjustment_result.new_response_speed
+    
+    await event_bus.publish_async(
+        VoiceAssistantEvent.ASSISTANT_CONFIG_UPDATE_REQUEST,
+        new_response_speed
+    )
+    
+    return f"Volume adjusted to {new_response_speed*100:.0f}%"
 
-
-# Tools for stopping agent run
-# response speed verändern
-# wake word verändern
+@tool(
+    description="Stop the assistant run. Call this when the user says 'stop', 'cancel', or 'abort'."
+)
+async def stop_assistant_run(event_bus: EventBus) -> None:
+    await event_bus.publish_async(VoiceAssistantEvent.IDLE_TRANSITION)

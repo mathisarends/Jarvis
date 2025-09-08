@@ -8,6 +8,7 @@ from agent.realtime.realtime_api import OpenAIRealtimeAPI
 from audio.capture import AudioCapture
 from audio.detection import AudioDetectionService
 from agent.state.timeout_service import TimeoutService
+from audio.player.audio_manager import AudioManager
 from shared.logging_mixin import LoggingMixin
 from agent.state.base import VoiceAssistantEvent
 
@@ -26,6 +27,7 @@ class VoiceAssistantContext(LoggingMixin):
         audio_capture: AudioCapture,
         audio_detection_service: AudioDetectionService,
         timeout_service: TimeoutService,
+        audio_manager: AudioManager,
         event_bus: EventBus,
         realtime_api: OpenAIRealtimeAPI,
     ):
@@ -36,6 +38,7 @@ class VoiceAssistantContext(LoggingMixin):
         self.audio_capture = audio_capture
         self.audio_detection_service = audio_detection_service
         self.timeout_service = timeout_service
+        self.audio_manager = audio_manager
         self.event_bus = event_bus
         self.realtime_api = realtime_api
 

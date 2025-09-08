@@ -4,7 +4,9 @@ from unittest import result
 from pydantic import BaseModel, ConfigDict, field_validator
 import json
 
+from agent.config.views import AgentConfig
 from agent.controller import voice_assistant_controller
+from agent.realtime.event_bus import EventBus
 from agent.realtime.event_types import RealtimeClientEvent, RealtimeServerEvent
 from audio.player.audio_manager import AudioManager
 
@@ -71,9 +73,12 @@ class FunctionCallResult(BaseModel):
             return str(self.output)
 
 
+# TODO: This has to be encapsulated in a context object (and be more picky about what goes in here - the ToolExecutro needs all this state)
 class SpecialToolParameters(BaseModel):
     """Model defining all special parameters that can be injected into actions"""
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     audio_manager: AudioManager
+    event_bus: EventBus
+    agent_config: AgentConfig

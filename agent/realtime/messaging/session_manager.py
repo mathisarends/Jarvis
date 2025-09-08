@@ -1,4 +1,5 @@
 from agent.config.views import AgentConfig
+from agent.realtime.event_bus import EventBus
 from agent.realtime.events.client.session_update import (
     AudioFormat,
     AudioFormatConfig,
@@ -10,6 +11,7 @@ from agent.realtime.events.client.session_update import (
 )
 from agent.realtime.tools.registry import ToolRegistry
 from agent.realtime.websocket.websocket_manager import WebSocketManager
+from agent.state.base import VoiceAssistantEvent
 from shared.logging_mixin import LoggingMixin
 
 
@@ -21,10 +23,31 @@ class SessionManager(LoggingMixin):
         agent_config: AgentConfig,
         tool_registry: ToolRegistry,
         ws_manager: WebSocketManager,
+        event_bus: EventBus,
     ):
         self.agent_config = agent_config
         self.tool_registry = tool_registry
         self.ws_manager = ws_manager
+        self.event_bus = event_bus
+        
+        self.event_bus.subscribe(
+            VoiceAssistantEvent.ASSISTANT_CONFIG_UPDATE_REQUEST,
+            self._handle_config_update_request
+        )
+
+    async def _send_session_update(self):
+        """Send updated session configuration to OpenAI."""
+        try:
+            session_config = self._build_config()
+            self.logger.info("Sending session update with new config...")
+
+            success = await self.ws_manager.send_message(session_config)
+            if success:
+                self.logger.info("Session update sent successfully")
+            else:
+                self.logger.error("Failed to send session update")
+        except Exception as e:
+            self.logger.error("Error sending session update: %s", e)
 
     async def initialize(self) -> bool:
         """Initialize session with OpenAI API."""
@@ -61,14 +84,8 @@ class SessionManager(LoggingMixin):
             ),
         )
 
-        import json
-
-        test = self.tool_registry.get_openai_schema()
-        print(json.dumps([tool.model_dump() for tool in test], indent=2))
-
         return SessionUpdateEvent(
             session=RealtimeSessionConfig(
-                type="realtime",
                 model=self.agent_config.model,
                 instructions=self.agent_config.instructions,
                 audio=audio_config,
@@ -77,3 +94,17 @@ class SessionManager(LoggingMixin):
                 tools=self.tool_registry.get_openai_schema(),
             ),
         )
+
+
+    async def _handle_config_update_request(self, event: VoiceAssistantEvent, new_response_speed: float):
+        """Handle assistant configuration update requests."""
+        self.logger.info(
+            "Received config update request - New response speed: %.2f",
+            new_response_speed
+        )
+
+        # Update the agent config with new response speed
+        self.agent_config.speed = new_response_speed
+
+        # Send updated session configuration to OpenAI
+        await self._send_session_update()

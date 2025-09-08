@@ -10,6 +10,7 @@ class ListeningState(AssistantState):
 
     async def on_enter(self, context: VoiceAssistantContext) -> None:
         self.logger.info("Entering Listening state - user is speaking")
+        context.audio_manager.strategy.clear_queue_and_stop_chunks()
 
         await context.ensure_realtime_audio_channel_connected()
 
@@ -29,5 +30,8 @@ class ListeningState(AssistantState):
             case VoiceAssistantEvent.USER_SPEECH_ENDED:
                 self.logger.info("User finished speaking")
                 return await self._transition_to_responding(context)
+            case VoiceAssistantEvent.IDLE_TRANSITION:
+                self.logger.info("Idle transition in Listening state")
+                await self._transition_to_idle(context)
             case _:
                 self.logger.debug("Ignoring event %s in Listening state", event.value)

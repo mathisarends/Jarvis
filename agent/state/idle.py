@@ -32,6 +32,9 @@ class IdleState(AssistantState):
         match event:
             case VoiceAssistantEvent.WAKE_WORD_DETECTED:
                 await self._transition_to_listening(context)
+            case VoiceAssistantEvent.IDLE_TRANSITION:
+                self.logger.info("Idle transition in Idle state - already idle")
+                # Already in idle state, no transition needed
             case _:
                 self.logger.debug("Ignoring event %s in Idle state", event.value)
 

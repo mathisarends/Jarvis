@@ -94,6 +94,7 @@ class WakeWordListener(LoggingMixin):
         """Non-blocking wait for wake word."""
         self.logger.info("Starting async wake word listening…")
         self._detection_event.clear()
+        self.should_stop = False
         self.is_listening = True
 
         if not self.stream.is_active():
