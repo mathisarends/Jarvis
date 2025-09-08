@@ -31,14 +31,16 @@ class Tool(LoggingMixin):
         description: str,
         function: Callable,
         schema: FunctionParameters,
-        result_context: Optional[str] = None,
+        response_instruction: Optional[str] = None,
+        execution_message: Optional[str] = None,
         is_generator: bool = False,
     ):
         self.name = name
         self.description = description
         self.function = function
         self.schema = schema
-        self.result_context = result_context
+        self.response_instruction = response_instruction
+        self.execution_message = execution_message
         self.is_generator = is_generator
 
     async def execute(self, arguments: dict[str, Any]) -> Any:
@@ -61,7 +63,8 @@ class Tool(LoggingMixin):
 def tool(
     description: str,
     name: Optional[str] = None,
-    result_context: Optional[str] = None,
+    response_instruction: Optional[str] = None,
+    execution_message: Optional[str] = None,
 ):
     """
     Simple tool decorator that extracts parameters from function signature.
@@ -69,7 +72,7 @@ def tool(
     Args:
         description: Required description of the tool's functionality
         name: Optional custom name for the tool (defaults to function name)
-        result_context: Context information for handling the tool result
+        response_instruction: Context information for handling the tool result
                         (e.g. "Das Ergebnis sollte als Markdown formatiert werden")
 
     Usage:
@@ -79,7 +82,7 @@ def tool(
 
     @tool(
         "Search for information online",
-        result_context="Die gefundenen Informationen sollten kritisch bewertet und zusammengefasst werden."
+        response_instruction="Die gefundenen Informationen sollten kritisch bewertet und zusammengefasst werden."
     )
     def web_search(query: str) -> str:
         # Search implementation
@@ -96,7 +99,7 @@ def tool(
 
     @tool(
         "Analyze data from uploaded file",
-        result_context="Die Analyse sollte in strukturierter Form mit Diagrammen präsentiert werden."
+        response_instruction="Die Analyse sollte in strukturierter Form mit Diagrammen präsentiert werden."
     )
     def analyze_file(file_path: str) -> dict:
         # Analysis implementation
@@ -113,7 +116,8 @@ def tool(
             description=description,
             function=func,
             schema=schema,
-            result_context=result_context,
+            response_instruction=response_instruction,
+            execution_message=execution_message,
             is_generator=is_generator,
         )
 

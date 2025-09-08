@@ -29,7 +29,7 @@ class ToolExecutor(LoggingMixin):
         tool_registry: ToolRegistry,
         message_manager: RealtimeMessageManager,
         audio_manager: AudioManager,
-        agent_config: AgentConfig
+        agent_config: AgentConfig,
     ):
         self.tool_registry = tool_registry
         self.message_manager = message_manager
@@ -58,6 +58,11 @@ class ToolExecutor(LoggingMixin):
             )
 
             tool = self._retrieve_tool_from_registry(function_name)
+
+            if tool.execution_message:
+                await self.message_manager.send_execution_message(
+                    tool.execution_message
+                )
 
             await self._execute_tool(tool, data, llm_arguments)
 
@@ -95,17 +100,17 @@ class ToolExecutor(LoggingMixin):
             # Execute regular tools synchronously
             result = await tool.execute(final_arguments)
             self.logger.info("Tool '%s' executed successfully", tool.name)
-            await self._send_tool_result(data, result, tool.result_context)
+            await self._send_tool_result(data, result, tool.response_instruction)
 
     async def _send_tool_result(
-        self, data: FunctionCallItem, result: Any, result_context: str = None
+        self, data: FunctionCallItem, result: Any, response_instruction: str = None
     ) -> None:
         """Send tool execution result."""
         function_call_result = FunctionCallResult(
             tool_name=data.name,
             call_id=data.call_id,
             output=result,
-            result_context=result_context,
+            response_instruction=response_instruction,
         )
         await self.message_manager.send_tool_result(function_call_result)
         self.logger.info("Tool result sent for: %s", data.name)
@@ -139,7 +144,7 @@ class ToolExecutor(LoggingMixin):
 
             # Early return if not a generator
             if not (inspect.isgenerator(result) or inspect.isasyncgen(result)):
-                await self._send_tool_result(data, result, tool.result_context)
+                await self._send_tool_result(data, result, tool.response_instruction)
                 return
 
             if inspect.isasyncgen(result):
@@ -157,13 +162,13 @@ class ToolExecutor(LoggingMixin):
     async def _send_async_generator_updates(self, generator) -> None:
         """Send updates for an async generator."""
         async for chunk in generator:
-            await self.message_manager.send_update_for_generator_tool(chunk)
+            await self.message_manager.send_execution_message(chunk)
             self.logger.debug("Generator yielded: %s", chunk)
 
     async def _send_sync_generator_updates(self, generator) -> None:
         """Send updates for a sync generator."""
         for chunk in generator:
-            await self.message_manager.send_update_for_generator_tool(chunk)
+            await self.message_manager.send_execution_message(chunk)
             self.logger.debug("Generator yielded: %s", chunk)
 
     async def _handle_tool_error(
@@ -178,7 +183,7 @@ class ToolExecutor(LoggingMixin):
             tool_name=data.name,
             call_id=data.call_id,
             output=f"Error: {str(error)}",
-            result_context="This is an error message that should be communicated to the user",
+            response_instruction="This is an error message that should be communicated to the user",
         )
         await self.message_manager.send_tool_result(function_call_result)
 

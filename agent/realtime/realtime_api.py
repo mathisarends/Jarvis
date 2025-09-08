@@ -61,7 +61,10 @@ class OpenAIRealtimeAPI(LoggingMixin):
         )
 
         self.tool_executor = ToolExecutor(
-            self.tool_registry, self.message_manager, audio_manager, voice_assistant_config.agent
+            self.tool_registry,
+            self.message_manager,
+            audio_manager,
+            voice_assistant_config.agent,
         )
 
         # Audio streaming control

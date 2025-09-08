@@ -34,8 +34,10 @@ class ToolMessageHandler(LoggingMixin):
                 exc_info=True,
             )
 
-    async def send_update_for_generator_tool(self, message: str) -> None:
-        """Send update message for generator tool progress."""
+    async def send_execution_message(self, message: str) -> None:
+        """
+        Send a generator tool progress update as a conversation response.
+        """
         try:
             self.logger.info("Sending generator tool update")
 
@@ -66,7 +68,7 @@ class ToolMessageHandler(LoggingMixin):
     async def _trigger_response(self, result: FunctionCallResult) -> None:
         """Trigger response creation."""
         response_event = ConversationResponseCreateEvent.with_instructions(
-            result.result_context
+            result.response_instruction
             or "Process the tool result and provide a helpful response."
         )
         await self.ws_manager.send_message(response_event)

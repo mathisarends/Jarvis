@@ -39,7 +39,7 @@ class VoiceAssistantEvent(Enum):
 
     ASSISTANT_STARTED_TOOL_CALL = "assistant_started_tool_call"
     ASSISTANT_RECEIVED_TOOL_CALL_RESULT = "assistant_received_tool_call"
-    
+
     ASSISTANT_CONFIG_UPDATE_REQUEST = "assistant_config_update_request"
 
     TIMEOUT_OCCURRED = "timeout_occurred"

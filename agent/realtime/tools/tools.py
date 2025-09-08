@@ -20,7 +20,7 @@ def get_current_time() -> str:
 
 @tool(
     description="Get weather forecast for your current location. Automatically detects your location via IP and fetches detailed weather data including current conditions and forecasts.",
-    result_context="State the number of forecast days: 1 for today only, 3 for 3-day forecast (default: 1).",
+    response_instruction="State the number of forecast days: 1 for today only, 3 for 3-day forecast (default: 1).",
 )
 async def get_weather(
     forecast_days: Annotated[
@@ -59,7 +59,8 @@ def adjust_volume(
         "Change the assistant's talking speed by a relative amount. Acknowledge the change before calling the tool."
         "The tool internally retrieves the current speed and adjusts it relative to the current rate."
     ),
-    result_context="Answer with an acknowledgement and state the new speed in percent (e.g. 1.5 = 150%)",
+    execution_message="Adjusting response speed...",
+    response_instruction="State that the response speed has been adjusted and name the new speed in percent (e.g. 1.5 = 150%)",
 )
 async def change_assistant_response_speed(
     instructions: Annotated[str, "Natural language command: 'faster' or 'slower'"],
@@ -70,13 +71,13 @@ async def change_assistant_response_speed(
         instructions, agent_config
     )
     new_response_speed = response_speed_adjustment_result.new_response_speed
-    
+
     await event_bus.publish_async(
-        VoiceAssistantEvent.ASSISTANT_CONFIG_UPDATE_REQUEST,
-        new_response_speed
+        VoiceAssistantEvent.ASSISTANT_CONFIG_UPDATE_REQUEST, new_response_speed
     )
-    
+
     return f"Volume adjusted to {new_response_speed*100:.0f}%"
+
 
 @tool(
     description="Stop the assistant run. Call this when the user says 'stop', 'cancel', or 'abort'."

@@ -54,10 +54,10 @@ class RealtimeMessageManager(LoggingMixin):
             self.tool_message_handler.send_result, function_call_result
         )
 
-    async def send_update_for_generator_tool(self, message: str) -> None:
+    async def send_execution_message(self, message: str) -> None:
         """Send update message for generator tool progress (queued if response active)."""
         await self.queue.send_or_queue(
-            self.tool_message_handler.send_update_for_generator_tool, message
+            self.tool_message_handler.send_execution_message, message
         )
 
     def _setup_event_handlers(self) -> None:

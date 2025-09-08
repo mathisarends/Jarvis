@@ -29,10 +29,10 @@ class SessionManager(LoggingMixin):
         self.tool_registry = tool_registry
         self.ws_manager = ws_manager
         self.event_bus = event_bus
-        
+
         self.event_bus.subscribe(
             VoiceAssistantEvent.ASSISTANT_CONFIG_UPDATE_REQUEST,
-            self._handle_config_update_request
+            self._handle_config_update_request,
         )
 
     async def _send_session_update(self):
@@ -95,12 +95,13 @@ class SessionManager(LoggingMixin):
             ),
         )
 
-
-    async def _handle_config_update_request(self, event: VoiceAssistantEvent, new_response_speed: float):
+    async def _handle_config_update_request(
+        self, event: VoiceAssistantEvent, new_response_speed: float
+    ):
         """Handle assistant configuration update requests."""
         self.logger.info(
             "Received config update request - New response speed: %.2f",
-            new_response_speed
+            new_response_speed,
         )
 
         # Update the agent config with new response speed
