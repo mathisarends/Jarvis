@@ -10,6 +10,7 @@ from typing import (
 )
 import inspect
 import collections.abc
+import warnings
 
 from agent.realtime.events.client.session_update import (
     FunctionParameterProperty,
@@ -48,8 +49,19 @@ class ToolRegistry:
 
         def decorator(func: Callable) -> Callable:
             tool_name = name or func.__name__
+
+            # Check for synchrone Generatoren und verhindere Registrierung
+            if inspect.isgeneratorfunction(func):
+                warnings.warn(
+                    f"Synchronous generator function '{tool_name}' cannot be registered as tool. "
+                    f"Only async generators are supported. Use 'async def' with 'yield'.",
+                    UserWarning,
+                    stacklevel=3,
+                )
+                return func  # Return function unchanged, don't register
+
             schema = self._generate_schema_from_function(func)
-            is_generator = self._is_generator_function(func)
+            is_async_generator = inspect.isasyncgenfunction(func)
 
             # Create bound method if it's an instance method
             if hasattr(self, func.__name__):
@@ -64,7 +76,7 @@ class ToolRegistry:
                 schema=schema,
                 response_instruction=response_instruction,
                 execution_message=execution_message,
-                is_generator=is_generator,
+                is_async_generator=is_async_generator,
             )
 
             self._register(tool)
@@ -139,39 +151,6 @@ class ToolRegistry:
             properties=properties,
             required=required_params,
         )
-
-    def _is_generator_function(self, func: Callable) -> bool:
-        """Check if a function is a generator based on its return type hints."""
-        type_hints = get_type_hints(func)
-        return_type = type_hints.get("return")
-
-        if return_type is None:
-            return False
-
-        origin = get_origin(return_type)
-        if origin is not None:
-            # collections.abc.Generator (only sync generators)
-            if origin == collections.abc.Generator:
-                return True
-            # typing.Generator (only sync generators)
-            try:
-                import typing
-
-                if origin == typing.Generator:
-                    return True
-            except ImportError:
-                pass
-
-        # Fallback to types.GeneratorType (only sync generators)
-        try:
-            import types
-
-            if hasattr(types, "GeneratorType") and return_type == types.GeneratorType:
-                return True
-        except ImportError:
-            pass
-
-        return False
 
     def _extract_special_parameter_types(self) -> set[type]:
         """Extract types from SpecialToolParameters for filtering."""

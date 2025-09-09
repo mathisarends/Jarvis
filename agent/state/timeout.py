@@ -13,7 +13,9 @@ class TimeoutState(AssistantState):
     async def on_enter(self, context: VoiceAssistantContext) -> None:
         # Create timeout service if not exists
         if self.timeout_service is None:
-            self.timeout_service = TimeoutService(timeout_seconds=10.0, event_bus=context.event_bus)
+            self.timeout_service = TimeoutService(
+                timeout_seconds=10.0, event_bus=context.event_bus
+            )
 
         self.logger.info(
             "Entering TimeoutState - user has %s seconds to start speaking",

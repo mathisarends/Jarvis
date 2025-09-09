@@ -10,13 +10,13 @@ from agent.realtime.events.client.input_audio_buffer_append import (
 )
 from agent.realtime.event_bus import EventBus
 from agent.realtime.messaging.message_manager import RealtimeMessageManager
-from agent.realtime.tools.registry import ToolRegistry
 from agent.realtime.tools.tool_executor import ToolExecutor
+from agent.realtime.tools.views import SpecialToolParameters
+from agent.realtime.tools.tools import Tools
 from agent.realtime.transcription.service import TranscriptionService
 from agent.realtime.websocket.websocket_manager import WebSocketManager
 
 from audio.capture import AudioCapture
-from audio.player.audio_manager import AudioManager
 from shared.logging_mixin import LoggingMixin
 
 
@@ -25,16 +25,22 @@ class RealtimeClient(LoggingMixin):
         self,
         voice_assistant_config: VoiceAssistantConfig,
         audio_capture: AudioCapture,
-        audio_manager: AudioManager,
+        special_tool_parameters: SpecialToolParameters,
         event_bus: EventBus,
+        tools: Tools,
     ):
         """
         Initializes the OpenAI Realtime API client.
         All configuration is loaded from configuration files.
         """
         self.audio_capture = audio_capture
-        self.audio_manager = audio_manager
+        self.special_tool_parameters = special_tool_parameters
         self.event_bus = event_bus
+        self.tools = tools
+
+        # Extract components from special tool parameters
+        self.audio_manager = special_tool_parameters.audio_manager
+        self.agent_config = special_tool_parameters.agent_config
 
         # Create WebSocketManager and TranscriptionService internally
         self.ws_manager = WebSocketManager.from_model(
@@ -42,7 +48,7 @@ class RealtimeClient(LoggingMixin):
         )
         self.transcription_service = TranscriptionService(event_bus=self.event_bus)
 
-        self.tool_registry = ToolRegistry()
+        self.tool_registry = self.tools.registry
 
         # instantiate message manager (handles events and websocket messages)
         self.message_manager = RealtimeMessageManager(
@@ -52,11 +58,11 @@ class RealtimeClient(LoggingMixin):
             event_bus=self.event_bus,
         )
 
+        # TODO: Pass special tool parameters here
         self.tool_executor = ToolExecutor(
             self.tool_registry,
             self.message_manager,
-            audio_manager,
-            voice_assistant_config.agent,
+            self.special_tool_parameters,
             self.event_bus,
         )
 
@@ -133,18 +139,15 @@ class RealtimeClient(LoggingMixin):
 
         try:
             self.logger.info("Starting audio transmission...")
-            audio_chunks_sent = await self._process_audio_loop()
-            self.logger.info(
-                "Audio transmission ended. Chunks sent: %d", audio_chunks_sent
-            )
+            await self._process_audio_loop()
+            self.logger.info("Audio transmission ended")
         except asyncio.TimeoutError as e:
             self.logger.error("Timeout while sending audio: %s", e)
         except Exception as e:
             self.logger.error("Error while sending audio: %s", e)
 
-    async def _process_audio_loop(self) -> int:
+    async def _process_audio_loop(self) -> None:
         """Process the main audio streaming loop using the new async generator."""
-        audio_chunks_sent = 0
         self.audio_capture.start_stream()
         try:
             async for chunk in self.audio_capture.stream_chunks():
@@ -157,14 +160,9 @@ class RealtimeClient(LoggingMixin):
                 input_audio_buffer_append_event = (
                     InputAudioBufferAppendEvent.from_audio(base64_audio_data)
                 )
-                success = await self.ws_manager.send_message(
-                    input_audio_buffer_append_event
-                )
-                if success:
-                    audio_chunks_sent += 1
+                await self.ws_manager.send_message(input_audio_buffer_append_event)
         finally:
             self.audio_capture.cleanup()
-        return audio_chunks_sent
 
     def _should_continue_streaming(self) -> bool:
         """Check if audio streaming should continue."""

@@ -8,6 +8,7 @@ from agent.realtime.messaging.speech_interruption_handler import (
 )
 from agent.realtime.messaging.tool_message_handler import ToolMessageHandler
 from agent.realtime.tools.registry import ToolRegistry
+from agent.realtime.tools.tools import Tools
 from agent.realtime.tools.views import FunctionCallResult
 from agent.realtime.websocket.websocket_manager import WebSocketManager
 from agent.state.base import VoiceAssistantEvent

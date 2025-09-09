@@ -15,6 +15,7 @@ from agent.realtime.views import (
     AssistantVoice,
 )
 from agents.models.interface import Model
+from audio.player.audio_strategy import AudioStrategy
 from audio.wake_word_listener import PorcupineBuiltinKeyword
 from shared.logging_mixin import LoggingMixin
 
@@ -41,6 +42,7 @@ class RealtimeAgent(Generic[Context], LoggingMixin):
         enable_wake_word: bool = False,
         wakeword: PorcupineBuiltinKeyword | None = None,
         wake_word_sensitivity: float = 0.7,
+        audio_playback_strategy: AudioStrategy | None = None,
     ):
         # Store config (same as before)
         self.context = context
@@ -78,6 +80,8 @@ class RealtimeAgent(Generic[Context], LoggingMixin):
         # Create services via factory
         agent_config = self._build_agent_config()
         wake_word_config = self._build_wake_word_config()
+
+        self.audio_playback_strategy = audio_playback_strategy
 
         factory = ServiceFactory(agent_config, wake_word_config, self.tools)
         self.services: ServiceBundle = factory.create_services()

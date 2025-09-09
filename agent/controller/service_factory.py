@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from agent.config.views import AgentConfig, WakeWordConfig, VoiceAssistantConfig
 from agent.realtime.event_bus import EventBus
 from agent.realtime.reatlime_client import RealtimeClient
+from agent.realtime.tools.views import SpecialToolParameters
 from agent.realtime.tools.tools import Tools
 from agent.state.context import VoiceAssistantContext
 from audio.capture import AudioCapture
@@ -100,17 +101,26 @@ class ServiceFactory:
     ) -> SoundEventHandler:
         return SoundEventHandler(audio_manager.strategy, self.event_bus)
 
+    # Hier müssen die neuen Tools übergeben werden denke ich :)
     def _create_realtime_client(
         self, audio_capture: AudioCapture, audio_manager: AudioManager
     ) -> RealtimeClient:
+        # Create special tool parameters bundle
+        special_tool_parameters = SpecialToolParameters(
+            audio_manager=audio_manager,
+            event_bus=self.event_bus,
+            agent_config=self.agent_config,
+        )
+
         return RealtimeClient(
             voice_assistant_config=VoiceAssistantConfig(
                 agent=self.agent_config,
                 wake_word=self.wake_word_config,
             ),
             audio_capture=audio_capture,
-            audio_manager=audio_manager,
+            special_tool_parameters=special_tool_parameters,
             event_bus=self.event_bus,
+            tools=self.tools,
         )
 
     def _create_context(

@@ -14,7 +14,7 @@ async def main():
     """Run the voice assistant application."""
     try:
         agent = RealtimeAgent(
-            instructions="Be concise and friendly. Answer in German.",
+            instructions="Be concise and friendly. Answer in German. Always use tools if necessary.",
             response_temperature=0.8,
             assistant_voice=AssistantVoice.MARIN,
             speech_speed=1.3,

@@ -25,7 +25,10 @@ class PyAudioStrategy(AudioStrategy, LoggingMixin):
     SUPPORTED_FORMATS = {".mp3"}
 
     def __init__(
-        self, config: Optional[AudioConfig] = None, sounds_dir: Optional[str] = None, event_bus: EventBus = None
+        self,
+        config: Optional[AudioConfig] = None,
+        sounds_dir: Optional[str] = None,
+        event_bus: EventBus = None,
     ):
         self.config = config or AudioConfig()
 
