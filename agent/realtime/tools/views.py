@@ -5,7 +5,11 @@ import json
 
 from agent.config.views import AgentConfig
 from agent.realtime.event_bus import EventBus
-from agent.realtime.event_types import RealtimeClientEvent, RealtimeServerEvent
+from agent.realtime.event_types import RealtimeServerEvent
+from agent.realtime.events.conversation_item_create import (
+    ConversationItemCreateEvent,
+    FunctionCallOutputItem,
+)
 from audio.player.audio_manager import AudioManager
 
 
@@ -49,15 +53,13 @@ class FunctionCallResult(BaseModel):
     output: Optional[Any] = None
     response_instruction: Optional[str] = None
 
-    def to_conversation_item(self) -> dict:
-        return {
-            "type": RealtimeClientEvent.CONVERSATION_ITEM_CREATE,
-            "item": {
-                "type": "function_call_output",
-                "call_id": self.call_id,
-                "output": self._format_output(),
-            },
-        }
+    def to_conversation_item(self) -> ConversationItemCreateEvent:
+        return ConversationItemCreateEvent(
+            item=FunctionCallOutputItem(
+                call_id=self.call_id,
+                output=self._format_output(),
+            )
+        )
 
     def _format_output(self) -> str:
         """Private Methode zur Formatierung des Outputs als String."""
@@ -71,7 +73,6 @@ class FunctionCallResult(BaseModel):
             return str(self.output)
 
 
-# TODO: This has to be encapsulated in a context object (and be more picky about what goes in here - the ToolExecutro needs all this state)
 class SpecialToolParameters(BaseModel):
     """Model defining all special parameters that can be injected into actions"""
 
@@ -80,3 +81,10 @@ class SpecialToolParameters(BaseModel):
     audio_manager: AudioManager
     event_bus: EventBus
     agent_config: AgentConfig
+    tool_calling_model_name: str | None = None
+
+    # optional user-provided context object passed down from Agent(context=...)
+    # e.g. can contain anything, external db connections, file handles, queues, runtime config objects, etc.
+    # that you might want to be able to access quickly from within many of your actions
+    # passed down for convenience, but not automatically used by the system
+    context: Any | None = None

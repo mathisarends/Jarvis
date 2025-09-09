@@ -4,7 +4,7 @@ import asyncio
 import inspect
 from typing import Any
 
-from agent.realtime.event_bus import EventBus
+from agent.realtime.event_bus import EventBus, on_event_with_data
 from agent.realtime.tools.registry import ToolRegistry
 from agent.realtime.tools.tool import Tool
 from agent.realtime.tools.views import (
@@ -37,14 +37,11 @@ class ToolExecutor(LoggingMixin):
         # Only extract what's used directly
         self.event_bus = event_bus
 
-        self.event_bus.subscribe(
-            VoiceAssistantEvent.ASSISTANT_STARTED_TOOL_CALL, self._handle_tool_call
-        )
+        self.event_bus.register_handlers(self)
         self.logger.info("ToolExecutor initialized and subscribed to tool call events")
 
-    async def _handle_tool_call(
-        self, event: VoiceAssistantEvent, data: FunctionCallItem
-    ) -> None:
+    @on_event_with_data(VoiceAssistantEvent.ASSISTANT_STARTED_TOOL_CALL)
+    async def _handle_tool_call(self, data: FunctionCallItem) -> None:
         """Handle function call events and execute the requested tool."""
         try:
             function_name = data.name

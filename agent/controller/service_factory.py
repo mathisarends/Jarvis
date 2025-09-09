@@ -1,6 +1,6 @@
 import asyncio
 from dataclasses import dataclass
-from agent.config.views import AgentConfig, WakeWordConfig, VoiceAssistantConfig
+from agent.config.views import AgentConfig, WakeWordConfig
 from agent.realtime.event_bus import EventBus
 from agent.realtime.reatlime_client import RealtimeClient
 from agent.realtime.tools.views import SpecialToolParameters
@@ -110,13 +110,11 @@ class ServiceFactory:
             audio_manager=audio_manager,
             event_bus=self.event_bus,
             agent_config=self.agent_config,
+            tool_calling_model_name=self.agent_config.tool_calling_model_name,
         )
 
         return RealtimeClient(
-            voice_assistant_config=VoiceAssistantConfig(
-                agent=self.agent_config,
-                wake_word=self.wake_word_config,
-            ),
+            agent_config=self.agent_config,
             audio_capture=audio_capture,
             special_tool_parameters=special_tool_parameters,
             event_bus=self.event_bus,

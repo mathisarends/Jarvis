@@ -14,7 +14,6 @@ from agent.realtime.tools.tools import Tools
 from agent.realtime.views import (
     AssistantVoice,
 )
-from agents.models.interface import Model
 from audio.player.audio_strategy import AudioStrategy
 from audio.wake_word_listener import PorcupineBuiltinKeyword
 from shared.logging_mixin import LoggingMixin
@@ -31,7 +30,7 @@ class RealtimeAgent(Generic[Context], LoggingMixin):
         instructions: str | None = None,
         response_temperature: float = 0.8,
         tools: Tools | None = None,
-        tool_calling_model=str | Model | None,
+        tool_calling_model_name: str | None = None,
         assistant_voice: AssistantVoice = AssistantVoice.MARIN,
         speech_speed: float = 1.0,
         enable_transcription: bool = False,
@@ -50,12 +49,15 @@ class RealtimeAgent(Generic[Context], LoggingMixin):
         self.instructions = instructions
         self.response_temperature = response_temperature
         self.tools = tools if tools is not None else Tools()
-        self.tool_calling_model = tool_calling_model
+        self.tool_calling_model_name = tool_calling_model_name
         self.assistant_voice = assistant_voice
         self.speech_speed = speech_speed
         self._validate_assistant_speech_speed()
 
         self.enable_transcription = enable_transcription
+
+        # Standardmäßig None setzen; bei aktivierter Transkription ggf. überschreiben
+        self.transcription_model = None
         if self.enable_transcription:
             self.transcription_model = (
                 transcription_model
@@ -177,6 +179,7 @@ class RealtimeAgent(Generic[Context], LoggingMixin):
             input_audio_noise_reduction=InputAudioNoiseReductionConfig(
                 type=self.noise_reduction_mode
             ),
+            tool_calling_model_name=self.tool_calling_model_name,
         )
 
     def _build_wake_word_config(self) -> WakeWordConfig:

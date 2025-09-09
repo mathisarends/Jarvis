@@ -1,100 +1,33 @@
 from __future__ import annotations
 
-from typing import Literal, Optional, Any
+from typing import Literal, Any
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from agent.realtime.events.client.session_update import (
     InputAudioNoiseReductionConfig,
     InputAudioTranscriptionConfig,
+    NoiseReductionType,
     RealtimeModel,
 )
 from agent.realtime.views import (
     AssistantVoice,
 )
+from audio.player.audio_strategy import AudioStrategy
 from audio.wake_word_listener import PorcupineBuiltinKeyword
 
 
 class AgentConfig(BaseModel):
     """Configuration for the agent"""
 
-    model: Optional[RealtimeModel] = RealtimeModel.GPT_REALTIME
+    model: RealtimeModel = RealtimeModel.GPT_REALTIME
     voice: AssistantVoice = AssistantVoice.MARIN
     speed: float = 1.0
-    instructions: Optional[str] = None
-    max_response_output_tokens: int | Literal["inf"] = "inf"
+    instructions: str | None = None
     temperature: float = 0.8
-    input_audio_noise_reduction: Optional[InputAudioNoiseReductionConfig] = None
-    transcription: Optional[InputAudioTranscriptionConfig] = None
-
-    @field_validator("max_response_output_tokens", mode="before")
-    @classmethod
-    def validate_max_response_output_tokens(cls, v: Any) -> int | Literal["inf"]:
-        """
-        Validate max_response_output_tokens according to OpenAI Realtime API spec.
-        Must be an integer between 1 and 4096, or "inf" for maximum.
-        """
-        # Handle infinity cases
-        if cls._is_infinity_value(v):
-            return "inf"
-
-        # Handle numeric values
-        if isinstance(v, (int, float)):
-            return cls._validate_numeric_value(v)
-
-        # Handle string values
-        if isinstance(v, str):
-            return cls._validate_string_value(v)
-
-        # Invalid type
-        raise ValueError(
-            f"max_response_output_tokens must be an integer between 1 and 4096, or 'inf'. Got: {v!r}"
-        )
-
-    @classmethod
-    def _is_infinity_value(cls, v: Any) -> bool:
-        """Check if value represents infinity."""
-        return (
-            v == "inf"
-            or v == float("inf")
-            or (isinstance(v, str) and v.strip().lower() == "inf")
-        )
-
-    @classmethod
-    def _validate_numeric_value(cls, v: Any) -> int:
-        """Validate numeric values (int/float)."""
-        # Convert float to int if it's a whole number
-        if isinstance(v, float):
-            if not v.is_integer():
-                raise ValueError(
-                    f"max_response_output_tokens must be an integer between 1 and 4096, or 'inf'. Got: {v!r}"
-                )
-            v = int(v)
-
-        # Validate range
-        if not (1 <= v <= 4096):
-            raise ValueError(
-                f"max_response_output_tokens must be between 1 and 4096 (inclusive). Got: {v}"
-            )
-        return v
-
-    @classmethod
-    def _validate_string_value(cls, v: str) -> int | Literal["inf"]:
-        """Validate string values."""
-        v_stripped = v.strip()
-
-        # Check for infinity
-        if v_stripped.lower() == "inf":
-            return "inf"
-
-        # Try to parse as integer
-        try:
-            parsed = int(v_stripped)
-            return cls._validate_numeric_value(parsed)
-        except ValueError:
-            raise ValueError(
-                f"max_response_output_tokens must be an integer between 1 and 4096, or 'inf'. Got: {v!r}"
-            )
+    input_audio_noise_reduction: InputAudioNoiseReductionConfig | None = None
+    transcription: InputAudioTranscriptionConfig | None = None
+    tool_calling_model_name: str | None = None
 
 
 class WakeWordConfig(BaseModel):
@@ -119,8 +52,10 @@ class WakeWordConfig(BaseModel):
         raise ValueError(f"Invalid wake_word: {v!r}")
 
 
-class VoiceAssistantConfig(BaseModel):
-    """Main application configuration"""
+# TODO: Use this here later on
+class AudioConfig(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    agent: AgentConfig = Field(default_factory=AgentConfig)
-    wake_word: WakeWordConfig = Field(default_factory=WakeWordConfig)
+    input_audio_noise_reduction: NoiseReductionType = NoiseReductionType.NEAR_FIELD
+    playback_speed: float = 1.0
+    playback_strategy: AudioStrategy | None = None

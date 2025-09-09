@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import base64
-from math import e
 
-from agent.config.views import VoiceAssistantConfig
+from agent.config.views import AgentConfig
 from agent.realtime.events.client.input_audio_buffer_append import (
     InputAudioBufferAppendEvent,
 )
@@ -23,7 +22,7 @@ from shared.logging_mixin import LoggingMixin
 class RealtimeClient(LoggingMixin):
     def __init__(
         self,
-        voice_assistant_config: VoiceAssistantConfig,
+        agent_config: AgentConfig,
         audio_capture: AudioCapture,
         special_tool_parameters: SpecialToolParameters,
         event_bus: EventBus,
@@ -44,7 +43,7 @@ class RealtimeClient(LoggingMixin):
 
         # Create WebSocketManager and TranscriptionService internally
         self.ws_manager = WebSocketManager.from_model(
-            model=voice_assistant_config.agent.model, event_bus=self.event_bus
+            model=agent_config.model, event_bus=self.event_bus
         )
         self.transcription_service = TranscriptionService(event_bus=self.event_bus)
 
@@ -54,11 +53,10 @@ class RealtimeClient(LoggingMixin):
         self.message_manager = RealtimeMessageManager(
             ws_manager=self.ws_manager,
             tool_registry=self.tool_registry,
-            voice_assistant_config=voice_assistant_config,
+            agent_config=agent_config,
             event_bus=self.event_bus,
         )
 
-        # TODO: Pass special tool parameters here
         self.tool_executor = ToolExecutor(
             self.tool_registry,
             self.message_manager,

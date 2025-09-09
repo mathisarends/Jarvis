@@ -13,6 +13,7 @@ from agent.realtime.events.client.session_update import (
 )
 from shared.logging_mixin import LoggingMixin
 
+
 class Tool(LoggingMixin):
     """Simple tool wrapper with loading message and result context support."""
 

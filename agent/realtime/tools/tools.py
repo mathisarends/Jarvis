@@ -72,8 +72,9 @@ class Tools(LoggingMixin):
             agent_config: AgentConfig,
             event_bus: EventBus,
         ) -> str:
+            current_response_speed = agent_config.speed
             response_speed_adjustment_result = await run_volume_adjustment_agent(
-                instructions, agent_config
+                instructions, current_response_speed
             )
             new_response_speed = response_speed_adjustment_result.new_response_speed
 

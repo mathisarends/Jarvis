@@ -21,7 +21,7 @@ class ResponseSpeedAdjustment(BaseModel):
 
 
 async def run_volume_adjustment_agent(
-    instruction: str, agent_config: AgentConfig
+    instruction: str, current_response_speed: float
 ) -> ResponseSpeedAdjustment:
     """
     Takes a natural-language instruction like 'faster', 'slower', 'increase by 20%', 'set to 120%' etc.
@@ -30,7 +30,6 @@ async def run_volume_adjustment_agent(
     """
     MIN_RATE = 0.25
     MAX_RATE = 1.5
-    current_response_speed = agent_config.speed
 
     agent = Agent(
         name="ResponseSpeedAgent",
