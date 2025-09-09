@@ -1,6 +1,6 @@
 from agent.config.views import AgentConfig
 from agent.realtime.current_message_context import CurrentMessageContext
-from agent.realtime.event_bus import EventBus, on_event, on_event_with_data
+from agent.realtime.event_bus import EventBus
 from agent.realtime.events.client.conversation_item_truncate import (
     ConversationItemTruncateEvent,
 )
@@ -27,7 +27,7 @@ from shared.logging_mixin import LoggingMixin
 class RealtimeMessageManager(LoggingMixin):
     """
     Clean orchestrator for realtime message management.
-    Now uses decorators for clean event handling without unused parameters.
+    Handles all message operations directly without separate handler classes.
     """
 
     def __init__(
@@ -43,64 +43,12 @@ class RealtimeMessageManager(LoggingMixin):
         self.tool_registry = tool_registry
         self.current_message_context = CurrentMessageContext(self.event_bus)
 
+        # Initialize specialized components
         self.queue = MessageQueue()
-        self.event_bus.register_handlers(self)
 
-    @on_event(VoiceAssistantEvent.ASSISTANT_SPEECH_INTERRUPTED)
-    async def _handle_speech_interruption(self) -> None:
-        """Handle speech interruption and send truncate message."""
-        try:
-            item_id = self.current_message_context.item_id
-            duration_ms = self.current_message_context.current_duration_ms
-
-            # first message so nothing to truncate
-            if not item_id or duration_ms is None:
-                return
-
-            self.logger.info("Truncating item %s at %d ms", item_id, duration_ms)
-
-            truncate_event = ConversationItemTruncateEvent(
-                item_id=item_id,
-                content_index=0,
-                audio_end_ms=duration_ms,
-            )
-
-            success = await self.ws_manager.send_message(truncate_event)
-            if success:
-                self.logger.info("Truncate message sent successfully")
-            else:
-                self.logger.error("Failed to send truncate message")
-
-        except Exception as e:
-            self.logger.error(
-                "Error handling speech interruption: %s", e, exc_info=True
-            )
-
-    @on_event(VoiceAssistantEvent.ASSISTANT_STARTED_RESPONSE)
-    async def _handle_response_started(self) -> None:
-        """Handle response started."""
-        self.queue.set_response_active(True)
-
-    @on_event(VoiceAssistantEvent.ASSISTANT_COMPLETED_RESPONSE)
-    async def _handle_response_completed(self) -> None:
-        """Handle response completed."""
-        self.queue.set_response_active(False)
-        await self.queue.process_queue()
-
-    @on_event_with_data(VoiceAssistantEvent.ASSISTANT_CONFIG_UPDATE_REQUEST)
-    async def _handle_config_update_request(self, new_response_speed: float) -> None:
-        """Handle assistant configuration update requests."""
-        self.logger.info(
-            "Received config update request - New response speed: %.2f",
-            new_response_speed,
-        )
-
-        # Update the agent config with new response speed
-        self.agent_config.speed = new_response_speed
-
-        # Send updated session configuration to OpenAI
-        await self._send_session_update()
-
+        # Setup event handling
+        self.event_bus = event_bus
+        self._setup_event_handlers()
 
     async def initialize_session(self) -> bool:
         """Initialize session with OpenAI API."""
@@ -233,3 +181,73 @@ class RealtimeMessageManager(LoggingMixin):
                 tools=self.tool_registry.get_openai_schema(),
             ),
         )
+
+    async def _handle_config_update_request(self, new_response_speed: float):
+        """Handle assistant configuration update requests."""
+        self.logger.info(
+            "Received config update request - New response speed: %.2f",
+            new_response_speed,
+        )
+
+        # Update the agent config with new response speed
+        self.agent_config.speed = new_response_speed
+
+        # Send updated session configuration to OpenAI
+        await self._send_session_update()
+
+    def _setup_event_handlers(self) -> None:
+        """Setup event subscriptions."""
+        self.event_bus.subscribe(
+            VoiceAssistantEvent.ASSISTANT_SPEECH_INTERRUPTED,
+            self._handle_speech_interruption,
+        )
+        self.event_bus.subscribe(
+            VoiceAssistantEvent.ASSISTANT_STARTED_RESPONSE,
+            self._handle_response_started,
+        )
+        self.event_bus.subscribe(
+            VoiceAssistantEvent.ASSISTANT_COMPLETED_RESPONSE,
+            self._handle_response_completed,
+        )
+        self.event_bus.subscribe(
+            VoiceAssistantEvent.ASSISTANT_CONFIG_UPDATE_REQUEST,
+            self._handle_config_update_request,
+        )
+
+    async def _handle_speech_interruption(self) -> None:
+        """Handle speech interruption and send truncate message."""
+        try:
+            item_id = self.current_message_context.item_id
+            duration_ms = self.current_message_context.current_duration_ms
+
+            # first message so nothing to truncate
+            if not item_id or duration_ms is None:
+                return
+
+            self.logger.info("Truncating item %s at %d ms", item_id, duration_ms)
+
+            truncate_event = ConversationItemTruncateEvent(
+                item_id=item_id,
+                content_index=0,
+                audio_end_ms=duration_ms,
+            )
+
+            success = await self.ws_manager.send_message(truncate_event)
+            if success:
+                self.logger.info("Truncate message sent successfully")
+            else:
+                self.logger.error("Failed to send truncate message")
+
+        except Exception as e:
+            self.logger.error(
+                "Error handling speech interruption: %s", e, exc_info=True
+            )
+
+    async def _handle_response_started(self) -> None:
+        """Handle response started."""
+        self.queue.set_response_active(True)
+
+    async def _handle_response_completed(self) -> None:
+        """Handle response completed."""
+        self.queue.set_response_active(False)
+        await self.queue.process_queue()

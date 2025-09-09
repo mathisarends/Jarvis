@@ -1,24 +1,22 @@
 from __future__ import annotations
 import asyncio
 import inspect
-from typing import Any, Callable, Optional, TypeVar
+from typing import Any, Callable, Optional, get_type_hints
 from concurrent.futures import ThreadPoolExecutor
 
 from agent.state.base import VoiceAssistantEvent
 
-F = TypeVar('F', bound=Callable)
-
 
 class EventBus:
     """
-    EventBus with instance-based decorator support.
-    Use @event_bus.on_event() directly instead of register_handlers().
+    Simple EventBus with intelligent parameter detection.
+    Automatically analyzes callback signatures to determine what parameters to pass.
     """
 
     def __init__(self):
-        self._subscribers: dict[VoiceAssistantEvent, list[tuple[Callable, bool, bool]]] = {
-            event_type: [] for event_type in VoiceAssistantEvent
-        }
+        self._subscribers: dict[
+            VoiceAssistantEvent, list[tuple[Callable, bool, bool]]
+        ] = {event_type: [] for event_type in VoiceAssistantEvent}
         self._executor = ThreadPoolExecutor(
             max_workers=2, thread_name_prefix="EventBus"
         )
@@ -30,50 +28,64 @@ class EventBus:
 
     def subscribe(self, event_type: VoiceAssistantEvent, callback: Callable) -> None:
         """
-        Manual subscription (backward compatibility).
-        Prefer using @event_bus.on_event() decorators instead.
-        """
-        # Check if callback has event handler metadata from old decorators
-        pass_event = getattr(callback, '_pass_event', True)  
-        pass_data = getattr(callback, '_pass_data', True)   
-        
-        self._subscribers[event_type].append((callback, pass_event, pass_data))
+        Subscribe to an event with automatic parameter detection based on type hints.
 
-    def register_handlers(self, handler_object: Any) -> None:
+        Rules:
+        - Parameters with type hint VoiceAssistantEvent get the event
+        - Other parameters get the data
+        - No parameters (after self): gets nothing
         """
-        Auto-register decorated methods (backward compatibility).
-        Only needed for old-style @on_event decorators.
-        """
-        for attr_name in dir(handler_object):
-            if attr_name.startswith('__') and attr_name.endswith('__'):
-                continue
-            
-            attr = getattr(handler_object, attr_name)
-            
-            if hasattr(attr, '_event_type'):
-                event_type = attr._event_type
-                pass_event = attr._pass_event
-                pass_data = attr._pass_data
-                
-                self._subscribers[event_type].append((attr, pass_event, pass_data))
-                print(f"Registered event handler: {attr_name} for {event_type}")
+        sig = inspect.signature(callback)
+        try:
+            type_hints = get_type_hints(callback)
+        except (NameError, AttributeError):
+            # Fallback if type hints can't be resolved
+            type_hints = {}
+
+        params = list(sig.parameters.keys())
+
+        # Remove 'self' parameter if it's a method
+        if params and params[0] == "self":
+            params = params[1:]
+
+        if not params:
+            # No parameters -> pass nothing
+            pass_event = False
+            pass_data = False
+        else:
+            # Check type hints to determine what to pass
+            pass_event = False
+            pass_data = False
+
+            for param_name in params:
+                param_type = type_hints.get(param_name)
+                if param_type == VoiceAssistantEvent:
+                    pass_event = True
+                else:
+                    # Any other type (or no type hint) gets data
+                    pass_data = True
+
+        self._subscribers[event_type].append((callback, pass_event, pass_data))
 
     def unsubscribe(self, event_type: VoiceAssistantEvent, callback: Callable) -> None:
         """Unsubscribe a callback from an event."""
         self._subscribers[event_type] = [
-            (cb, pe, pd) for cb, pe, pd in self._subscribers[event_type] 
+            (cb, pe, pd)
+            for cb, pe, pd in self._subscribers[event_type]
             if cb != callback
         ]
 
     def publish_sync(self, event_type: VoiceAssistantEvent, data: Any = None) -> None:
         """Publish event from any thread (thread-safe)."""
         loop = self._require_loop()
-        
+
         for callback, pass_event, pass_data in self._subscribers[event_type]:
             try:
                 if asyncio.iscoroutinefunction(callback):
                     fut = asyncio.run_coroutine_threadsafe(
-                        self._safe_invoke_async_callback(callback, event_type, data, pass_event, pass_data),
+                        self._safe_invoke_async_callback(
+                            callback, event_type, data, pass_event, pass_data
+                        ),
                         loop,
                     )
                     fut.add_done_callback(self._callback_completed)
@@ -97,7 +109,9 @@ class EventBus:
         for callback, pass_event, pass_data in self._subscribers[event_type]:
             try:
                 if asyncio.iscoroutinefunction(callback):
-                    await self._safe_invoke_async_callback(callback, event_type, data, pass_event, pass_data)
+                    await self._safe_invoke_async_callback(
+                        callback, event_type, data, pass_event, pass_data
+                    )
                 else:
                     loop = self._require_loop()
                     await loop.run_in_executor(
@@ -112,7 +126,9 @@ class EventBus:
             except Exception as e:
                 print(f"Error invoking async callback for event {event_type}: {e}")
 
-    def _build_args(self, event: VoiceAssistantEvent, data: Any, pass_event: bool, pass_data: bool) -> tuple:
+    def _build_args(
+        self, event: VoiceAssistantEvent, data: Any, pass_event: bool, pass_data: bool
+    ) -> tuple:
         """Build argument tuple based on what the callback expects."""
         args = []
         if pass_event:
@@ -122,8 +138,12 @@ class EventBus:
         return tuple(args)
 
     def _safe_invoke_sync_callback(
-        self, callback: Callable, event: VoiceAssistantEvent, data: Any, 
-        pass_event: bool, pass_data: bool
+        self,
+        callback: Callable,
+        event: VoiceAssistantEvent,
+        data: Any,
+        pass_event: bool,
+        pass_data: bool,
     ) -> None:
         """Safely invoke a synchronous callback with error handling."""
         try:
@@ -133,8 +153,12 @@ class EventBus:
             print(f"Error in sync callback {callback}: {e}")
 
     async def _safe_invoke_async_callback(
-        self, callback: Callable, event: VoiceAssistantEvent, data: Any,
-        pass_event: bool, pass_data: bool
+        self,
+        callback: Callable,
+        event: VoiceAssistantEvent,
+        data: Any,
+        pass_event: bool,
+        pass_data: bool,
     ) -> None:
         """Safely invoke an asynchronous callback with error handling."""
         try:
@@ -161,32 +185,3 @@ class EventBus:
                 "EventBus loop not attached. Call event_bus.attach_loop(asyncio.get_running_loop()) during startup."
             )
         return self._loop
-
-def on_event(event_type: VoiceAssistantEvent) -> Callable[[F], F]:
-    """Standalone decorator for handlers that don't need event or data parameters."""
-    def decorator(func: F) -> F:
-        func._event_type = event_type
-        func._pass_event = False
-        func._pass_data = False
-        return func
-    return decorator
-
-
-def on_event_with_data(event_type: VoiceAssistantEvent) -> Callable[[F], F]:
-    """Standalone decorator for handlers that only need the data parameter."""
-    def decorator(func: F) -> F:
-        func._event_type = event_type
-        func._pass_event = False
-        func._pass_data = True
-        return func
-    return decorator
-
-
-def on_event_full(event_type: VoiceAssistantEvent) -> Callable[[F], F]:
-    """Standalone decorator for handlers that need both event and data parameters."""
-    def decorator(func: F) -> F:
-        func._event_type = event_type
-        func._pass_event = True
-        func._pass_data = True
-        return func
-    return decorator
