@@ -7,9 +7,9 @@ from shared.logging_mixin import LoggingMixin
 class AudioManager(LoggingMixin):
     """Context that holds and switches audio strategies"""
 
-    def __init__(self, strategy: Optional[AudioStrategy] = None):
+    def __init__(self, strategy: Optional[AudioStrategy] = None, event_bus = None):
         if strategy is None:
-            strategy = PyAudioStrategy()
+            strategy = PyAudioStrategy(event_bus=event_bus)
         self._strategy = strategy
 
     def set_strategy(self, strategy: AudioStrategy) -> None:

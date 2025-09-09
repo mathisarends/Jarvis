@@ -1,11 +1,9 @@
 from __future__ import annotations
 from typing import Any, Optional, Literal
-from unittest import result
 from pydantic import BaseModel, ConfigDict, field_validator
 import json
 
 from agent.config.views import AgentConfig
-from agent.controller import voice_assistant_controller
 from agent.realtime.event_bus import EventBus
 from agent.realtime.event_types import RealtimeClientEvent, RealtimeServerEvent
 from audio.player.audio_manager import AudioManager

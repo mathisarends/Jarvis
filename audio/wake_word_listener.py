@@ -64,17 +64,17 @@ class WakeWordListener(LoggingMixin):
         self.should_stop = False
         self.event_bus = event_bus
 
-        self.wakeword = self._validate_wakeword(wakeword)
+        self.wake_word = wakeword
         self.sensitivity = self._validate_sensitivity(sensitivity)
 
         self.logger.info(
             "Initializing Wake Word Listener with word=%s sensitivity=%.2f",
-            self.wakeword.value,
+            self.wake_word.value,
             self.sensitivity,
         )
 
         self.access_key = self._load_access_key()
-        self.handle = self._create_handle(self.wakeword, self.sensitivity)
+        self.handle = self._create_handle(self.sensitivity)
 
         self.pa_input = pyaudio.PyAudio()
         self.stream = self._open_stream(self.handle.frame_length)
@@ -120,7 +120,7 @@ class WakeWordListener(LoggingMixin):
 
     def set_wakeword(self, wakeword: PorcupineBuiltinKeyword) -> None:
         """Change wakeword at runtime."""
-        self._reconfigure(wakeword=self._validate_wakeword(wakeword), sensitivity=None)
+        self._reconfigure(wakeword=wakeword, sensitivity=None)
 
     def set_sensitivity(self, sensitivity: float) -> None:
         """Change sensitivity at runtime."""
@@ -153,14 +153,6 @@ class WakeWordListener(LoggingMixin):
         self.logger.info("Wake Word Listener shut down")
 
     @staticmethod
-    def _validate_wakeword(
-        wakeword: PorcupineBuiltinKeyword,
-    ) -> PorcupineBuiltinKeyword:
-        if not isinstance(wakeword, PorcupineBuiltinKeyword):
-            raise TypeError("wakeword must be a PorcupineBuiltinKeyword")
-        return wakeword
-
-    @staticmethod
     def _validate_sensitivity(sens: float) -> float:
         if not 0.0 <= sens <= 1.0:
             raise ValueError("sensitivity must be between 0.0 and 1.0")
@@ -175,19 +167,18 @@ class WakeWordListener(LoggingMixin):
 
     def _create_handle(
         self,
-        wakeword: PorcupineBuiltinKeyword,
         sensitivity: float,
     ) -> Porcupine:
         """Create a Porcupine handle with given config."""
         try:
             handle = create(
                 access_key=self.access_key,
-                keywords=[wakeword.value],
+                keywords=[self.wake_word.value],
                 sensitivities=[sensitivity],
             )
             self.logger.info(
                 "Porcupine handle created (word=%s, sens=%.2f)",
-                wakeword.value,
+                self.wake_word.value,
                 sensitivity,
             )
             return handle
@@ -271,18 +262,23 @@ class WakeWordListener(LoggingMixin):
         Swap wakeword/sensitivity at runtime by recreating the Porcupine handle.
         """
         with self._swap_lock, self._paused_stream():
-            new_wake = wakeword or self.wakeword
+            new_wake = wakeword or self.wake_word
             new_sens = sensitivity if sensitivity is not None else self.sensitivity
             self.logger.info(
                 "Reconfiguring: word=%s, sensitivity=%.2f", new_wake.value, new_sens
             )
 
-            new_handle = self._create_handle(new_wake, new_sens)
+            # Temporarily set new wake word for handle creation
+            old_wake = self.wake_word
+            self.wake_word = new_wake
+            new_handle = self._create_handle(new_sens)
+            self.wake_word = old_wake  # Restore temporarily
+
             self._reopen_stream_if_needed(new_handle)
 
             # Commit new config
             self._swap_handle(new_handle)
-            self.wakeword = new_wake
+            self.wake_word = new_wake
             self.sensitivity = new_sens
 
             self._detection_event.clear()

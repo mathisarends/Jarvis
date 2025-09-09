@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import base64
-from math import e
 
 from agent.config.views import VoiceAssistantConfig
 from agent.realtime.events.client.input_audio_buffer_append import (
@@ -20,7 +19,8 @@ from audio.player.audio_manager import AudioManager
 from shared.logging_mixin import LoggingMixin
 
 
-class RealtimeClient(LoggingMixin):
+class OpenAIRealtimeAPI(LoggingMixin):
+
     def __init__(
         self,
         voice_assistant_config: VoiceAssistantConfig,
@@ -37,10 +37,8 @@ class RealtimeClient(LoggingMixin):
         self.event_bus = event_bus
 
         # Create WebSocketManager and TranscriptionService internally
-        self.ws_manager = WebSocketManager.from_model(
-            model=voice_assistant_config.agent.model, event_bus=self.event_bus
-        )
-        self.transcription_service = TranscriptionService(event_bus=self.event_bus)
+        self.ws_manager = WebSocketManager.from_model(model=voice_assistant_config.agent.model, event_bus=event_bus)
+        self.transcription_service = TranscriptionService(self.event_bus)
 
         self.tool_registry = ToolRegistry()
 

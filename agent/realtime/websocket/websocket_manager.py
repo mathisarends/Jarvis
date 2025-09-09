@@ -33,6 +33,7 @@ class WebSocketManager(LoggingMixin):
         self,
         websocket_url: str,
         headers: dict[str, str],
+        event_bus: EventBus,
     ):
         """
         Initialize the WebSocket Manager.
@@ -43,10 +44,8 @@ class WebSocketManager(LoggingMixin):
         self._connected = False
         self._connection_event = threading.Event()
         self._running = False
-        self.event_bus = EventBus()
-        self.event_dispatcher = RealtimeEventDispatcher()
-
-        self.event_bus.attach_loop(asyncio.get_running_loop())
+        self.event_bus = event_bus
+        self.event_dispatcher = RealtimeEventDispatcher(self.event_bus)
         self.logger.info("WebSocketManager initialized")
 
     @classmethod
@@ -54,6 +53,7 @@ class WebSocketManager(LoggingMixin):
         cls,
         *,
         model: RealtimeModel = RealtimeModel.GPT_REALTIME,
+        event_bus: EventBus,
     ) -> WebSocketManager:
         """
         Create a manager for a given model (enum or raw string).
@@ -61,7 +61,7 @@ class WebSocketManager(LoggingMixin):
         api_key = cls._get_api_key_from_env()
         ws_url = cls._get_websocket_url(model.value)
         headers = cls._get_auth_header(api_key)
-        return cls(ws_url, headers)
+        return cls(ws_url, headers, event_bus)
 
     async def create_connection(self) -> bool:
         """

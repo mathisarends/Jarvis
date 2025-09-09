@@ -25,7 +25,7 @@ class PyAudioStrategy(AudioStrategy, LoggingMixin):
     SUPPORTED_FORMATS = {".mp3"}
 
     def __init__(
-        self, config: Optional[AudioConfig] = None, sounds_dir: Optional[str] = None
+        self, config: Optional[AudioConfig] = None, sounds_dir: Optional[str] = None, event_bus: EventBus = None
     ):
         self.config = config or AudioConfig()
 
@@ -41,7 +41,7 @@ class PyAudioStrategy(AudioStrategy, LoggingMixin):
         self.stream_lock = threading.Lock()
         self.state_lock = threading.Lock()
 
-        self.event_bus = EventBus()
+        self.event_bus = event_bus or EventBus()
         self.volume = 1.0
 
         # Sound file setup

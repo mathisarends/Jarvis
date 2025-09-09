@@ -37,11 +37,11 @@ class RealtimeMessageManager(LoggingMixin):
         )
         self.tool_message_handler = ToolMessageHandler(ws_manager)
         self.interruption_handler = SpeechInterruptionHandler(
-            ws_manager, CurrentMessageContext()
+            ws_manager, CurrentMessageContext(self.event_bus)
         )
 
         # Setup event handling
-        self.event_bus = EventBus()
+        self.event_bus = event_bus
         self._setup_event_handlers()
 
     async def initialize_session(self) -> bool:

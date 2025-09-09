@@ -7,7 +7,6 @@ from agent.realtime.event_bus import EventBus
 from agent.realtime.reatlime_client import RealtimeClient
 from audio.capture import AudioCapture
 from audio.detection import AudioDetectionService
-from agent.state.timeout_service import TimeoutService
 from audio.player.audio_manager import AudioManager
 from shared.logging_mixin import LoggingMixin
 from agent.state.base import VoiceAssistantEvent
@@ -26,7 +25,6 @@ class VoiceAssistantContext(LoggingMixin):
         wake_word_listener: WakeWordListener,
         audio_capture: AudioCapture,
         audio_detection_service: AudioDetectionService,
-        timeout_service: TimeoutService,
         audio_manager: AudioManager,
         event_bus: EventBus,
         realtime_client: RealtimeClient,
@@ -37,13 +35,10 @@ class VoiceAssistantContext(LoggingMixin):
         self.wake_word_listener = wake_word_listener
         self.audio_capture = audio_capture
         self.audio_detection_service = audio_detection_service
-        self.timeout_service = timeout_service
         self.audio_manager = audio_manager
         self.event_bus = event_bus
         self.realtime_client = realtime_client
 
-        loop = asyncio.get_running_loop()
-        event_bus.attach_loop(loop)
         self._setup_event_subscriptions()
 
         self.realtime_task = None
@@ -65,7 +60,9 @@ class VoiceAssistantContext(LoggingMixin):
 
         try:
             self.logger.info("Starting realtime session...")
-            self.realtime_task = asyncio.create_task(self.realtime_client.setup_and_run())
+            self.realtime_task = asyncio.create_task(
+                self.realtime_client.setup_and_run()
+            )
             self.logger.info("Realtime session started successfully")
             return True
         except Exception as e:
@@ -78,7 +75,7 @@ class VoiceAssistantContext(LoggingMixin):
             return True
 
         try:
-            await self.realtime_api.close_connection()
+            await self.realtime_client.close_connection()
 
             # Task sollte jetzt schnell beenden
             if self.realtime_task:
@@ -98,7 +95,7 @@ class VoiceAssistantContext(LoggingMixin):
             raise RuntimeError("Cannot pause audio - realtime session not active")
 
         if not self._is_realtime_audio_paused():
-            self.realtime_api.pause_audio_streaming()
+            self.realtime_client.pause_audio_streaming()
             self.logger.info("Realtime audio streaming paused")
 
     async def ensure_realtime_audio_channel_connected(self) -> None:
@@ -114,14 +111,14 @@ class VoiceAssistantContext(LoggingMixin):
             self.logger.info("Microphone stream reactivated")
 
         if self._is_realtime_audio_paused():
-            self.realtime_api.resume_audio_streaming()
+            self.realtime_client.resume_audio_streaming()
             self.logger.info("Realtime audio streaming resumed")
 
     def _is_realtime_audio_paused(self) -> bool:
         """Check if realtime audio streaming is currently paused"""
         if not self._is_realtime_session_active():
             return False
-        return self.realtime_api.is_audio_streaming_paused()
+        return self.realtime_client.is_audio_streaming_paused()
 
     def _is_realtime_session_active(self) -> bool:
         """Check if the realtime session is currently active"""

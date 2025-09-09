@@ -18,8 +18,8 @@ class CurrentMessageContext(LoggingMixin):
     the agent while it's speaking, ensuring context remains congruent.
     """
 
-    def __init__(self):
-        self.event_bus = EventBus()
+    def __init__(self, event_bus: EventBus):
+        self.event_bus = event_bus
         self._start_time: Optional[float] = None
         self._item_id: Optional[str] = None
 

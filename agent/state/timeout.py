@@ -1,5 +1,6 @@
 from agent.state.base import AssistantState, StateType, VoiceAssistantEvent
 from agent.state.context import VoiceAssistantContext
+from agent.state.timeout_service import TimeoutService
 
 
 class TimeoutState(AssistantState):
@@ -7,11 +8,16 @@ class TimeoutState(AssistantState):
 
     def __init__(self):
         super().__init__(StateType.TIMEOUT)
+        self.timeout_service = None
 
     async def on_enter(self, context: VoiceAssistantContext) -> None:
+        # Create timeout service if not exists
+        if self.timeout_service is None:
+            self.timeout_service = TimeoutService(timeout_seconds=10.0, event_bus=context.event_bus)
+
         self.logger.info(
             "Entering TimeoutState - user has %s seconds to start speaking",
-            context.timeout_service.timeout_seconds,
+            self.timeout_service.timeout_seconds,
         )
         await context.ensure_realtime_audio_channel_connected()
 
@@ -21,6 +27,11 @@ class TimeoutState(AssistantState):
 
     async def on_exit(self, context: VoiceAssistantContext) -> None:
         await self._stop_timeout_service(context)
+
+        # Clean up timeout service
+        if self.timeout_service:
+            await self.timeout_service.stop_timeout()
+            self.timeout_service = None
 
         # Only stop audio detection if we're transitioning to idle
         # If transitioning to listening, audio detection should continue
@@ -43,7 +54,11 @@ class TimeoutState(AssistantState):
             case VoiceAssistantEvent.TIMEOUT_OCCURRED:
                 self.logger.info(
                     "Timeout occurred - user did not start speaking within %s seconds",
-                    context.timeout_service.timeout_seconds,
+                    (
+                        self.timeout_service.timeout_seconds
+                        if self.timeout_service
+                        else "unknown"
+                    ),
                 )
                 await self._transition_to_idle(context)
             case VoiceAssistantEvent.IDLE_TRANSITION:
@@ -55,13 +70,14 @@ class TimeoutState(AssistantState):
     async def _start_timeout_service(self, context: VoiceAssistantContext) -> None:
         """Start the timeout service"""
         self.logger.debug("Starting timeout service")
-        # No need to set callbacks anymore - service uses EventBus directly
-        await context.timeout_service.start_timeout()
+        if self.timeout_service:
+            await self.timeout_service.start_timeout()
 
     async def _stop_timeout_service(self, context: VoiceAssistantContext) -> None:
         """Stop the timeout service"""
         self.logger.debug("Stopping timeout service")
-        await context.timeout_service.stop_timeout()
+        if self.timeout_service:
+            await self.timeout_service.stop_timeout()
 
     async def _start_audio_detection(self, context: VoiceAssistantContext) -> None:
         """Start audio detection using AudioDetectionService"""

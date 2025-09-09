@@ -30,12 +30,13 @@ class ToolExecutor(LoggingMixin):
         message_manager: RealtimeMessageManager,
         audio_manager: AudioManager,
         agent_config: AgentConfig,
+        event_bus: EventBus,
     ):
         self.tool_registry = tool_registry
         self.message_manager = message_manager
         self.audio_manager = audio_manager
         self.agent_config = agent_config
-        self.event_bus = EventBus()
+        self.event_bus = event_bus
         self._background_tasks = set()  # Keep track of background tasks
 
         self.event_bus.subscribe(

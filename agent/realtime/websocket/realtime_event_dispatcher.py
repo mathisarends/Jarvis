@@ -18,10 +18,8 @@ from agent.realtime.views import (
     SessionCreatedEvent,
 )
 from shared.logging_mixin import LoggingMixin
-from shared.singleton_decorator import singleton
 
 
-@singleton
 class RealtimeEventDispatcher(LoggingMixin):
     """
     Dispatcher für OpenAI Realtime API Events.
@@ -29,8 +27,8 @@ class RealtimeEventDispatcher(LoggingMixin):
     Bietet saubere Trennung zwischen WebSocket-Handling und Event-Verarbeitung.
     """
 
-    def __init__(self):
-        self.event_bus = EventBus()
+    def __init__(self, event_bus: EventBus):
+        self.event_bus = event_bus
 
         # Event mapping: OpenAI API event type -> handler method
         self.event_handlers: dict[

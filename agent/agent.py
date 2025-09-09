@@ -1,15 +1,15 @@
+import asyncio
 import os
 from typing import TypeVar, Generic
 
-from agent.config.views import VoiceAssistantConfig, AgentConfig, WakeWordConfig
-from agent.controller.voice_assistant_controller import VoiceAssistantController
+from agent.config.views import AgentConfig, WakeWordConfig
+from agent.controller.service_factory import ServiceBundle, ServiceFactory
 from agent.realtime.events.client.session_update import (
     InputAudioNoiseReductionConfig,
     NoiseReductionType,
     RealtimeModel,
     TranscriptionModel,
 )
-from agent.realtime.tools.tool import Tool
 from agent.realtime.tools.tools import Tools
 from agent.realtime.views import (
     AssistantVoice,
@@ -42,38 +42,30 @@ class RealtimeAgent(Generic[Context], LoggingMixin):
         wakeword: PorcupineBuiltinKeyword | None = None,
         wake_word_sensitivity: float = 0.7,
     ):
+        # Store config (same as before)
         self.context = context
         self.model = model
         self.instructions = instructions
         self.response_temperature = response_temperature
         self.tools = tools if tools is not None else Tools()
         self.tool_calling_model = tool_calling_model
-
-        # Voice and Speech Settings
         self.assistant_voice = assistant_voice
         self.speech_speed = speech_speed
         self._validate_assistant_speech_speed()
 
-        # Audio Transcription
         self.enable_transcription = enable_transcription
-
         if self.enable_transcription:
             self.transcription_model = (
                 transcription_model
                 if transcription_model is not None
                 else TranscriptionModel.WHISPER_1
             )
-
         self.transcription_language = transcription_language
         self.transcription_prompt = transcription_prompt
         self._validate_transcription_config()
 
-        # Audio Processing
         self.noise_reduction_mode = noise_reduction_mode
-
-        # Wake Word Detection
         self.enable_wake_word = enable_wake_word
-
         if self.enable_wake_word:
             self.wakeword = (
                 wakeword if wakeword is not None else PorcupineBuiltinKeyword.PICOVOICE
@@ -83,39 +75,111 @@ class RealtimeAgent(Generic[Context], LoggingMixin):
             )
         self._validate_wake_word_config()
 
-        self._controller_config = self._get_voice_assistent_controller_config()
-        self._controller = VoiceAssistantController(
-            config=self._controller_config, tools=self.tools
-        )
+        # Create services via factory
+        agent_config = self._build_agent_config()
+        wake_word_config = self._build_wake_word_config()
+
+        factory = ServiceFactory(agent_config, wake_word_config, self.tools)
+        self.services: ServiceBundle = factory.create_services()
+
+        # Application State
+        self._running = False
+        self._shutdown_event = asyncio.Event()
 
     async def run(self) -> None:
         """Run the voice assistant application."""
+        if self._running:
+            self.logger.warning("Agent already running")
+            return
+
         try:
             self._assert_environment_variables()
-            await self._controller.start()
-        except KeyboardInterrupt:
-            pass  # Graceful shutdown
-        except Exception:
-            print("Critical application error")
-            raise
+            self.logger.info("Starting Voice Assistant")
+            self._running = True
 
-    def _get_voice_assistent_controller_config(self) -> VoiceAssistantConfig:
-        """Build the configuration object from agent settings."""
-        return VoiceAssistantConfig(
-            agent=AgentConfig(
-                model=self.model,
-                voice=self.assistant_voice,
-                speed=self.speech_speed,
-                instructions=self.instructions,
-                temperature=self.response_temperature,
-                input_audio_noise_reduction=InputAudioNoiseReductionConfig(
-                    type=self.noise_reduction_mode
-                ),
+            # Play startup sound
+            self.services.audio_manager.strategy.play_startup_sound()
+
+            # Start the state machine
+            await self.services.context.state.on_enter(self.services.context)
+
+            # Main event-driven loop
+            while self._running:
+                try:
+                    await asyncio.wait_for(self._shutdown_event.wait(), timeout=0.1)
+                    break
+                except asyncio.TimeoutError:
+                    continue
+                except KeyboardInterrupt:
+                    self.logger.info("Shutdown requested by user")
+                    break
+
+        except KeyboardInterrupt:
+            pass
+        except Exception as e:
+            self.logger.exception(f"Agent error: {e}")
+            raise
+        finally:
+            await self._cleanup_all_services()
+
+    async def stop(self) -> None:
+        """Stop the voice assistant gracefully."""
+        if not self._running:
+            return
+
+        self.logger.info("Stopping Voice Assistant")
+        self._running = False
+        self._shutdown_event.set()
+
+    async def _cleanup_all_services(self) -> None:
+        """Cleanup all services in parallel."""
+        self.logger.info("Cleaning up all services...")
+
+        cleanup_tasks = [
+            self._cleanup_state_machine(),
+            self._cleanup_wake_word_service(),
+            self._cleanup_sound_service(),
+        ]
+
+        results = await asyncio.gather(*cleanup_tasks, return_exceptions=True)
+
+        service_names = ["state_machine", "wake_word", "sound"]
+        for service_name, result in zip(service_names, results):
+            if isinstance(result, Exception):
+                self.logger.exception(f"Error cleaning up {service_name}: {result}")
+
+        self.logger.info("All services cleaned up")
+
+    async def _cleanup_state_machine(self) -> None:
+        """Cleanup the state machine."""
+        await self.services.context.state.on_exit(self.services.context)
+
+    async def _cleanup_wake_word_service(self) -> None:
+        """Cleanup wake word detection."""
+        self.services.wake_word_listener.cleanup()
+
+    async def _cleanup_sound_service(self) -> None:
+        """Cleanup sound playback."""
+        self.services.audio_manager.strategy.stop_sounds()
+
+    def _build_agent_config(self) -> AgentConfig:
+        """Build the agent configuration object from agent settings."""
+        return AgentConfig(
+            model=self.model,
+            voice=self.assistant_voice,
+            speed=self.speech_speed,
+            instructions=self.instructions,
+            temperature=self.response_temperature,
+            input_audio_noise_reduction=InputAudioNoiseReductionConfig(
+                type=self.noise_reduction_mode
             ),
-            wake_word=WakeWordConfig(
-                keyword=self.wakeword or PorcupineBuiltinKeyword.PICOVOICE,
-                sensitivity=self.wake_word_sensitivity,
-            ),
+        )
+
+    def _build_wake_word_config(self) -> WakeWordConfig:
+        """Build the wake word configuration object from agent settings."""
+        return WakeWordConfig(
+            keyword=self.wakeword or PorcupineBuiltinKeyword.PICOVOICE,
+            sensitivity=self.wake_word_sensitivity,
         )
 
     def _validate_transcription_config(self) -> None:

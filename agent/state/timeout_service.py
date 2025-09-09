@@ -9,9 +9,9 @@ from shared.logging_mixin import LoggingMixin
 class TimeoutService(LoggingMixin):
     """Service for managing timeouts with EventBus integration"""
 
-    def __init__(self, timeout_seconds: float = 20.0):
+    def __init__(self, timeout_seconds: float = 10.0, event_bus: EventBus = None):
         self.timeout_seconds = timeout_seconds
-        self.event_bus = EventBus()
+        self.event_bus = event_bus or EventBus()
         self._timeout_task: Optional[asyncio.Task] = None
         self._is_active = False
 
