@@ -11,14 +11,6 @@ from agent.realtime.event_bus import EventBus
 from agent.realtime.messaging.message_manager import RealtimeMessageManager
 from agent.realtime.tools.registry import ToolRegistry
 from agent.realtime.tools.tool_executor import ToolExecutor
-from agent.realtime.tools.tools import (
-    adjust_volume,
-    change_assistant_response_speed,
-    get_current_time,
-    get_weather,
-    delegate_task_to_web_search_agent,
-    stop_assistant_run,
-)
 from agent.realtime.transcription.service import TranscriptionService
 from agent.realtime.websocket.websocket_manager import WebSocketManager
 
@@ -27,14 +19,11 @@ from audio.player.audio_manager import AudioManager
 from shared.logging_mixin import LoggingMixin
 
 
-class OpenAIRealtimeAPI(LoggingMixin):
-
+class RealtimeClient(LoggingMixin):
     def __init__(
         self,
         voice_assistant_config: VoiceAssistantConfig,
-        ws_manager: WebSocketManager,
         audio_capture: AudioCapture,
-        transcription_service: TranscriptionService,
         audio_manager: AudioManager,
         event_bus: EventBus,
     ):
@@ -42,11 +31,15 @@ class OpenAIRealtimeAPI(LoggingMixin):
         Initializes the OpenAI Realtime API client.
         All configuration is loaded from configuration files.
         """
-        self.ws_manager = ws_manager
         self.audio_capture = audio_capture
-        self.transcription_service = transcription_service
         self.audio_manager = audio_manager
         self.event_bus = event_bus
+
+        # Create WebSocketManager and TranscriptionService internally
+        self.ws_manager = WebSocketManager.from_model(
+            model=voice_assistant_config.agent.model
+        )
+        self.transcription_service = TranscriptionService()
 
         self.tool_registry = ToolRegistry()
 
@@ -69,8 +62,6 @@ class OpenAIRealtimeAPI(LoggingMixin):
         self._audio_streaming_paused = False
         self._audio_streaming_event = asyncio.Event()
         self._audio_streaming_event.set()  # Initially not paused
-
-        self._register_tools()
 
     async def setup_and_run(self) -> bool:
         """
@@ -133,7 +124,6 @@ class OpenAIRealtimeAPI(LoggingMixin):
     async def _send_audio_stream(self) -> None:
         """
         Sends audio data from the microphone to the OpenAI API.
-        Respects the pause/resume system.
         """
         if not self.ws_manager.is_connected():
             self.logger.error("No connection available for audio transmission")
@@ -151,25 +141,27 @@ class OpenAIRealtimeAPI(LoggingMixin):
             self.logger.error("Error while sending audio: %s", e)
 
     async def _process_audio_loop(self) -> int:
-        """Process the main audio streaming loop."""
+        """Process the main audio streaming loop using the new async generator."""
         audio_chunks_sent = 0
-
-        while self._should_continue_streaming():
-            await self._wait_for_streaming_resume()
-
-            if not self._should_continue_streaming():
-                break
-
-            if self._audio_streaming_paused:
-                await asyncio.sleep(0.01)
-                continue
-
-            chunk_sent = await self._process_audio_chunk()
-            if chunk_sent:
-                audio_chunks_sent += 1
-
-            await asyncio.sleep(0.01)
-
+        self.audio_capture.start_stream()
+        try:
+            async for chunk in self.audio_capture.stream_chunks():
+                if not self._should_continue_streaming():
+                    break
+                await self._wait_for_streaming_resume()
+                if self._audio_streaming_paused:
+                    continue
+                base64_audio_data = base64.b64encode(chunk).decode("utf-8")
+                input_audio_buffer_append_event = (
+                    InputAudioBufferAppendEvent.from_audio(base64_audio_data)
+                )
+                success = await self.ws_manager.send_message(
+                    input_audio_buffer_append_event
+                )
+                if success:
+                    audio_chunks_sent += 1
+        finally:
+            self.audio_capture.cleanup()
         return audio_chunks_sent
 
     def _should_continue_streaming(self) -> bool:
@@ -179,30 +171,3 @@ class OpenAIRealtimeAPI(LoggingMixin):
     async def _wait_for_streaming_resume(self) -> None:
         """Wait until audio streaming is not paused."""
         await self._audio_streaming_event.wait()
-
-    async def _process_audio_chunk(self) -> bool:
-        """Process a single audio chunk. Returns True if chunk was sent successfully."""
-        data = self.audio_capture.read_chunk()
-        if not data:
-            await asyncio.sleep(0.01)
-            return False
-
-        base64_audio_data = base64.b64encode(data).decode("utf-8")
-        input_audio_buffer_append_event = InputAudioBufferAppendEvent.from_audio(
-            base64_audio_data
-        )
-
-        success = await self.ws_manager.send_message(input_audio_buffer_append_event)
-        if not success:
-            self.logger.warning("Failed to send audio chunk")
-
-        return success
-
-    def _register_tools(self) -> None:
-        """Register available tools with the tool registry"""
-        self.tool_registry.register(get_current_time)
-        self.tool_registry.register(get_weather)
-        self.tool_registry.register(delegate_task_to_web_search_agent)
-        self.tool_registry.register(adjust_volume)
-        self.tool_registry.register(change_assistant_response_speed)
-        self.tool_registry.register(stop_assistant_run)

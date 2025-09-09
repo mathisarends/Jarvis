@@ -10,6 +10,7 @@ from agent.realtime.events.client.session_update import (
     TranscriptionModel,
 )
 from agent.realtime.tools.tool import Tool
+from agent.realtime.tools.tools import Tools
 from agent.realtime.views import (
     AssistantVoice,
 )
@@ -28,7 +29,7 @@ class RealtimeAgent(Generic[Context], LoggingMixin):
         model: RealtimeModel = RealtimeModel.GPT_REALTIME,
         instructions: str | None = None,
         response_temperature: float = 0.8,
-        tools: list[Tool] = [],
+        tools: Tools | None = None,
         tool_calling_model=str | Model | None,
         assistant_voice: AssistantVoice = AssistantVoice.MARIN,
         speech_speed: float = 1.0,
@@ -45,14 +46,12 @@ class RealtimeAgent(Generic[Context], LoggingMixin):
         self.model = model
         self.instructions = instructions
         self.response_temperature = response_temperature
-        self.tools = tools.copy() if tools else []
+        self.tools = tools if tools is not None else Tools()
         self.tool_calling_model = tool_calling_model
 
         # Voice and Speech Settings
         self.assistant_voice = assistant_voice
         self.speech_speed = speech_speed
-        self.min_speech_speed = 0.25
-        self.max_speech_speed = 1.5
         self._validate_assistant_speech_speed()
 
         # Audio Transcription
@@ -85,7 +84,9 @@ class RealtimeAgent(Generic[Context], LoggingMixin):
         self._validate_wake_word_config()
 
         self._controller_config = self._get_voice_assistent_controller_config()
-        self._controller = VoiceAssistantController(self._controller_config)
+        self._controller = VoiceAssistantController(
+            config=self._controller_config, tools=self.tools
+        )
 
     async def run(self) -> None:
         """Run the voice assistant application."""
@@ -98,7 +99,6 @@ class RealtimeAgent(Generic[Context], LoggingMixin):
             print("Critical application error")
             raise
 
-    # TODO: Diese Noise Reduction config hier gerne noch loswerden bitte
     def _get_voice_assistent_controller_config(self) -> VoiceAssistantConfig:
         """Build the configuration object from agent settings."""
         return VoiceAssistantConfig(
@@ -109,7 +109,8 @@ class RealtimeAgent(Generic[Context], LoggingMixin):
                 instructions=self.instructions,
                 temperature=self.response_temperature,
                 input_audio_noise_reduction=InputAudioNoiseReductionConfig(
-                    type=self.noise_reduction_mode)
+                    type=self.noise_reduction_mode
+                ),
             ),
             wake_word=WakeWordConfig(
                 keyword=self.wakeword or PorcupineBuiltinKeyword.PICOVOICE,
@@ -161,21 +162,24 @@ class RealtimeAgent(Generic[Context], LoggingMixin):
             )
 
     def _validate_assistant_speech_speed(self) -> None:
+        min_speech_speed = 0.25
+        max_speech_speed = 1.5
+
         """Validate and adjust speech speed to be within allowed range."""
-        if self.speech_speed < self.min_speech_speed:
+        if self.speech_speed < min_speech_speed:
             self.logger.warning(
                 "Speech speed (%.2f) below minimum (%.2f). Setting to minimum.",
                 self.speech_speed,
-                self.min_speech_speed,
+                min_speech_speed,
             )
-            self.speech_speed = self.min_speech_speed
-        elif self.speech_speed > self.max_speech_speed:
+            self.speech_speed = min_speech_speed
+        elif self.speech_speed > max_speech_speed:
             self.logger.warning(
                 "Speech speed (%.2f) above maximum (%.2f). Setting to maximum.",
                 self.speech_speed,
-                self.max_speech_speed,
+                max_speech_speed,
             )
-            self.speech_speed = self.max_speech_speed
+            self.speech_speed = max_speech_speed
 
     def _is_valid_language_code(self, language: str) -> bool:
         """Validate language code format using early returns."""

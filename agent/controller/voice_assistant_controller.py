@@ -6,9 +6,8 @@ import asyncio
 
 from agent.config.views import VoiceAssistantConfig
 from agent.realtime.event_bus import EventBus
-from agent.realtime.realtime_api import OpenAIRealtimeAPI
-from agent.realtime.transcription.service import TranscriptionService
-from agent.realtime.websocket.websocket_manager import WebSocketManager
+from agent.realtime.reatlime_client import RealtimeClient
+from agent.realtime.tools.tools import Tools
 from agent.state.context import VoiceAssistantContext
 from agent.state.timeout_service import TimeoutService
 from audio.capture import AudioCapture
@@ -25,8 +24,9 @@ class VoiceAssistantController(LoggingMixin):
     Single responsibility: coordinate voice assistant functionality.
     """
 
-    def __init__(self, config: VoiceAssistantConfig):
+    def __init__(self, config: VoiceAssistantConfig, tools: Tools):
         self._config = config
+        self.tools = tools
         self._running = False
         self._shutdown_event = asyncio.Event()
 
@@ -78,20 +78,20 @@ class VoiceAssistantController(LoggingMixin):
         """Initialize audio-related services."""
         self.audio_capture = AudioCapture()
         self.audio_detection_service = AudioDetectionService(
-            audio_capture=self.audio_capture
+            audio_capture=self.audio_capture,
+            event_bus=self.event_bus,
         )
         self.wake_word_listener = WakeWordListener(
             wakeword=self._config.wake_word.keyword,
             sensitivity=self._config.wake_word.sensitivity,
+            event_bus=self.event_bus,
         )
 
     def _init_ai_services(self) -> None:
         """Initialize AI and realtime services."""
-        self.realtime_api = OpenAIRealtimeAPI(
+        self.realtime_api = RealtimeClient(
             voice_assistant_config=self._config,
-            ws_manager=WebSocketManager.from_model(model=self._config.agent.model),
             audio_capture=self.audio_capture,
-            transcription_service=TranscriptionService(),
             audio_manager=self.audio_manager,
             event_bus=self.event_bus,
         )
@@ -105,7 +105,7 @@ class VoiceAssistantController(LoggingMixin):
             timeout_service=self.timeout_service,
             audio_manager=self.audio_manager,
             event_bus=self.event_bus,
-            realtime_api=self.realtime_api,
+            realtime_client=self.realtime_api,
         )
 
     async def _run_application(self) -> None:
@@ -113,7 +113,7 @@ class VoiceAssistantController(LoggingMixin):
         # Start the state machine
         await self.context.state.on_enter(self.context)
 
-        # Event-driven loop
+        # Event-driven
         while self._running:
             try:
                 await asyncio.wait_for(self._shutdown_event.wait(), timeout=0.1)

@@ -5,10 +5,8 @@ from typing import Any, Callable, Optional
 from concurrent.futures import ThreadPoolExecutor
 
 from agent.state.base import VoiceAssistantEvent
-from shared.singleton_decorator import singleton
 
 
-@singleton
 class EventBus:
     """
     Hybrid EventBus – always dispatches to the main loop.

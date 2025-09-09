@@ -30,7 +30,7 @@ class TimeoutState(AssistantState):
             await context.event_bus.publish_sync(VoiceAssistantEvent.IDLE_TRANSITION)
 
             self.logger.info("Closing realtime connection due to timeout")
-            await context.realtime_api.close_connection()
+            await context.realtime_client.close_connection()
             await self._stop_audio_detection(context)
 
     async def handle(

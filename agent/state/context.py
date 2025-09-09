@@ -4,7 +4,7 @@ import asyncio
 from typing import TYPE_CHECKING, Any
 
 from agent.realtime.event_bus import EventBus
-from agent.realtime.realtime_api import OpenAIRealtimeAPI
+from agent.realtime.reatlime_client import RealtimeClient
 from audio.capture import AudioCapture
 from audio.detection import AudioDetectionService
 from agent.state.timeout_service import TimeoutService
@@ -29,7 +29,7 @@ class VoiceAssistantContext(LoggingMixin):
         timeout_service: TimeoutService,
         audio_manager: AudioManager,
         event_bus: EventBus,
-        realtime_api: OpenAIRealtimeAPI,
+        realtime_client: RealtimeClient,
     ):
         from agent.state.idle import IdleState
 
@@ -40,7 +40,7 @@ class VoiceAssistantContext(LoggingMixin):
         self.timeout_service = timeout_service
         self.audio_manager = audio_manager
         self.event_bus = event_bus
-        self.realtime_api = realtime_api
+        self.realtime_client = realtime_client
 
         loop = asyncio.get_running_loop()
         event_bus.attach_loop(loop)
@@ -65,7 +65,7 @@ class VoiceAssistantContext(LoggingMixin):
 
         try:
             self.logger.info("Starting realtime session...")
-            self.realtime_task = asyncio.create_task(self.realtime_api.setup_and_run())
+            self.realtime_task = asyncio.create_task(self.realtime_client.setup_and_run())
             self.logger.info("Realtime session started successfully")
             return True
         except Exception as e:

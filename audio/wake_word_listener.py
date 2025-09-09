@@ -54,15 +54,15 @@ class WakeWordListener(LoggingMixin):
 
     def __init__(
         self,
-        wakeword: PorcupineBuiltinKeyword = PorcupineBuiltinKeyword.PICOVOICE,
-        sensitivity: float = 0.7,
+        wakeword: PorcupineBuiltinKeyword,
+        sensitivity: float,
+        event_bus: EventBus,
     ):
-        super().__init__()
         self._swap_lock = threading.Lock()
         self._detection_event = threading.Event()
         self.is_listening = False
         self.should_stop = False
-        self.event_bus = EventBus()
+        self.event_bus = event_bus
 
         self.wakeword = self._validate_wakeword(wakeword)
         self.sensitivity = self._validate_sensitivity(sensitivity)
