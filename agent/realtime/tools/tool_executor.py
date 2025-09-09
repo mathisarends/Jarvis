@@ -4,6 +4,8 @@ import asyncio
 import inspect
 from typing import Any
 
+from attr import s
+
 from agent.realtime.event_bus import EventBus
 from agent.realtime.tools.registry import ToolRegistry
 from agent.realtime.tools.tool import Tool
@@ -34,7 +36,6 @@ class ToolExecutor(LoggingMixin):
         self.special_tool_parameters = special_tool_parameters
         self._background_tasks = set()
 
-        # Only extract what's used directly
         self.event_bus = event_bus
 
         self.event_bus.subscribe(
@@ -54,7 +55,7 @@ class ToolExecutor(LoggingMixin):
                 llm_arguments,
             )
 
-            tool = self._retrieve_tool_from_registry(function_name)
+            tool = self.tool_registry.get(function_name)
 
             if tool.execution_message:
                 await self.message_manager.send_execution_message(
@@ -88,13 +89,13 @@ class ToolExecutor(LoggingMixin):
             return
 
         if tool.is_async_generator:
+            # Execute async generator tool in background
             task = asyncio.create_task(
-                self._execute_generator_tool(tool, data, final_arguments)
+                self._execute_async_generator(tool, data, final_arguments)
             )
             self._background_tasks.add(task)
             task.add_done_callback(self._background_tasks.discard)
         else:
-            # Execute regular tools synchronously
             result = await tool.execute(final_arguments)
             self.logger.info("Tool '%s' executed successfully", tool.name)
             await self._send_tool_result(data, result, tool.response_instruction)
@@ -114,13 +115,6 @@ class ToolExecutor(LoggingMixin):
 
         await self._check_and_publish_all_tools_finished()
 
-    def _retrieve_tool_from_registry(self, name: str) -> Tool:
-        """Retrieve a tool from the registry."""
-        tool = self.tool_registry.get(name)
-        if not tool:
-            raise ValueError(f"Tool '{name}' not found in registry")
-        return tool
-
     async def _check_and_publish_all_tools_finished(self) -> None:
         """Check if all tools are finished and publish event if so."""
         self.logger.info(
@@ -130,43 +124,28 @@ class ToolExecutor(LoggingMixin):
             VoiceAssistantEvent.ASSISTANT_RECEIVED_TOOL_CALL_RESULT
         )
 
-    async def _execute_generator_tool(
+    async def _execute_async_generator(
         self, tool: Tool, data: FunctionCallItem, final_arguments: dict[str, Any]
     ) -> None:
-        """Execute a generator tool in the background with status updates."""
+        """Execute an async generator tool in the background with status updates."""
         try:
-            self.logger.info("Starting generator tool execution: %s", tool.name)
+            self.logger.info("Starting async generator tool execution: %s", tool.name)
 
-            result = await tool.execute(final_arguments)
+            async_generator = await tool.execute(final_arguments)
 
-            # Early return if not a generator
-            if not (inspect.isgenerator(result) or inspect.isasyncgen(result)):
-                await self._send_tool_result(data, result, tool.response_instruction)
-                return
+            # Process all chunks from the async generator
+            async for chunk in async_generator:
+                await self.message_manager.send_execution_message(chunk)
+                self.logger.info("Generator yielded: %s", chunk)
 
-            if inspect.isasyncgen(result):
-                await self._send_async_generator_updates(result)
-            else:
-                await self._send_sync_generator_updates(result)
-
-            self.logger.info("Generator tool '%s' completed successfully", tool.name)
+            self.logger.info(
+                "Async generator tool '%s' completed successfully", tool.name
+            )
 
         except Exception as e:
             await self._handle_tool_error(
-                data, e, f"executing generator tool '{tool.name}'"
+                data, e, f"executing async generator tool '{tool.name}'"
             )
-
-    async def _send_async_generator_updates(self, generator) -> None:
-        """Send updates for an async generator."""
-        async for chunk in generator:
-            await self.message_manager.send_execution_message(chunk)
-            self.logger.debug("Generator yielded: %s", chunk)
-
-    async def _send_sync_generator_updates(self, generator) -> None:
-        """Send updates for a sync generator."""
-        for chunk in generator:
-            await self.message_manager.send_execution_message(chunk)
-            self.logger.debug("Generator yielded: %s", chunk)
 
     async def _handle_tool_error(
         self, data: FunctionCallItem, error: Exception, context: str

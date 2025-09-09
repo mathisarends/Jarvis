@@ -1,10 +1,9 @@
 import asyncio
-from collections.abc import Generator
 import os
 import threading
 from enum import Enum
-from typing import Any, Mapping, Tuple, Optional
-from contextlib import suppress, contextmanager
+from typing import Any, Mapping, Tuple
+from contextlib import suppress
 
 import numpy as np
 from pvporcupine import (
@@ -48,8 +47,6 @@ class PorcupineBuiltinKeyword(Enum):
 class WakeWordListener(LoggingMixin):
     """
     Wake word listener using Porcupine + PyAudio.
-
-    Supports runtime reconfiguration of keyword/sensitivity by recreating the Porcupine handle.
     """
 
     def __init__(
@@ -58,7 +55,6 @@ class WakeWordListener(LoggingMixin):
         sensitivity: float,
         event_bus: EventBus,
     ):
-        self._swap_lock = threading.Lock()
         self._detection_event = threading.Event()
         self.is_listening = False
         self.should_stop = False
@@ -117,16 +113,6 @@ class WakeWordListener(LoggingMixin):
         self.logger.info("Stopping wake word listener")
         self.should_stop = True
         self.is_listening = False
-
-    def set_wakeword(self, wakeword: PorcupineBuiltinKeyword) -> None:
-        """Change wakeword at runtime."""
-        self._reconfigure(wakeword=wakeword, sensitivity=None)
-
-    def set_sensitivity(self, sensitivity: float) -> None:
-        """Change sensitivity at runtime."""
-        self._reconfigure(
-            wakeword=None, sensitivity=self._validate_sensitivity(sensitivity)
-        )
 
     def cleanup(self) -> None:
         """Close stream, terminate audio, delete handle."""
@@ -207,82 +193,6 @@ class WakeWordListener(LoggingMixin):
         except (OSError, ValueError) as e:
             self.logger.error("Audio stream open failed: %s", e)
             raise
-
-    @contextmanager
-    def _paused_stream(self) -> Generator[bool, Any, None]:
-        """
-        Pause the current stream safely and resume after block if it was active.
-        """
-        was_active = False
-        with suppress(Exception):
-            was_active = self.stream.is_active()
-        with suppress(Exception):
-            if self.stream:
-                self.stream.stop_stream()
-        try:
-            yield was_active
-        finally:
-            if was_active and not self.should_stop:
-                with suppress(Exception):
-                    self.stream.start_stream()
-
-    def _reopen_stream_if_needed(self, new_handle: Porcupine) -> None:
-        """Reopen stream if frame_length changed or stream is missing."""
-        need_reopen = (
-            self.handle is None
-            or self.stream is None
-            or new_handle.frame_length != self.handle.frame_length
-        )
-        if not need_reopen:
-            return
-
-        self.logger.info(
-            "Reopening PyAudio stream (frame_length change or missing stream)"
-        )
-        with suppress(Exception):
-            if self.stream:
-                self.stream.close()
-
-        self.stream = self._open_stream(new_handle.frame_length)
-
-    def _swap_handle(self, new_handle: Porcupine) -> None:
-        """Replace handle safely and delete old one."""
-        old = self.handle
-        self.handle = new_handle
-        with suppress(Exception):
-            if old:
-                old.delete()
-
-    def _reconfigure(
-        self,
-        wakeword: Optional[PorcupineBuiltinKeyword],
-        sensitivity: Optional[float],
-    ) -> None:
-        """
-        Swap wakeword/sensitivity at runtime by recreating the Porcupine handle.
-        """
-        with self._swap_lock, self._paused_stream():
-            new_wake = wakeword or self.wake_word
-            new_sens = sensitivity if sensitivity is not None else self.sensitivity
-            self.logger.info(
-                "Reconfiguring: word=%s, sensitivity=%.2f", new_wake.value, new_sens
-            )
-
-            # Temporarily set new wake word for handle creation
-            old_wake = self.wake_word
-            self.wake_word = new_wake
-            new_handle = self._create_handle(new_sens)
-            self.wake_word = old_wake  # Restore temporarily
-
-            self._reopen_stream_if_needed(new_handle)
-
-            # Commit new config
-            self._swap_handle(new_handle)
-            self.wake_word = new_wake
-            self.sensitivity = new_sens
-
-            self._detection_event.clear()
-            self.logger.info("Reconfiguration done.")
 
     def _audio_callback(
         self,

@@ -68,7 +68,6 @@ class AssistantState(ABC, LoggingMixin):
     """Base class for all states"""
 
     def __init__(self, state_type: StateType):
-        super().__init__()
         self._state_type = state_type
 
     @property

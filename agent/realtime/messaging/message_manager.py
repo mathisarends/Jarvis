@@ -7,6 +7,9 @@ from agent.realtime.events.client.conversation_item_truncate import (
 from agent.realtime.events.client.conversation_response_create import (
     ConversationResponseCreateEvent,
 )
+from agent.realtime.events.client.input_audio_buffer_append import (
+    InputAudioBufferAppendEvent,
+)
 from agent.realtime.events.client.session_update import (
     AudioFormat,
     AudioFormatConfig,
@@ -43,10 +46,7 @@ class RealtimeMessageManager(LoggingMixin):
         self.tool_registry = tool_registry
         self.current_message_context = CurrentMessageContext(self.event_bus)
 
-        # Initialize specialized components
         self.queue = MessageQueue()
-
-        # Setup event handling
         self.event_bus = event_bus
         self._setup_event_handlers()
 

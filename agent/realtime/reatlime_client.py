@@ -36,6 +36,7 @@ class RealtimeClient(LoggingMixin):
         self.special_tool_parameters = special_tool_parameters
         self.event_bus = event_bus
         self.tools = tools
+        self.tool_registry = self.tools.registry
 
         # Extract components from special tool parameters
         self.audio_manager = special_tool_parameters.audio_manager
@@ -46,8 +47,6 @@ class RealtimeClient(LoggingMixin):
             model=agent_config.model, event_bus=self.event_bus
         )
         self.transcription_service = TranscriptionService(event_bus=self.event_bus)
-
-        self.tool_registry = self.tools.registry
 
         # instantiate message manager (handles events and websocket messages)
         self.message_manager = RealtimeMessageManager(
