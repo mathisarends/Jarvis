@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Annotated
 
-from agent.config.views import AgentConfig
+from agent.config.views import AssistantAudioConfig
 from agent.realtime.event_bus import EventBus
 from agent.realtime.tools.registry import ToolRegistry
 from agent.realtime.tools.weather import get_weather_for_current_location
@@ -69,10 +69,10 @@ class Tools(LoggingMixin):
             instructions: Annotated[
                 str, "Natural language command: 'faster' or 'slower'"
             ],
-            agent_config: AgentConfig,
+            assistant_audio_config: AssistantAudioConfig,
             event_bus: EventBus,
         ) -> str:
-            current_response_speed = agent_config.speed
+            current_response_speed = assistant_audio_config.playback_speed
             response_speed_adjustment_result = await run_volume_adjustment_agent(
                 instructions, current_response_speed
             )

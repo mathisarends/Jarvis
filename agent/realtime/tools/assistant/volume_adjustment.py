@@ -1,6 +1,5 @@
 from agents import Agent, Runner
 from pydantic import BaseModel, Field, field_validator
-from agent.config.views import AgentConfig
 
 
 class ResponseSpeedAdjustment(BaseModel):

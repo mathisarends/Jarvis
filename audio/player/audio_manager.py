@@ -1,16 +1,15 @@
-from typing import Optional
-from agent.realtime.event_bus import EventBus
 from audio.player.audio_strategy import AudioStrategy
-from audio.player.pyaudio_strategy import PyAudioStrategy
 from shared.logging_mixin import LoggingMixin
 
 
 class AudioManager(LoggingMixin):
-    """Context that holds and switches audio strategies"""
+    """Context that holds and switches audio strategies
 
-    def __init__(self, event_bus: EventBus, strategy: Optional[AudioStrategy] = None):
-        if strategy is None:
-            strategy = PyAudioStrategy(event_bus=event_bus)
+    Both `event_bus` and `strategy` are required. The caller is responsible
+    for creating the desired `AudioStrategy` instance (e.g. `PyAudioStrategy`).
+    """
+
+    def __init__(self, strategy: AudioStrategy):
         self._strategy = strategy
 
     def set_strategy(self, strategy: AudioStrategy) -> None:

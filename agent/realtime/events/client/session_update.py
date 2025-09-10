@@ -204,14 +204,6 @@ class MCPToolFilter(BaseModel):
     exclude: list[str] | None = None
 
 
-class MCPRequireApprovalMode(StrEnum):
-    """MCP tool approval modes."""
-
-    NEVER = "never"
-    ALWAYS = "always"
-    AUTO = "auto"
-
-
 class MCPRequireApproval(BaseModel):
     """Configuration for MCP tool approval requirements."""
 

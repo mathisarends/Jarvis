@@ -1,4 +1,4 @@
-from agent.config.views import AgentConfig
+from agent.config.views import AgentConfig, AssistantAudioConfig
 from agent.realtime.current_message_context import CurrentMessageContext
 from agent.realtime.event_bus import EventBus
 from agent.realtime.events.client.conversation_item_truncate import (
@@ -7,16 +7,11 @@ from agent.realtime.events.client.conversation_item_truncate import (
 from agent.realtime.events.client.conversation_response_create import (
     ConversationResponseCreateEvent,
 )
-from agent.realtime.events.client.input_audio_buffer_append import (
-    InputAudioBufferAppendEvent,
-)
 from agent.realtime.events.client.session_update import (
     AudioFormat,
     AudioFormatConfig,
     AudioInputConfig,
     AudioOutputConfig,
-    MCPRequireApprovalMode,
-    MCPTool,
     RealtimeSessionConfig,
     SessionUpdateEvent,
     AudioConfig,
@@ -40,11 +35,13 @@ class RealtimeMessageManager(LoggingMixin):
         ws_manager: WebSocketManager,
         tool_registry: ToolRegistry,
         agent_config: AgentConfig,
+        assistant_audio_config: AssistantAudioConfig,
         event_bus: EventBus,
     ):
         self.ws_manager = ws_manager
         self.event_bus = event_bus
         self.agent_config = agent_config
+        self.assitant_audio_config = assistant_audio_config
         self.tool_registry = tool_registry
         self.current_message_context = CurrentMessageContext(self.event_bus)
 
@@ -165,12 +162,12 @@ class RealtimeMessageManager(LoggingMixin):
         audio_config = AudioConfig(
             output=AudioOutputConfig(
                 format=AudioFormatConfig(type=AudioFormat.PCM16),
-                speed=self.agent_config.speed,
-                voice=self.agent_config.voice,
+                speed=self.assitant_audio_config.playback_speed,
+                voice=self.assitant_audio_config.voice,
             ),
             input=AudioInputConfig(
-                transcription=self.agent_config.transcription,
-                noise_reduction=self.agent_config.input_audio_noise_reduction,
+                # transcription=self.agent_config.transcription,
+                noise_reduction=self.assitant_audio_config.input_audio_noise_reduction_config,
             ),
         )
 
@@ -191,10 +188,8 @@ class RealtimeMessageManager(LoggingMixin):
             new_response_speed,
         )
 
-        # Update the agent config with new response speed
-        self.agent_config.speed = new_response_speed
+        self.assitant_audio_config.playback_speed = new_response_speed
 
-        # Send updated session configuration to OpenAI
         await self._send_session_update()
 
     def _setup_event_handlers(self) -> None:

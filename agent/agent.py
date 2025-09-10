@@ -2,10 +2,15 @@ import asyncio
 import os
 from typing import TypeVar, Generic
 
-from agent.config.views import AgentConfig, WakeWordConfig
+from agent.config.views import (
+    AgentConfig,
+    AssistantAudioConfig,
+    WakeWordConfig,
+)
 from agent.controller.service_factory import ServiceBundle, ServiceFactory
 from agent.realtime.events.client.session_update import (
     InputAudioNoiseReductionConfig,
+    InputAudioTranscriptionConfig,
     NoiseReductionType,
     RealtimeModel,
     TranscriptionModel,
@@ -14,7 +19,7 @@ from agent.realtime.tools.tools import Tools
 from agent.realtime.views import (
     AssistantVoice,
 )
-from audio.player.audio_strategy import AudioStrategy
+from audio.player.audio_strategy_factory import AudioStrategyType
 from audio.wake_word_listener import PorcupineBuiltinKeyword
 from shared.logging_mixin import LoggingMixin
 
@@ -25,7 +30,6 @@ Context = TypeVar("Context")
 class RealtimeAgent(Generic[Context], LoggingMixin):
     def __init__(
         self,
-        voice_assistant_context: Context | None = None,
         model: RealtimeModel = RealtimeModel.GPT_REALTIME,
         instructions: str | None = None,
         response_temperature: float = 0.8,
@@ -41,7 +45,7 @@ class RealtimeAgent(Generic[Context], LoggingMixin):
         enable_wake_word: bool = False,
         wakeword: PorcupineBuiltinKeyword | None = None,
         wake_word_sensitivity: float = 0.7,
-        audio_playback_strategy: AudioStrategy | None = None,
+        audio_playback_strategy_type: AudioStrategyType | None = None,
     ):
         # Store config (same as before)
         self.context = Context
@@ -71,22 +75,30 @@ class RealtimeAgent(Generic[Context], LoggingMixin):
         self.noise_reduction_mode = noise_reduction_mode
         self.enable_wake_word = enable_wake_word
         if self.enable_wake_word:
-            self.wakeword = (
-                wakeword if wakeword is not None else PorcupineBuiltinKeyword.PICOVOICE
-            )
+            self.wakeword = wakeword if wakeword else PorcupineBuiltinKeyword.PICOVOICE
             self.wake_word_sensitivity = (
                 wake_word_sensitivity if wake_word_sensitivity is not None else 0.7
             )
         self._validate_wake_word_config()
 
+        self.audio_playback_strategy_type = (
+            audio_playback_strategy_type
+            if audio_playback_strategy_type
+            else AudioStrategyType.PYAUDIO
+        )
+
         # Create services via factory
         agent_config = self._build_agent_config()
-        wake_word_config = self._build_wake_word_config()
-
-        self.audio_playback_strategy = audio_playback_strategy
+        wake_word_config = self._build_wake_word_config_if_configured()
+        assistant_audio_config = self._build_audio_config()
+        transcription_config = self._build_transcription_config_if_configured()
 
         factory = ServiceFactory(
-            agent_config, wake_word_config, self.tools, self.audio_playback_strategy
+            agent_config=agent_config,
+            assistant_audio_config=assistant_audio_config,
+            tools=self.tools,
+            wake_word_config=wake_word_config,
+            transcription_config=transcription_config,
         )
         self.services: ServiceBundle = factory.create_services()
 
@@ -170,21 +182,41 @@ class RealtimeAgent(Generic[Context], LoggingMixin):
         """Build the agent configuration object from agent settings."""
         return AgentConfig(
             model=self.model,
-            voice=self.assistant_voice,
-            speed=self.speech_speed,
             instructions=self.instructions,
             temperature=self.response_temperature,
-            input_audio_noise_reduction=InputAudioNoiseReductionConfig(
-                type=self.noise_reduction_mode
-            ),
             tool_calling_model_name=self.tool_calling_model_name,
         )
 
-    def _build_wake_word_config(self) -> WakeWordConfig:
+    def _build_transcription_config_if_configured(
+        self,
+    ) -> InputAudioTranscriptionConfig | None:
+        if not self.enable_transcription:
+            return None
+
+        return InputAudioTranscriptionConfig(
+            model=self.transcription_model,
+            language=self.transcription_language,
+            prompt=self.transcription_prompt,
+        )
+
+    def _build_wake_word_config_if_configured(self) -> WakeWordConfig | None:
+        if not self.enable_wake_word:
+            return None
+
         """Build the wake word configuration object from agent settings."""
         return WakeWordConfig(
             keyword=self.wakeword or PorcupineBuiltinKeyword.PICOVOICE,
             sensitivity=self.wake_word_sensitivity,
+        )
+
+    def _build_audio_config(self) -> AssistantAudioConfig:
+        return AssistantAudioConfig(
+            input_audio_noise_reduction_config=InputAudioNoiseReductionConfig(
+                type=self.noise_reduction_mode
+            ),
+            voice=self.assistant_voice,
+            playback_speed=self.speech_speed,
+            audio_playback_strategy_type=self.audio_playback_strategy_type,
         )
 
     def _validate_transcription_config(self) -> None:

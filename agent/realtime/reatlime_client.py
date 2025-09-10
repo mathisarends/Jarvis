@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import base64
 
-from agent.config.views import AgentConfig
+from agent.config.views import AgentConfig, AssistantAudioConfig
 from agent.realtime.events.client.input_audio_buffer_append import (
     InputAudioBufferAppendEvent,
 )
@@ -24,6 +24,7 @@ class RealtimeClient(LoggingMixin):
     def __init__(
         self,
         agent_config: AgentConfig,
+        assistant_audio_config: AssistantAudioConfig,
         audio_capture: AudioCapture,
         special_tool_parameters: SpecialToolParameters,
         event_bus: EventBus,
@@ -33,6 +34,8 @@ class RealtimeClient(LoggingMixin):
         Initializes the OpenAI Realtime API client.
         All configuration is loaded from configuration files.
         """
+        self.agent_config = agent_config
+        self.assistant_audio_config = assistant_audio_config
         self.audio_capture = audio_capture
         self.special_tool_parameters = special_tool_parameters
         self.event_bus = event_bus
@@ -41,7 +44,6 @@ class RealtimeClient(LoggingMixin):
 
         # Extract components from special tool parameters
         self.audio_manager = special_tool_parameters.audio_manager
-        self.agent_config = special_tool_parameters.agent_config
 
         # Create WebSocketManager and TranscriptionService internally
         self.ws_manager = WebSocketManager.from_model(
@@ -54,6 +56,7 @@ class RealtimeClient(LoggingMixin):
             ws_manager=self.ws_manager,
             tool_registry=self.tool_registry,
             agent_config=agent_config,
+            assistant_audio_config=assistant_audio_config,
             event_bus=self.event_bus,
         )
 

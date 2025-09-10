@@ -1,9 +1,7 @@
-from __future__ import annotations
 from typing import Any, Optional, Literal
 from pydantic import BaseModel, ConfigDict, field_validator
 import json
 
-from agent.config.views import AgentConfig
 from agent.realtime.event_bus import EventBus
 from agent.realtime.event_types import RealtimeServerEvent
 from agent.realtime.events.conversation_item_create import (
@@ -11,6 +9,7 @@ from agent.realtime.events.conversation_item_create import (
     FunctionCallOutputItem,
 )
 from audio.player.audio_manager import AudioManager
+from agent.config.views import AssistantAudioConfig
 
 
 class FunctionCallItem(BaseModel):
@@ -80,7 +79,7 @@ class SpecialToolParameters(BaseModel):
 
     audio_manager: AudioManager
     event_bus: EventBus
-    agent_config: AgentConfig
+    assistant_audio_config: AssistantAudioConfig
     tool_calling_model_name: str | None = None
 
     # optional user-provided context object passed down from Agent(context=...)

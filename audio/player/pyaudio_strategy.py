@@ -4,7 +4,6 @@ import queue
 import threading
 import time
 import traceback
-from typing import Optional
 
 import numpy as np
 import pygame
@@ -26,17 +25,17 @@ class PyAudioStrategy(AudioStrategy, LoggingMixin):
 
     def __init__(
         self,
-        config: Optional[AudioConfig] = None,
-        sounds_dir: Optional[str] = None,
-        event_bus: EventBus = None,
+        event_bus: EventBus,
+        config: AudioConfig | None = None,
+        sounds_dir: str | None = None,
     ):
         self.config = config or AudioConfig()
 
         self.p = pyaudio.PyAudio()
-        self.stream: Optional[pyaudio.Stream] = None
+        self.stream: pyaudio.Stream | None = None
         self.audio_queue = queue.Queue()
         self.is_playing = False
-        self.player_thread: Optional[threading.Thread] = None
+        self.player_thread: threading.Thread | None = None
         self.current_audio_data = bytes()
         self.is_busy = False
         self.last_state_change = time.time()
