@@ -10,6 +10,7 @@ from agent.realtime.events.client.input_audio_buffer_append import (
 from agent.realtime.event_bus import EventBus
 from agent.realtime.messaging.message_manager import RealtimeMessageManager
 from agent.realtime.tools.tool_executor import ToolExecutor
+from agent.realtime.tools.mcp_tool_handler import McpToolHandler
 from agent.realtime.tools.views import SpecialToolParameters
 from agent.realtime.tools.tools import Tools
 from agent.realtime.transcription.service import TranscriptionService
@@ -65,6 +66,12 @@ class RealtimeClient(LoggingMixin):
             self.message_manager,
             self.special_tool_parameters,
             self.event_bus,
+        )
+        
+        self.mcp_tool_handler = McpToolHandler(
+            event_bus=self.event_bus,
+            message_manager=self.message_manager,
+            ws_manager=self.ws_manager,
         )
 
         # Audio streaming control

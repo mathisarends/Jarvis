@@ -32,6 +32,9 @@ class RespondingState(AssistantState):
                     "Assistant started tool call - transitioning to Tool Calling"
                 )
                 await self._transition_to_tool_calling(context)
+            case VoiceAssistantEvent.ASSISTANT_STARTED_MCP_TOOL_CALL:
+                self.logger.info("MCP tool call started - remaining in Tool Calling state")
+                await self._transition_to_tool_calling(context)    
             case VoiceAssistantEvent.ASSISTANT_RESPONSE_COMPLETED:
                 self.logger.info(
                     "Assistant response completed - returning to waiting for user input"
