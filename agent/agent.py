@@ -19,7 +19,8 @@ from agent.realtime.tools.tools import Tools
 from agent.realtime.views import (
     AssistantVoice,
 )
-from audio.player.audio_strategy_factory import AudioStrategyType
+from audio.player.audio_strategy import AudioStrategy
+from audio.player.pyaudio_strategy import PyAudioStrategy
 from audio.wake_word_listener import PorcupineBuiltinKeyword
 from shared.logging_mixin import LoggingMixin
 
@@ -45,7 +46,7 @@ class RealtimeAgent(Generic[Context], LoggingMixin):
         enable_wake_word: bool = False,
         wakeword: PorcupineBuiltinKeyword | None = None,
         wake_word_sensitivity: float = 0.7,
-        audio_playback_strategy_type: AudioStrategyType | None = None,
+        audio_playback_strategy: AudioStrategy | None = None,
     ):
         # Store config (same as before)
         self.context = Context
@@ -81,10 +82,8 @@ class RealtimeAgent(Generic[Context], LoggingMixin):
             )
         self._validate_wake_word_config()
 
-        self.audio_playback_strategy_type = (
-            audio_playback_strategy_type
-            if audio_playback_strategy_type
-            else AudioStrategyType.PYAUDIO
+        self.audio_playback_strategy = (
+            audio_playback_strategy if audio_playback_strategy else PyAudioStrategy()
         )
 
         # Create services via factory
@@ -216,7 +215,7 @@ class RealtimeAgent(Generic[Context], LoggingMixin):
             ),
             voice=self.assistant_voice,
             playback_speed=self.speech_speed,
-            audio_playback_strategy_type=self.audio_playback_strategy_type,
+            audio_playback_strategy=self.audio_playback_strategy,
         )
 
     def _validate_transcription_config(self) -> None:

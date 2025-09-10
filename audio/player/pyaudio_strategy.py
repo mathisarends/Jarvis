@@ -13,10 +13,9 @@ from agent.state.base import VoiceAssistantEvent
 from audio.config import AudioConfig
 from audio.player.audio_strategy import AudioStrategy
 from audio.views import SoundFile
-from shared.logging_mixin import LoggingMixin
 
 
-class PyAudioStrategy(AudioStrategy, LoggingMixin):
+class PyAudioStrategy(AudioStrategy):
     """
     PyAudio-based implementation of AudioStrategy.
     """
@@ -25,7 +24,7 @@ class PyAudioStrategy(AudioStrategy, LoggingMixin):
 
     def __init__(
         self,
-        event_bus: EventBus,
+        event_bus: EventBus | None = None,
         config: AudioConfig | None = None,
         sounds_dir: str | None = None,
     ):
@@ -43,7 +42,8 @@ class PyAudioStrategy(AudioStrategy, LoggingMixin):
         self.stream_lock = threading.Lock()
         self.state_lock = threading.Lock()
 
-        self.event_bus = event_bus or EventBus()
+        # EventBus can be None initially and set later
+        self.event_bus = event_bus
         self.volume = 1.0
 
         # Sound file setup
@@ -83,9 +83,7 @@ class PyAudioStrategy(AudioStrategy, LoggingMixin):
                 self.current_audio_data = bytes()
                 self.last_state_change = time.time()
                 # Publish ASSISTANT_RESPONSE_COMPLETED when manually clearing queue
-                self.event_bus.publish_sync(
-                    VoiceAssistantEvent.ASSISTANT_RESPONSE_COMPLETED
-                )
+                self._publish_event(VoiceAssistantEvent.ASSISTANT_RESPONSE_COMPLETED)
 
         self.logger.info("Audio queue cleared, stream kept alive")
 
@@ -256,9 +254,7 @@ class PyAudioStrategy(AudioStrategy, LoggingMixin):
             ):
                 self.last_state_change = current_time
                 # Publish event to EventBus
-                self.event_bus.publish_sync(
-                    VoiceAssistantEvent.ASSISTANT_STARTED_RESPONDING
-                )
+                self._publish_event(VoiceAssistantEvent.ASSISTANT_STARTED_RESPONDING)
 
         adjusted_chunk = self._adjust_volume(chunk)
         self.current_audio_data = adjusted_chunk
@@ -290,7 +286,7 @@ class PyAudioStrategy(AudioStrategy, LoggingMixin):
                     self.current_audio_data = bytes()
                     self.last_state_change = current_time
                     # Publish ASSISTANT_RESPONSE_COMPLETED when queue is empty and we finish playing
-                    self.event_bus.publish_sync(
+                    self._publish_event(
                         VoiceAssistantEvent.ASSISTANT_RESPONSE_COMPLETED
                     )
 
@@ -308,9 +304,7 @@ class PyAudioStrategy(AudioStrategy, LoggingMixin):
                 self.is_busy = False
                 self.last_state_change = time.time()
                 # Publish ASSISTANT_RESPONSE_COMPLETED on error as well (playback stopped)
-                self.event_bus.publish_sync(
-                    VoiceAssistantEvent.ASSISTANT_RESPONSE_COMPLETED
-                )
+                self._publish_event(VoiceAssistantEvent.ASSISTANT_RESPONSE_COMPLETED)
 
     def _adjust_volume(self, audio_chunk: bytes) -> bytes:
         """Adjust the volume of an audio chunk"""

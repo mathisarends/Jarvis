@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from agent.realtime.events.client.session_update import (
     InputAudioNoiseReductionConfig,
@@ -9,7 +9,7 @@ from agent.realtime.events.client.session_update import (
 from agent.realtime.views import (
     AssistantVoice,
 )
-from audio.player.audio_strategy_factory import AudioStrategyType
+from audio.player.audio_strategy import AudioStrategy
 from audio.wake_word_listener import PorcupineBuiltinKeyword
 
 
@@ -30,8 +30,10 @@ class WakeWordConfig(BaseModel):
 
 
 class AssistantAudioConfig(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     input_audio_noise_reduction_config: InputAudioNoiseReductionConfig | None
     voice: AssistantVoice = AssistantVoice.MARIN
 
     playback_speed: float = 1.0
-    audio_playback_strategy_type: AudioStrategyType | None = None
+    audio_playback_strategy: AudioStrategy | None = None

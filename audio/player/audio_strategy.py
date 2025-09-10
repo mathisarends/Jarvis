@@ -1,8 +1,11 @@
 from abc import ABC, abstractmethod
+from agent.realtime.event_bus import EventBus
+from agent.state.base import VoiceAssistantEvent
 from audio.views import SoundFile
+from shared.logging_mixin import LoggingMixin
 
 
-class AudioStrategy(ABC):
+class AudioStrategy(ABC, LoggingMixin):
     """
     Abstract base class for audio playback strategies.
     """
@@ -46,6 +49,26 @@ class AudioStrategy(ABC):
     def add_audio_chunk(self, base64_audio: str) -> None:
         """Add a base64 encoded audio chunk to the playback queue"""
         pass
+
+    def set_event_bus(self, event_bus: EventBus) -> None:
+        """Set the event bus for publishing events"""
+        self.event_bus = event_bus
+        self.logger.info("EventBus has been set")
+
+    def _publish_event(self, event: VoiceAssistantEvent) -> None:
+        """Helper method to publish events with warning if no event bus is set"""
+        if self.event_bus is None:
+            self.logger.warning(
+                "Attempted to publish event '%s' but no EventBus is set. "
+                "Use set_event_bus() to configure event publishing.",
+                event.name if hasattr(event, "name") else str(event),
+            )
+            return
+
+        try:
+            self.event_bus.publish_sync(event)
+        except Exception as e:
+            self.logger.error("Error publishing event '%s': %s", event, e)
 
     def play_startup_sound(self) -> bool:
         """Play the startup sound"""
