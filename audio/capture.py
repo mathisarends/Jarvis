@@ -1,5 +1,5 @@
 import asyncio
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Optional
 import pyaudio
 from audio.config import AudioConfig
 from shared.logging_mixin import LoggingMixin
@@ -47,6 +47,10 @@ class AudioCapture(LoggingMixin):
             else:
                 # Short sleep to prevent busy waiting when no data is available
                 await asyncio.sleep(sleep_interval)
+
+    def get_current_buffer(self) -> Optional[bytes]:
+        """Get current audio buffer snapshot for polling-based detection"""
+        return self._read_chunk()
 
     def cleanup(self) -> None:
         """Free resources"""

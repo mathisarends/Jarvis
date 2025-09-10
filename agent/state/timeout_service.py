@@ -53,16 +53,13 @@ class TimeoutService(LoggingMixin):
                 self.logger.info(
                     "Timeout occurred after %.1f seconds", self.timeout_seconds
                 )
-                await self._trigger_timeout()
+                self._trigger_timeout()
         except asyncio.CancelledError:  # NOSONAR
             self.logger.debug("Timeout cancelled")
 
-    async def _trigger_timeout(self) -> None:
+    def _trigger_timeout(self) -> None:
         """Trigger timeout via EventBus"""
-        try:
-            self.event_bus.publish_sync(VoiceAssistantEvent.TIMEOUT_OCCURRED)
-        except Exception as e:
-            self.logger.exception("Error triggering timeout: %s", e)
+        self.event_bus.publish_sync(VoiceAssistantEvent.TIMEOUT_OCCURRED)
 
     def update_timeout(self, new_timeout_seconds: float) -> None:
         """Update timeout duration"""

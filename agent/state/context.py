@@ -39,6 +39,8 @@ class VoiceAssistantContext(LoggingMixin):
         self.event_bus = event_bus
         self.realtime_client = realtime_client
 
+        self.is_first_state_machine_loop_after_startup = True
+
         self._setup_event_subscriptions()
 
         self.realtime_task = None
@@ -49,8 +51,11 @@ class VoiceAssistantContext(LoggingMixin):
             self.event_bus.subscribe(event_type, self.handle_event)
 
     async def handle_event(self, event: VoiceAssistantEvent, data: Any = None) -> None:
-        """Central event router - delegates events to current state"""
-        await self.state.handle(event, self)
+        """Central event router - handles IDLE_TRANSITION centrally, delegates others to current state"""
+        if event == VoiceAssistantEvent.IDLE_TRANSITION:
+            await self.state.transition_to_idle(self)
+        else:
+            await self.state.handle(event, self)
 
     async def start_realtime_session(self) -> bool:
         """Start a new realtime session with OpenAI, returns success status"""

@@ -5,9 +5,10 @@ from typing import Any, Callable, Optional, get_type_hints
 from concurrent.futures import ThreadPoolExecutor
 
 from agent.state.base import VoiceAssistantEvent
+from shared.logging_mixin import LoggingMixin
 
 
-class EventBus:
+class EventBus(LoggingMixin):
     """
     Simple EventBus with intelligent parameter detection.
     Automatically analyzes callback signatures to determine what parameters to pass.
@@ -124,7 +125,9 @@ class EventBus:
                         pass_data,
                     )
             except Exception as e:
-                print(f"Error invoking async callback for event {event_type}: {e}")
+                self.logger.error(
+                    f"Error invoking async callback for event {event_type}: {e}"
+                )
 
     def _build_args(
         self, event: VoiceAssistantEvent, data: Any, pass_event: bool, pass_data: bool
@@ -150,7 +153,7 @@ class EventBus:
             args = self._build_args(event, data, pass_event, pass_data)
             callback(*args)
         except Exception as e:
-            print(f"Error in sync callback {callback}: {e}")
+            self.logger.error(f"Error in sync callback {callback}: {e}")
 
     async def _safe_invoke_async_callback(
         self,
@@ -165,7 +168,10 @@ class EventBus:
             args = self._build_args(event, data, pass_event, pass_data)
             await callback(*args)
         except Exception as e:
-            print(f"Error in async callback {callback}: {e}")
+            self.logger.error(
+                f"Error in async callback {callback.__name__ if hasattr(callback, '__name__') else callback}",
+                exc_info=True,
+            )
 
     def shutdown(self) -> None:
         """Shutdown the EventBus and cleanup resources."""
@@ -176,7 +182,7 @@ class EventBus:
         try:
             fut.result()
         except Exception as e:
-            print(f"Async callback failed: {e}")
+            self.logger.error(f"Async callback failed: {e}")
 
     def _require_loop(self) -> asyncio.AbstractEventLoop:
         """Get the attached event loop or raise an error if not attached."""

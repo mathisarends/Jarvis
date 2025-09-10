@@ -38,17 +38,15 @@ class IdleState(AssistantState):
             self._wake_word_loop(context), name="wake_word_detection"
         )
 
-    async def _stop_wake_word_detection(self) -> None:
-        """Stop the wake word detection task"""
-        self.logger.debug("Stopping wake word detection task")
+    async def _stop_wake_word_detection(self):
+        if self._wake_task is None or self._wake_task.done():
+            return
+
         self._wake_task.cancel()
-        
         try:
             await self._wake_task
-        except asyncio.CancelledError: # NOSONAR
-            self.logger.debug("Wake word task cancelled")
-        except Exception:
-            self.logger.exception("Error while stopping wake word task")
+        except asyncio.CancelledError:  # NOSONAR
+            pass
         finally:
             self._wake_task = None
 
@@ -58,7 +56,7 @@ class IdleState(AssistantState):
             self.logger.debug("Starting wake word detection...")
             await context.wake_word_listener.listen_for_wakeword()
             self.logger.debug("Wake word detection completed")
-            
+
         except asyncio.CancelledError:
             self.logger.debug("Wake word detection cancelled")
             raise

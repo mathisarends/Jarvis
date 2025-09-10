@@ -47,9 +47,6 @@ class RespondingState(AssistantState):
                     "Wake word detected during assistant response - interrupting and transitioning to listening"
                 )
                 await self._transition_to_listening(context)
-            case VoiceAssistantEvent.IDLE_TRANSITION:
-                self.logger.info("Idle transition in Responding state")
-                await self._transition_to_idle(context)
             case _:
                 self.logger.debug("Ignoring event %s in Responding state", event.value)
 

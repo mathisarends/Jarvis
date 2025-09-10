@@ -9,7 +9,7 @@ from shared.logging_mixin import LoggingMixin
 
 
 class AudioDetectionService(LoggingMixin):
-    """Service for Audio-Level Detection and Speech Detection with EventBus integration"""
+    """Service for Audio-Level Detection and Speech Detection with polling"""
 
     def __init__(
         self,
@@ -59,16 +59,17 @@ class AudioDetectionService(LoggingMixin):
             self._monitoring_task = None
 
     async def _monitoring_loop(self) -> None:
-        """Main monitoring loop using async generator"""
+        """Polling-based monitoring loop instead of streaming"""
         try:
-            async for audio_data in self.audio_capture.stream_chunks(
-                sleep_interval=self.check_interval
-            ):
-                if not self._is_monitoring:
+            while self._is_monitoring:
+                # Get current audio data snapshot instead of streaming
+                audio_data = self.audio_capture.get_current_buffer()
+
+                if audio_data and self._process_audio_chunk(audio_data):
                     break
 
-                if self._process_audio_chunk(audio_data):
-                    break
+                # Sleep before next poll
+                await asyncio.sleep(self.check_interval)
 
         except asyncio.CancelledError:  # NOSONAR
             self.logger.debug("Audio monitoring cancelled")

@@ -75,15 +75,13 @@ class AssistantState(ABC, LoggingMixin):
         """Read-only property that returns the state type"""
         return self._state_type
 
-    @abstractmethod
     async def on_enter(self, context: VoiceAssistantContext) -> None:
         """Called when entering this state"""
-        ...
+        pass
 
-    @abstractmethod
     async def on_exit(self, context: VoiceAssistantContext) -> None:
         """Called when exiting this state"""
-        ...
+        pass
 
     @abstractmethod
     async def handle(
@@ -92,7 +90,7 @@ class AssistantState(ABC, LoggingMixin):
         """Handle an event in this state"""
         ...
 
-    async def _transition_to_idle(self, context: VoiceAssistantContext) -> None:
+    async def transition_to_idle(self, context: VoiceAssistantContext) -> None:
         """Transition to IdleState"""
         from agent.state.idle import IdleState
 
