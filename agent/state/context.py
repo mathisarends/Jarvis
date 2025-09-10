@@ -45,6 +45,10 @@ class VoiceAssistantContext(LoggingMixin):
 
         self.realtime_task = None
 
+    async def run(self) -> None:
+        self.audio_manager.strategy.play_startup_sound()
+        await self.state.on_enter(self)
+
     def _setup_event_subscriptions(self) -> None:
         """Subscribe to all VoiceAssistantEvents and route them to handle_event"""
         for event_type in VoiceAssistantEvent:

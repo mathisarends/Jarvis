@@ -25,7 +25,7 @@ Context = TypeVar("Context")
 class RealtimeAgent(Generic[Context], LoggingMixin):
     def __init__(
         self,
-        context: Context | None = None,
+        voice_assistant_context: Context | None = None,
         model: RealtimeModel = RealtimeModel.GPT_REALTIME,
         instructions: str | None = None,
         response_temperature: float = 0.8,
@@ -44,7 +44,7 @@ class RealtimeAgent(Generic[Context], LoggingMixin):
         audio_playback_strategy: AudioStrategy | None = None,
     ):
         # Store config (same as before)
-        self.context = context
+        self.context = Context
         self.model = model
         self.instructions = instructions
         self.response_temperature = response_temperature
@@ -85,7 +85,9 @@ class RealtimeAgent(Generic[Context], LoggingMixin):
 
         self.audio_playback_strategy = audio_playback_strategy
 
-        factory = ServiceFactory(agent_config, wake_word_config, self.tools)
+        factory = ServiceFactory(
+            agent_config, wake_word_config, self.tools, self.audio_playback_strategy
+        )
         self.services: ServiceBundle = factory.create_services()
 
         # Application State
@@ -103,11 +105,7 @@ class RealtimeAgent(Generic[Context], LoggingMixin):
             self.logger.info("Starting Voice Assistant")
             self._running = True
 
-            # Play startup sound
-            self.services.audio_manager.strategy.play_startup_sound()
-
-            # Start the state machine
-            await self.services.context.state.on_enter(self.services.context)
+            await self.services.context.run()
 
             # Main event-driven loop
             while self._running:

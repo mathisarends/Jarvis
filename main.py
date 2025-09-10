@@ -12,7 +12,7 @@ from audio.wake_word_listener import PorcupineBuiltinKeyword
 
 # Beispiel für einen einfachen Context-Typ (hier ein Dict, aber es könnte jede Klasse sein)
 class MyCustomContext:
-    def __init__(self, user_name: str, session_id: str):
+    def __init__(self, user_name: str, session_id: str) -> None:
         self.user_name = user_name
         self.session_id = session_id
 

@@ -84,8 +84,8 @@ class RealtimeEventDispatcher(LoggingMixin):
             # Function calling events
             RealtimeServerEvent.RESPONSE_FUNCTION_CALL_ARGUMENTS_DELTA,
             # MCP events
-            RealtimeServerEvent.MCP_CALL_ARGUMENTS_DELTA,
             RealtimeServerEvent.MCP_CALL_ARGUMENTS_DONE,
+            RealtimeServerEvent.MCP_CALL_ARGUMENTS_DELTA,
             RealtimeServerEvent.MCP_LIST_TOOLS_IN_PROGRESS,
             RealtimeServerEvent.MCP_LIST_TOOLS_COMPLETED,
             RealtimeServerEvent.MCP_LIST_TOOLS_FAILED,
@@ -209,6 +209,12 @@ class RealtimeEventDispatcher(LoggingMixin):
         self.event_bus.publish_sync(
             VoiceAssistantEvent.ASSISTANT_SPEECH_INTERRUPTED, truncate_event
         )
+
+    def _handle_mcp_call_arguments_done(self, data: dict[str, Any]) -> None:
+        """MCP call arguments done -> ASSISTANT_RECEIVED_MCP_TOOL_CALL_RESULT"""
+        print("data", data)
+        self.logger.debug("MCP call arguments done")
+        self.event_bus.publish_sync(VoiceAssistantEvent.ASSISTANT_STARTED_MCP_TOOL_CALL)
 
     def _handle_response_created(self, data: dict[str, Any]) -> None:
         """Response created -> ASSISTANT_STARTED_RESPONSE"""

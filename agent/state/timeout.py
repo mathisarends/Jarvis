@@ -51,11 +51,7 @@ class TimeoutState(AssistantState):
             case VoiceAssistantEvent.TIMEOUT_OCCURRED:
                 self.logger.info(
                     "Timeout occurred - user did not start speaking within %s seconds",
-                    (
-                        self.timeout_service.timeout_seconds
-                        if self.timeout_service
-                        else "unknown"
-                    ),
+                    self.timeout_service.timeout_seconds,
                 )
                 await self.transition_to_idle(context)
             case _:

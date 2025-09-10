@@ -15,6 +15,7 @@ from agent.realtime.tools.tools import Tools
 from agent.realtime.transcription.service import TranscriptionService
 from agent.realtime.websocket.websocket_manager import WebSocketManager
 
+from agent.state import base
 from audio.capture import AudioCapture
 from shared.logging_mixin import LoggingMixin
 
@@ -154,6 +155,7 @@ class RealtimeClient(LoggingMixin):
                 if self._audio_streaming_paused:
                     continue
                 base64_audio_data = base64.b64encode(chunk).decode("utf-8")
+
                 input_audio_buffer_append_event = (
                     InputAudioBufferAppendEvent.from_audio(base64_audio_data)
                 )

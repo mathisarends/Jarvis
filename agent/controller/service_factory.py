@@ -9,6 +9,7 @@ from agent.state.context import VoiceAssistantContext
 from audio.capture import AudioCapture
 from audio.detection import AudioDetectionService
 from audio.player.audio_manager import AudioManager
+from audio.player.audio_strategy import AudioStrategy
 from audio.sound_event_handler import SoundEventHandler
 from audio.wake_word_listener import WakeWordListener
 
@@ -31,11 +32,12 @@ class ServiceFactory:
     """Factory for creating all voice assistant services."""
 
     def __init__(
-        self, agent_config: AgentConfig, wake_word_config: WakeWordConfig, tools: Tools
+        self, agent_config: AgentConfig, wake_word_config: WakeWordConfig, tools: Tools, audio_playback_strategy: AudioStrategy
     ):
         self.agent_config = agent_config
         self.wake_word_config = wake_word_config
         self.tools = tools
+        self.audio_playback_strategy = audio_playback_strategy
         self.event_bus = EventBus()  # Created once, shared everywhere
         self.event_bus.attach_loop(asyncio.get_running_loop())
 
@@ -79,7 +81,7 @@ class ServiceFactory:
         return AudioCapture()
 
     def _create_audio_manager(self) -> AudioManager:
-        return AudioManager(event_bus=self.event_bus)
+        return AudioManager(event_bus=self.event_bus, strategy=self.audio_playback_strategy)
 
     def _create_audio_detection_service(
         self, audio_capture: AudioCapture

@@ -15,6 +15,8 @@ from agent.realtime.events.client.session_update import (
     AudioFormatConfig,
     AudioInputConfig,
     AudioOutputConfig,
+    MCPRequireApprovalMode,
+    MCPTool,
     RealtimeSessionConfig,
     SessionUpdateEvent,
     AudioConfig,

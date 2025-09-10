@@ -97,8 +97,8 @@ class RealtimeServerEvent(StrEnum):
     RESPONSE_FUNCTION_CALL_ARGUMENTS_DONE = "response.function_call_arguments.done"
 
     # Tools: MCP (Model Context Protocol)
-    MCP_CALL_ARGUMENTS_DELTA = "mcp_call_arguments.delta"
-    MCP_CALL_ARGUMENTS_DONE = "mcp_call_arguments.done"
+    MCP_CALL_ARGUMENTS_DELTA = "response.mcp_call_arguments.delta"
+    MCP_CALL_ARGUMENTS_DONE = "response.mcp_call_arguments.done"
 
     MCP_LIST_TOOLS_IN_PROGRESS = "mcp_list_tools.in_progress"
     MCP_LIST_TOOLS_COMPLETED = "mcp_list_tools.completed"

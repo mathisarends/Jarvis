@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import Any, Literal, Optional
 
 from enum import StrEnum
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from agent.realtime.event_types import RealtimeClientEvent
 
@@ -197,11 +197,49 @@ class FunctionTool(BaseModel):
     parameters: FunctionParameters
 
 
-class MCPTool(BaseModel):
-    """MCP tool configuration."""
+class MCPToolFilter(BaseModel):
+    """Filter object for MCP allowed tools."""
 
-    type: Literal["mcp"]
-    # MCP specific fields would go here
+    patterns: list[str] | None = None
+    exclude: list[str] | None = None
+
+
+class MCPRequireApprovalMode(StrEnum):
+    """MCP tool approval modes."""
+
+    NEVER = "never"
+    ALWAYS = "always"
+    AUTO = "auto"
+
+
+class MCPRequireApproval(BaseModel):
+    """Configuration for MCP tool approval requirements."""
+
+    # The documentation doesn't specify the exact structure for object type
+    # This is a placeholder that can be extended
+    tools: list[str] | None = None
+    all: bool | None = None
+
+
+class MCPTool(BaseModel):
+    """MCP tool configuration for Model Context Protocol servers."""
+
+    type: Literal["mcp"] = "mcp"
+    server_label: str
+    allowed_tools: list[str] | MCPToolFilter | None = None
+    authorization: str | None = None
+    connector_id: MCPConnectorId | str | None = None
+    headers: dict[str, Any] | None = None
+    require_approval: MCPRequireApproval | str | None = None
+    server_description: str | None = None
+    server_url: str | None = None
+
+    @model_validator(mode="after")
+    def validate_server_config(self) -> MCPTool:
+        """Validate that either server_url or connector_id is provided."""
+        if not self.server_url and not self.connector_id:
+            raise ValueError("Either 'server_url' or 'connector_id' must be provided")
+        return self
 
 
 class ToolChoice(BaseModel):
@@ -210,6 +248,19 @@ class ToolChoice(BaseModel):
     mode: ToolChoiceMode = ToolChoiceMode.AUTO
     function: FunctionTool | None = None
     mcp: MCPTool | None = None
+
+
+class MCPConnectorId(StrEnum):
+    """Supported MCP connector IDs for service connectors."""
+
+    DROPBOX = "connector_dropbox"
+    GMAIL = "connector_gmail"
+    GOOGLE_CALENDAR = "connector_googlecalendar"
+    GOOGLE_DRIVE = "connector_googledrive"
+    MICROSOFT_TEAMS = "connector_microsoftteams"
+    OUTLOOK_CALENDAR = "connector_outlookcalendar"
+    OUTLOOK_EMAIL = "connector_outlookemail"
+    SHAREPOINT = "connector_sharepoint"
 
 
 # ============================================================================

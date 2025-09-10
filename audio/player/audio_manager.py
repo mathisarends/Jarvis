@@ -1,4 +1,5 @@
 from typing import Optional
+from agent.realtime.event_bus import EventBus
 from audio.player.audio_strategy import AudioStrategy
 from audio.player.pyaudio_strategy import PyAudioStrategy
 from shared.logging_mixin import LoggingMixin
@@ -7,7 +8,7 @@ from shared.logging_mixin import LoggingMixin
 class AudioManager(LoggingMixin):
     """Context that holds and switches audio strategies"""
 
-    def __init__(self, strategy: Optional[AudioStrategy] = None, event_bus=None):
+    def __init__(self, event_bus: EventBus, strategy: Optional[AudioStrategy] = None):
         if strategy is None:
             strategy = PyAudioStrategy(event_bus=event_bus)
         self._strategy = strategy
