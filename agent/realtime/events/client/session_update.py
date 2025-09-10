@@ -253,10 +253,11 @@ class MCPConnectorId(StrEnum):
     OUTLOOK_CALENDAR = "connector_outlookcalendar"
     OUTLOOK_EMAIL = "connector_outlookemail"
     SHAREPOINT = "connector_sharepoint"
-    
-    
+
+
 class MCPRequireApprovalMode(StrEnum):
     """Approval modes for MCP tool execution"""
+
     NEVER = "never"
     AUTO = "auto"
     ALWAYS = "always"

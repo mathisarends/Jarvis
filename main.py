@@ -5,7 +5,11 @@ Voice Assistant Application Entry Point.
 import asyncio
 
 from agent.agent import RealtimeAgent
-from agent.realtime.events.client.session_update import NoiseReductionType
+from agent.realtime.events.client.session_update import (
+    MCPRequireApprovalMode,
+    MCPTool,
+    NoiseReductionType,
+)
 from agent.realtime.views import AssistantVoice
 from audio.wake_word_listener import PorcupineBuiltinKeyword
 
@@ -25,11 +29,18 @@ async def main():
 
     custom_context = MyCustomContext(user_name="Alice", session_id="session_123")
 
+    mcp_tool = MCPTool(
+        server_label="dmcp",
+        server_url="https://dmcp-server.deno.dev/sse",
+        require_approval=MCPRequireApprovalMode.NEVER,
+    )
+
     try:
         agent = RealtimeAgent[custom_context](
             instructions="Be concise and friendly. Answer in German. Always use tools if necessary.",
             response_temperature=0.8,
             assistant_voice=AssistantVoice.MARIN,
+            mcp_tools=[mcp_tool],
             speech_speed=1.3,
             enable_transcription=False,
             noise_reduction_mode=NoiseReductionType.NEAR_FIELD,

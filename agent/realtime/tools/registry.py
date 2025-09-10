@@ -16,6 +16,7 @@ from agent.realtime.events.client.session_update import (
     FunctionParameterProperty,
     FunctionParameters,
     FunctionTool,
+    MCPTool,
 )
 from agent.realtime.tools.tool import Tool
 from agent.realtime.tools.views import SpecialToolParameters
@@ -28,7 +29,9 @@ class ToolRegistry:
 
     def __init__(
         self,
+        mcp_tools: list[MCPTool] | None = None,
     ):
+        self.mcp_tools = mcp_tools or []
         self._tools: dict[str, Tool] = {}
 
     def action(
@@ -90,7 +93,7 @@ class ToolRegistry:
 
     def get_openai_schema(self) -> list[FunctionTool]:
         """Convert all tools to Pydantic FunctionTool format."""
-        return [tool.to_pydantic() for tool in self._tools.values()]
+        return [tool.to_pydantic() for tool in self._tools.values()] + self.mcp_tools
 
     def _register(self, tool: Tool):
         """Register a tool."""

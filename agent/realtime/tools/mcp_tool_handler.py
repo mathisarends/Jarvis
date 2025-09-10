@@ -13,7 +13,7 @@ from shared.logging_mixin import LoggingMixin
 class McpToolHandler(LoggingMixin):
     """
     Handler for MCP (Model Context Protocol) tool events.
-    
+
     This class listens to MCP events and triggers inference by sending
     ConversationResponseCreate events without actually executing the tools.
     The goal is to let the OpenAI Realtime API handle MCP tool execution
@@ -40,54 +40,70 @@ class McpToolHandler(LoggingMixin):
         )
 
         self.logger.info("McpToolHandler initialized and subscribed to MCP events")
-        
+
     async def _handle_mcp_tool_call_completed(self) -> None:
         """
         Handle MCP tool call completed event.
-        
+
         When an MCP tool call completes successfully, we trigger inference
         to let the assistant process the results and generate a response.
         """
         try:
-            self.logger.info("MCP tool call completed - triggering inference for result processing")
-            
+            self.logger.info(
+                "MCP tool call completed - triggering inference for result processing"
+            )
+
             response_event = ConversationResponseCreateEvent.with_instructions(
                 "MCP tool call has completed successfully. Please process the results and provide a response to the user."
             )
-            
+
             # Send the response event to trigger inference
             success = await self.ws_manager.send_message(response_event)
-            
+
             if success:
-                self.logger.debug("Successfully triggered inference for MCP tool call completion")
+                self.logger.debug(
+                    "Successfully triggered inference for MCP tool call completion"
+                )
             else:
-                self.logger.error("Failed to send ConversationResponseCreate for MCP tool call completion")
-                
+                self.logger.error(
+                    "Failed to send ConversationResponseCreate for MCP tool call completion"
+                )
+
         except Exception as e:
-            self.logger.error("Error handling MCP tool call completed: %s", e, exc_info=True)
+            self.logger.error(
+                "Error handling MCP tool call completed: %s", e, exc_info=True
+            )
 
     async def _handle_mcp_tool_call_failed(self) -> None:
         """
         Handle MCP tool call failed event.
-        
+
         When an MCP tool call fails, we trigger inference to let the assistant
         handle the error gracefully and inform the user.
         """
         try:
-            self.logger.info("MCP tool call failed - triggering inference for error handling")
-            
+            self.logger.info(
+                "MCP tool call failed - triggering inference for error handling"
+            )
+
             # Create a response event to trigger inference for error handling
             response_event = ConversationResponseCreateEvent.with_instructions(
                 "Something went wrong with the MCP tool call. Please inform the user about the issue."
             )
-            
+
             # Send the response event to trigger inference
             success = await self.ws_manager.send_message(response_event)
-            
+
             if success:
-                self.logger.debug("Successfully triggered inference for MCP tool call failure")
+                self.logger.debug(
+                    "Successfully triggered inference for MCP tool call failure"
+                )
             else:
-                self.logger.error("Failed to send ConversationResponseCreate for MCP tool call failure")
-                
+                self.logger.error(
+                    "Failed to send ConversationResponseCreate for MCP tool call failure"
+                )
+
         except Exception as e:
-            self.logger.error("Error handling MCP tool call failed: %s", e, exc_info=True)
+            self.logger.error(
+                "Error handling MCP tool call failed: %s", e, exc_info=True
+            )

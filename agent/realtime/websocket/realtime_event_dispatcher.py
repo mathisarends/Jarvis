@@ -105,7 +105,6 @@ class RealtimeEventDispatcher(LoggingMixin):
         Routet Events basierend auf dem event type zu den entsprechenden Handlern.
         """
         event_type_str = data.get("type", "")
-        print("event_type_str", event_type_str)
 
         if not event_type_str:
             self.logger.warning("Received event without type field: %s", data)
@@ -216,23 +215,29 @@ class RealtimeEventDispatcher(LoggingMixin):
     def _handle_mcp_call_arguments_done(self, data: dict[str, Any]) -> None:
         """MCP call arguments done -> ASSISTANT_STARTED_MCP_TOOL_CALL"""
         self.logger.info("MCP call arguments completed, starting MCP tool execution")
+        self.logger.info("MCP call arguments data: %s", data)
         self.event_bus.publish_sync(VoiceAssistantEvent.ASSISTANT_STARTED_MCP_TOOL_CALL)
-        
+
     def _handle_mcp_call_completed(self, data: dict[str, Any]) -> None:
         """MCP call completed -> ASSISTANT_COMPLETED_MCP_TOOL_CALL_RESULT"""
         self.logger.info("MCP tool call completed successfully")
-        self.event_bus.publish_sync(VoiceAssistantEvent.ASSISTANT_COMPLETED_MCP_TOOL_CALL_RESULT)
-        
+        self.event_bus.publish_sync(
+            VoiceAssistantEvent.ASSISTANT_COMPLETED_MCP_TOOL_CALL_RESULT
+        )
+
     def _handle_mcp_call_failed(self, data: dict[str, Any]) -> None:
         """MCP call failed -> ASSISTANT_FAILED_MCP_TOOL_CALL"""
         error_details = data.get("error", {})
         error_message = error_details.get("message", "Unknown MCP error")
         error_type = error_details.get("type", "unknown")
-        
-        self.logger.error("MCP tool call failed: %s (type: %s)", error_message, error_type)
-        self.logger.debug("MCP failure data: %s", data)
-        self.event_bus.publish_sync(VoiceAssistantEvent.ASSISTANT_FAILED_MCP_TOOL_CALL, data)
 
+        self.logger.error(
+            "MCP tool call failed: %s (type: %s)", error_message, error_type
+        )
+        self.logger.debug("MCP failure data: %s", data)
+        self.event_bus.publish_sync(
+            VoiceAssistantEvent.ASSISTANT_FAILED_MCP_TOOL_CALL, data
+        )
 
     def _handle_response_created(self, data: dict[str, Any]) -> None:
         """Response created -> ASSISTANT_STARTED_RESPONSE"""

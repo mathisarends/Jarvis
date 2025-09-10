@@ -11,6 +11,7 @@ from agent.controller.service_factory import ServiceBundle, ServiceFactory
 from agent.realtime.events.client.session_update import (
     InputAudioNoiseReductionConfig,
     InputAudioTranscriptionConfig,
+    MCPTool,
     NoiseReductionType,
     RealtimeModel,
     TranscriptionModel,
@@ -36,6 +37,7 @@ class RealtimeAgent(Generic[Context], LoggingMixin):
         response_temperature: float = 0.8,
         tools: Tools | None = None,
         tool_calling_model_name: str | None = None,
+        mcp_tools: list[MCPTool] | None = None,
         assistant_voice: AssistantVoice = AssistantVoice.MARIN,
         speech_speed: float = 1.0,
         enable_transcription: bool = False,
@@ -53,7 +55,12 @@ class RealtimeAgent(Generic[Context], LoggingMixin):
         self.model = model
         self.instructions = instructions
         self.response_temperature = response_temperature
-        self.tools = tools if tools is not None else Tools()
+        self.tools = tools if tools else Tools(mcp_tools=mcp_tools)
+
+        # append mcp_tools to tools
+        if mcp_tools and not self.tools.mcp_tools:
+            self.tools.mcp_tools = mcp_tools
+
         self.tool_calling_model_name = tool_calling_model_name
         self.assistant_voice = assistant_voice
         self.speech_speed = speech_speed

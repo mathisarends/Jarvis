@@ -172,12 +172,6 @@ class RealtimeMessageManager(LoggingMixin):
                 noise_reduction=self.assitant_audio_config.input_audio_noise_reduction_config,
             ),
         )
-        
-        mcp_tool = MCPTool(
-            server_label="dmcp",
-            server_url="https://dmcp-server.deno.dev/sse",
-            require_approval=MCPRequireApprovalMode.NEVER, 
-        )
 
         return SessionUpdateEvent(
             session=RealtimeSessionConfig(
@@ -185,7 +179,7 @@ class RealtimeMessageManager(LoggingMixin):
                 instructions=self.agent_config.instructions,
                 audio=audio_config,
                 output_modalities=["audio"],
-                tools=self.tool_registry.get_openai_schema() + [mcp_tool],
+                tools=self.tool_registry.get_openai_schema(),
             ),
         )
 

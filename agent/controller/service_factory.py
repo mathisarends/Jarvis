@@ -70,9 +70,11 @@ class ServiceFactory:
 
         # Sound handling
         sound_event_handler = self._create_sound_event_handler(audio_manager)
-        
+
         # Set EventBus here for simplified interface
-        self.assistant_audio_config.audio_playback_strategy.set_event_bus(self.event_bus)
+        self.assistant_audio_config.audio_playback_strategy.set_event_bus(
+            self.event_bus
+        )
 
         # Realtime AI client
         realtime_client = self._create_realtime_client(audio_capture, audio_manager)
