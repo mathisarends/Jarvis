@@ -1,7 +1,4 @@
-from .strategy import AudioStrategy
 from .pyaudio import PyAudioStrategy
+from .strategy import AudioStrategy
 
-__all__ = [
-    "AudioStrategy",
-    "PyAudioStrategy"
-]
+__all__ = ["AudioStrategy", "PyAudioStrategy"]

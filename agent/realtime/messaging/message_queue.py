@@ -1,7 +1,8 @@
 # 1. Separate Queue Manager
 import asyncio
 from collections import deque
-from typing import Callable
+from collections.abc import Callable
+
 from shared.logging_mixin import LoggingMixin
 
 

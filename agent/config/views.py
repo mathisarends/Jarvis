@@ -9,8 +9,8 @@ from agent.realtime.events.client.session_update import (
 from agent.realtime.views import (
     AssistantVoice,
 )
-from agent.wake_word.models import PorcupineWakeWord
 from agent.sound.audio.strategy import AudioStrategy
+from agent.wake_word.models import PorcupineWakeWord
 
 
 class AgentConfig(BaseModel):

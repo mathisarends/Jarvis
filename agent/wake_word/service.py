@@ -1,21 +1,21 @@
 import asyncio
 import threading
-from typing import Mapping
+from collections.abc import Mapping
 from contextlib import suppress
 
-from agent.wake_word.models import PorcupineWakeWord
 import numpy as np
+import pyaudio
 from pvporcupine import (
-    create,
     Porcupine,
     PorcupineInvalidArgumentError,
     PorcupineInvalidStateError,
+    create,
 )
-import pyaudio
 
 from agent.config import AgentEnv
-from agent.realtime.event_bus import EventBus
+from agent.events import EventBus
 from agent.state.base import VoiceAssistantEvent
+from agent.wake_word.models import PorcupineWakeWord
 from shared.logging_mixin import LoggingMixin
 
 
@@ -100,11 +100,11 @@ class WakeWordListener(LoggingMixin):
             if self.stream:
                 self.stream.stop_stream()
                 self.stream.close()
-        
+
         with suppress(Exception):
             if self.pa_input:
                 self.pa_input.terminate()
-        
+
         with suppress(Exception):
             if self.handle:
                 self.handle.delete()
@@ -158,10 +158,14 @@ class WakeWordListener(LoggingMixin):
         try:
             pcm = np.frombuffer(in_data, dtype=np.int16)
             keyword_index = self.handle.process(pcm)
-            
+
             if keyword_index >= 0:
                 self._handle_wake_word_detected(keyword_index)
-        except (ValueError, PorcupineInvalidStateError, PorcupineInvalidArgumentError) as e:
+        except (
+            ValueError,
+            PorcupineInvalidStateError,
+            PorcupineInvalidArgumentError,
+        ) as e:
             self.logger.error("Audio processing error: %s", e)
 
     def _handle_wake_word_detected(self, keyword_index: int) -> None:

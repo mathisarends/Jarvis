@@ -1,25 +1,25 @@
 import base64
 import os
-from pathlib import Path
 import queue
 import threading
 import time
 import traceback
-from typing import override
+from pathlib import Path
+from typing import ClassVar, override
 
 import numpy as np
-import pygame
 import pyaudio
-from agent.realtime.event_bus import EventBus
-from agent.state.base import VoiceAssistantEvent
-from agent.sound.models import AudioConfig
+import pygame
+
+from agent.events import EventBus
 from agent.sound.audio.strategy import AudioStrategy
-from agent.sound.models import SoundFile
+from agent.sound.models import AudioConfig, SoundFile
+from agent.state.base import VoiceAssistantEvent
 
 
 class PyAudioStrategy(AudioStrategy):
-    SUPPORTED_FORMATS = {".mp3"}
-    DEFAULT_SOUNDS_DIR = Path(__file__).parent / "res"
+    SUPPORTED_FORMATS: ClassVar[set[str]] = {".mp3"}
+    DEFAULT_SOUNDS_DIR: ClassVar[Path] = Path(__file__).parent / "res"
 
     def __init__(
         self,
@@ -32,7 +32,7 @@ class PyAudioStrategy(AudioStrategy):
         self._stream: pyaudio.Stream | None = None
         self._audio_queue: queue.Queue[bytes] = queue.Queue()
         self._player_thread: threading.Thread | None = None
-        self._current_audio_data = bytes()
+        self._current_audio_data = b""
         self._is_busy = False
         self._last_state_change = time.time()
         self._min_state_change_interval = 0.5
@@ -67,7 +67,7 @@ class PyAudioStrategy(AudioStrategy):
         with self._state_lock:
             if self._is_busy:
                 self._is_busy = False
-                self._current_audio_data = bytes()
+                self._current_audio_data = b""
                 self._last_state_change = time.time()
                 self._publish_event(VoiceAssistantEvent.ASSISTANT_RESPONSE_COMPLETED)
 
@@ -98,12 +98,12 @@ class PyAudioStrategy(AudioStrategy):
     def play_sound(self, sound_name: str) -> None:
         self._validate_audio_format(sound_name)
         sound_path = self._get_sound_path(sound_name)
-        
+
         sound = pygame.mixer.Sound(sound_path)
         sound.set_volume(self.volume)
         sound.play()
         self.logger.debug("Playing sound: %s", sound_name)
-        
+
     def _validate_audio_format(self, sound_name: str) -> None:
         if "." not in sound_name:
             return
@@ -118,11 +118,10 @@ class PyAudioStrategy(AudioStrategy):
             f"Supported formats: {supported_list}. "
             f"Please convert '{sound_name}' to MP3 format."
         )
-    
+
     def _get_sound_path(self, sound_name: str) -> str:
         filename = sound_name if sound_name.endswith(".mp3") else f"{sound_name}.mp3"
         return str(self._sounds_dir / filename)
-
 
     @override
     def stop_sounds(self) -> None:
@@ -250,7 +249,7 @@ class PyAudioStrategy(AudioStrategy):
                     current_time - self._last_state_change
                 ) >= self._min_state_change_interval:
                     self._is_busy = False
-                    self._current_audio_data = bytes()
+                    self._current_audio_data = b""
                     self._last_state_change = current_time
                     self._publish_event(
                         VoiceAssistantEvent.ASSISTANT_RESPONSE_COMPLETED

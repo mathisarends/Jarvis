@@ -1,7 +1,8 @@
 from __future__ import annotations
+
 from typing import TYPE_CHECKING
 
-from agent.realtime.event_bus import EventBus
+from agent.events import EventBus
 from agent.state.base import VoiceAssistantEvent
 from shared.logging_mixin import LoggingMixin
 

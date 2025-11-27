@@ -3,19 +3,17 @@ import asyncio
 from agent.config import AgentEnv
 from agent.config.models import (
     ModelSettings,
-    VoiceSettings,
     TranscriptionSettings,
+    VoiceSettings,
     WakeWordSettings,
 )
-from agent.realtime.event_bus import EventBus
-from agent.realtime.reatlime_client import RealtimeClient
-from agent.realtime.tools.tools import Tools
-from agent.realtime.tools.views import SpecialToolParameters
-from agent.state.context import VoiceAssistantContext
-from agent.wake_word import WakeWordListener
+from agent.events import EventBus
 from agent.mic import MicrophoneCapture, SpeechDetector
-from agent.sound import AudioPlayer
-from agent.sound.handler import SoundEventHandler
+from agent.realtime.reatlime_client import RealtimeClient
+from agent.sound import AudioPlayer, SoundEventHandler
+from agent.state.context import VoiceAssistantContext
+from agent.tools import SpecialToolParameters, Tools
+from agent.wake_word import WakeWordListener
 from shared.logging_mixin import LoggingMixin
 
 
@@ -63,7 +61,7 @@ class RealtimeAgent(LoggingMixin):
                 try:
                     await asyncio.wait_for(self._shutdown_event.wait(), timeout=0.1)
                     break
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     continue
                 except KeyboardInterrupt:
                     self.logger.info("Shutdown requested by user")
@@ -91,14 +89,13 @@ class RealtimeAgent(LoggingMixin):
             "sound": self._cleanup_sound_service(),
         }
 
-        results = await asyncio.gather(
-            *cleanup_tasks.values(), 
-            return_exceptions=True
-        )
+        results = await asyncio.gather(*cleanup_tasks.values(), return_exceptions=True)
 
-        for service_name, result in zip(cleanup_tasks.keys(), results):
+        for service_name, result in zip(cleanup_tasks.keys(), results, strict=False):
             if isinstance(result, Exception):
-                self.logger.exception("Error cleaning up %s", service_name, exc_info=result)
+                self.logger.exception(
+                    "Error cleaning up %s", service_name, exc_info=result
+                )
 
         self.logger.info("All services cleaned up")
 
@@ -159,6 +156,7 @@ class RealtimeAgent(LoggingMixin):
             special_tool_parameters=special_tool_parameters,
             event_bus=self._event_bus,
             tools=self._tools,
+            env=self._env,
         )
 
     def _create_context(self) -> VoiceAssistantContext:

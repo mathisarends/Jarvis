@@ -1,23 +1,14 @@
 from __future__ import annotations
 
 import time
-from typing import Optional
 
-from agent.realtime.event_bus import EventBus
+from agent.events import EventBus
 from agent.realtime.views import ResponseOutputAudioDelta
 from agent.state.base import VoiceAssistantEvent
 from shared.logging_mixin import LoggingMixin
 
 
 class CurrentMessageContext(LoggingMixin):
-    """
-    Context tracker for current assistant message/response.
-    Tracks item_id and timing for barge-in logic and item truncation.
-
-    Used for item truncation in barge-in logic when the user interrupts
-    the agent while it's speaking, ensuring context remains congruent.
-    """
-
     def __init__(self, event_bus: EventBus):
         self.event_bus = event_bus
         self._start_time: float | None = None
@@ -41,12 +32,12 @@ class CurrentMessageContext(LoggingMixin):
         self.logger.info("CurrentMessageContext initialized and subscribed to events")
 
     @property
-    def item_id(self) -> Optional[str]:
+    def item_id(self) -> str | None:
         """Get the current item ID of the assistant's response."""
         return self._item_id
 
     @property
-    def current_duration_ms(self) -> Optional[int]:
+    def current_duration_ms(self) -> int | None:
         """Get current duration in milliseconds if timer is running."""
         if self._start_time is None:
             return None

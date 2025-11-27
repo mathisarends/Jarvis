@@ -1,4 +1,4 @@
-from .service import WakeWordListener
 from .models import PorcupineWakeWord
+from .service import WakeWordListener
 
-__all__ = ["WakeWordListener", "PorcupineWakeWord"]
+__all__ = ["PorcupineWakeWord", "WakeWordListener"]

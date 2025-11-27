@@ -1,10 +1,10 @@
 from enum import StrEnum
 from typing import Literal
+
 from pydantic import BaseModel
 
 from agent.realtime.event_types import RealtimeServerEvent
 from agent.realtime.events.client.session_update import RealtimeSessionConfig
-
 
 # ============================================================================
 # UNIQUE ENUMS (not in the other file)
@@ -33,8 +33,8 @@ class AssistantVoice(StrEnum):
     - sage: Calm and thoughtful, measured pacing and a reflective quality.
     - shimmer: Bright and energetic, dynamic expression with high clarity.
     - verse: Versatile and expressive, adapts well across different contexts.
-    - cedar: (Realtime-only) – no official description available yet.
-    - marin: (Realtime-only) – no official description available yet.
+    - cedar: (Realtime-only) - no official description available yet.
+    - marin: (Realtime-only) - no official description available yet.
     """
 
     ALLOY = "alloy"

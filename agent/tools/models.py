@@ -1,14 +1,18 @@
-from typing import Any, Optional, Literal
-from pydantic import BaseModel, ConfigDict, field_validator
 import json
-
-from agent.realtime.event_bus import EventBus
-from agent.realtime.event_types import RealtimeServerEvent
-from agent.realtime.events.conversation_item_create import (
-    ConversationItemCreateEvent,
-    FunctionCallOutputItem,
+from typing import (
+    Any,
+    Literal,
 )
+
+from pydantic import BaseModel, ConfigDict, field_validator
+
 from agent.config.models import VoiceSettings
+from agent.events import EventBus
+from agent.realtime.event_types import RealtimeServerEvent
+from agent.realtime.events.client.conversation_item_create import (
+    ConversationItemCreateEvent,
+)
+from agent.realtime.events.conversation_item_create import FunctionCallOutputItem
 from agent.sound.player import AudioPlayer
 
 
@@ -57,7 +61,6 @@ class FunctionCallResult(BaseModel):
         )
 
     def _format_output(self) -> str:
-        """Private Methode zur Formatierung des Outputs als String."""
         if self.output is None:
             return ""
         if isinstance(self.output, str):

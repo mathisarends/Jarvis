@@ -1,7 +1,6 @@
 import asyncio
-from typing import Optional
 
-from agent.realtime.event_bus import EventBus
+from agent.events import EventBus
 from agent.state.base import VoiceAssistantEvent
 from shared.logging_mixin import LoggingMixin
 
@@ -12,7 +11,7 @@ class TimeoutService(LoggingMixin):
     def __init__(self, timeout_seconds: float = 10.0, event_bus: EventBus = None):
         self.timeout_seconds = timeout_seconds
         self.event_bus = event_bus or EventBus()
-        self._timeout_task: Optional[asyncio.Task] = None
+        self._timeout_task: asyncio.Task | None = None
         self._is_active = False
 
     async def start_timeout(self) -> None:

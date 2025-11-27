@@ -1,18 +1,19 @@
 from __future__ import annotations
 
-from typing import Literal, Optional
+from typing import Literal
 
 from openai import BaseModel
+
 from agent.realtime.event_types import RealtimeClientEvent
 
 
 class ResponseInstructions(BaseModel):
-    instructions: Optional[str] = None
+    instructions: str | None = None
 
 
 class ConversationResponseCreateEvent(BaseModel):
     type: Literal[RealtimeClientEvent.RESPONSE_CREATE]
-    response: Optional[ResponseInstructions] = None
+    response: ResponseInstructions | None = None
 
     @classmethod
     def with_instructions(cls, text: str) -> ConversationResponseCreateEvent:

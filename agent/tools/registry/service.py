@@ -1,16 +1,15 @@
+import collections.abc
+import inspect
+import warnings
+from collections.abc import Callable
 from typing import (
     Annotated,
-    Optional,
-    Callable,
     Any,
     Union,
     get_args,
     get_origin,
     get_type_hints,
 )
-import inspect
-import collections.abc
-import warnings
 
 from agent.realtime.events.client.session_update import (
     FunctionParameterProperty,
@@ -18,8 +17,8 @@ from agent.realtime.events.client.session_update import (
     FunctionTool,
     MCPTool,
 )
-from agent.realtime.tools.tool import Tool
-from agent.realtime.tools.views import SpecialToolParameters
+from agent.tools.models import SpecialToolParameters
+from agent.tools.registry.models import Tool
 
 
 class ToolRegistry:
@@ -33,9 +32,9 @@ class ToolRegistry:
     def action(
         self,
         description: str,
-        name: Optional[str] = None,
-        response_instruction: Optional[str] = None,
-        execution_message: Optional[str] = None,
+        name: str | None = None,
+        response_instruction: str | None = None,
+        execution_message: str | None = None,
     ):
         def decorator(func: Callable) -> Callable:
             tool_name = name or func.__name__
@@ -72,12 +71,10 @@ class ToolRegistry:
 
         return decorator
 
-    def get(self, name: str) -> Optional[Tool]:
-        """Get a tool by name."""
+    def get(self, name: str) -> Tool | None:
         return self._tools.get(name)
 
     def get_openai_schema(self) -> list[FunctionTool]:
-        """Convert all tools to Pydantic FunctionTool format."""
         return [tool.to_pydantic() for tool in self._tools.values()] + self.mcp_tools
 
     def _register(self, tool: Tool):
@@ -86,14 +83,6 @@ class ToolRegistry:
         self._tools[tool.name] = tool
 
     def _generate_schema_from_function(self, func: Callable) -> FunctionParameters:
-        """
-        Generate JSON schema from function signature for LLM tools.
-
-        Important:
-        - Filters out all parameters defined in SpecialToolParameters
-        (both by name and type) so they don't reach the LLM schema.
-        - Supports Annotated[Type, "description"] for parameter descriptions.
-        """
         signature = inspect.signature(func)
         type_hints = get_type_hints(
             func, include_extras=True
@@ -102,7 +91,6 @@ class ToolRegistry:
         properties: dict[str, FunctionParameterProperty] = {}
         required_params: list[str] = []
 
-        # Extract special parameter names and types for filtering
         special_param_names = set(SpecialToolParameters.model_fields.keys())
         special_param_types = self._extract_special_parameter_types()
 
@@ -177,7 +165,6 @@ class ToolRegistry:
         return type_hint, None
 
     def _is_special_type(self, type_hint: Any, special_param_types: set[type]) -> bool:
-        """Check if a type hint represents a special parameter type."""
         # Extract actual type from Annotated if needed
         actual_type, _ = self._extract_type_and_description(type_hint)
 
@@ -214,26 +201,18 @@ class ToolRegistry:
             # Complex unions: compact fallback
             return FunctionParameterProperty(type="string", description=description)
 
-        # List[T]
         if origin is list:
-            list_args = get_args(python_type)
-            item_type = list_args[0] if list_args else str
-            # Note: For now we don't support nested items in FunctionParameterProperty
-            # If needed later, we could add an items field to the model
             return FunctionParameterProperty(type="array", description=description)
 
         # Dict[K, V]
         if origin is dict:
             return FunctionParameterProperty(type="object", description=description)
 
-        # collections.abc.Sequence[T] / Iterable[T] etc. – optional if needed:
         if origin in (
             collections.abc.Sequence,
             collections.abc.Iterable,
             collections.abc.Collection,
         ):
-            collection_args = get_args(python_type)
-            item_type = collection_args[0] if collection_args else str
             return FunctionParameterProperty(type="array", description=description)
 
         # Primitive types

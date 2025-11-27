@@ -3,17 +3,16 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING, Any
 
-from agent.realtime.event_bus import EventBus
-from agent.realtime.reatlime_client import RealtimeClient
+from agent.events import EventBus
 from agent.mic import MicrophoneCapture, SpeechDetector
+from agent.realtime.reatlime_client import RealtimeClient
 from agent.sound import AudioPlayer
-from shared.logging_mixin import LoggingMixin
 from agent.state.base import VoiceAssistantEvent
-
+from shared.logging_mixin import LoggingMixin
 
 if TYPE_CHECKING:
-    from agent.wake_word import WakeWordListener
     from agent.state.base import AssistantState
+    from agent.wake_word import WakeWordListener
 
 
 class VoiceAssistantContext(LoggingMixin):
@@ -84,7 +83,7 @@ class VoiceAssistantContext(LoggingMixin):
             self._realtime_task = None
             return True
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             self.logger.error("Task didn't complete - this should not happen!")
             self._realtime_task.cancel()
             return False

@@ -1,5 +1,6 @@
 from enum import StrEnum
 
+
 class VoiceAssistantEvent(StrEnum):
     WAKE_WORD_DETECTED = "wake_word_detected"
     USER_STARTED_SPEAKING = "user_started_speaking"

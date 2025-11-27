@@ -1,11 +1,11 @@
 from __future__ import annotations
-from typing import Any, Literal, Optional
 
 from enum import StrEnum
+from typing import Any, Literal
+
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from agent.realtime.event_types import RealtimeClientEvent
-
 
 # ============================================================================
 # ENUMS - Base definitions
@@ -177,7 +177,7 @@ class FunctionParameterProperty(BaseModel):
     """
 
     type: JsonType
-    description: Optional[str] = None
+    description: str | None = None
 
 
 class FunctionParameters(BaseModel):
@@ -189,9 +189,7 @@ class FunctionParameters(BaseModel):
 
 
 class FunctionTool(BaseModel):
-    """Function tool configuration."""
-
-    type: Literal["function"]
+    type: Literal["function"] = "function"
     name: str
     description: str | None = None
     parameters: FunctionParameters
@@ -282,7 +280,7 @@ class RealtimeSessionConfig(BaseModel):
     audio: AudioConfig = Field(default_factory=AudioConfig)
     include: list[str] | None = None
     max_output_tokens: int | Literal["inf"] = "inf"
-    input_audio_noise_reduction: Optional[InputAudioNoiseReductionConfig] = None
+    input_audio_noise_reduction: InputAudioNoiseReductionConfig | None = None
     output_modalities: list[str] = ["text", "audio"]
     tool_choice: ToolChoice | ToolChoiceMode = ToolChoiceMode.AUTO
     tools: list[FunctionTool | MCPTool] | None = None

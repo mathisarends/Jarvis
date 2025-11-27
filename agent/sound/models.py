@@ -3,6 +3,7 @@ from enum import StrEnum
 
 import pyaudio
 
+
 class SoundFile(StrEnum):
     ERROR = "error"
     RETURN_TO_IDLE = "return_to_idle"

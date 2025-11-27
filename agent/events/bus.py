@@ -1,6 +1,7 @@
 import asyncio
-from typing import Any, Callable
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
+from typing import Any
 
 from agent.state.base import VoiceAssistantEvent
 from shared.logging_mixin import LoggingMixin
@@ -11,7 +12,9 @@ class EventBus(LoggingMixin):
         self._subscribers: dict[VoiceAssistantEvent, list[Callable]] = {
             event_type: [] for event_type in VoiceAssistantEvent
         }
-        self._executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="EventBus")
+        self._executor = ThreadPoolExecutor(
+            max_workers=2, thread_name_prefix="EventBus"
+        )
         self._loop: asyncio.AbstractEventLoop | None = None
 
     def attach_loop(self, loop: asyncio.AbstractEventLoop) -> None:
@@ -31,8 +34,7 @@ class EventBus(LoggingMixin):
         for callback in self._subscribers[event_type]:
             if asyncio.iscoroutinefunction(callback):
                 asyncio.run_coroutine_threadsafe(
-                    self._invoke_async(callback, event_type, data), 
-                    loop
+                    self._invoke_async(callback, event_type, data), loop
                 )
             else:
                 loop.run_in_executor(

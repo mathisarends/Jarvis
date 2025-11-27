@@ -1,4 +1,4 @@
-from agent.realtime.event_bus import EventBus
+from agent.events import EventBus
 from agent.realtime.views import ResponseOutputAudioDelta
 from agent.sound.player import AudioPlayer
 from agent.state.base import VoiceAssistantEvent
@@ -38,7 +38,9 @@ class SoundEventHandler(LoggingMixin):
     ) -> None:
         if event == VoiceAssistantEvent.AUDIO_CHUNK_RECEIVED:
             self.logger.debug("Received audio chunk via EventBus")
-            self._audio_manager.strategy.add_audio_chunk(response_output_audio_delta.delta)
+            self._audio_manager.strategy.add_audio_chunk(
+                response_output_audio_delta.delta
+            )
 
     def _handle_wake_word_event(self, event: VoiceAssistantEvent) -> None:
         if event == VoiceAssistantEvent.WAKE_WORD_DETECTED:

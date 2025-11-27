@@ -4,9 +4,9 @@ State machine for voice assistant - base classes and enums
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
 from abc import ABC, abstractmethod
 from enum import Enum
+from typing import TYPE_CHECKING
 
 from shared.logging_mixin import LoggingMixin
 

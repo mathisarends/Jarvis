@@ -1,4 +1,5 @@
 import asyncio
+
 import numpy as np
 
 from agent.events.bus import EventBus
@@ -10,7 +11,7 @@ from shared.logging_mixin import LoggingMixin
 class SpeechDetector(LoggingMixin):
     DEFAULT_THRESHOLD = 40.0
     DEFAULT_CHECK_INTERVAL = 0.1
-    
+
     def __init__(
         self,
         audio_capture: MicrophoneCapture,
@@ -59,7 +60,7 @@ class SpeechDetector(LoggingMixin):
         try:
             while self._is_monitoring:
                 audio_data = self.audio_capture.read_chunk()
-                
+
                 if audio_data:
                     self._check_for_speech(audio_data)
 
@@ -73,17 +74,14 @@ class SpeechDetector(LoggingMixin):
 
     def _check_for_speech(self, audio_data: bytes) -> None:
         audio_level = self._calculate_audio_level(audio_data)
-            
+
         self.logger.debug(
-            "Audio level: %.1f (threshold: %.1f)", 
-            audio_level, 
-            self.threshold
+            "Audio level: %.1f (threshold: %.1f)", audio_level, self.threshold
         )
 
         if audio_level > self.threshold:
             self.logger.info("Speech detected (level: %.1f)", audio_level)
             self._publish_speech_detected()
-
 
     def _calculate_audio_level(self, audio_data: bytes) -> float:
         audio_array = np.frombuffer(audio_data, dtype=np.int16)

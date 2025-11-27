@@ -1,6 +1,6 @@
 from agent.config.models import ModelSettings, VoiceSettings
+from agent.events import EventBus
 from agent.realtime.current_message_context import CurrentMessageContext
-from agent.realtime.event_bus import EventBus
 from agent.realtime.events.client.conversation_item_truncate import (
     ConversationItemTruncateEvent,
 )
@@ -8,28 +8,23 @@ from agent.realtime.events.client.conversation_response_create import (
     ConversationResponseCreateEvent,
 )
 from agent.realtime.events.client.session_update import (
+    AudioConfig,
     AudioFormat,
     AudioFormatConfig,
     AudioInputConfig,
     AudioOutputConfig,
     RealtimeSessionConfig,
     SessionUpdateEvent,
-    AudioConfig,
 )
 from agent.realtime.messaging.message_queue import MessageQueue
-from agent.realtime.tools.registry import ToolRegistry
-from agent.realtime.tools.views import FunctionCallResult
 from agent.realtime.websocket.websocket_manager import WebSocketManager
 from agent.state.base import VoiceAssistantEvent
+from agent.tools.models import FunctionCallResult
+from agent.tools.registry.service import ToolRegistry
 from shared.logging_mixin import LoggingMixin
 
 
 class RealtimeMessageManager(LoggingMixin):
-    """
-    Clean orchestrator for realtime message management.
-    Handles all message operations directly without separate handler classes.
-    """
-
     def __init__(
         self,
         ws_manager: WebSocketManager,

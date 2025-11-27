@@ -1,5 +1,6 @@
 from __future__ import annotations
-from typing import Literal, Optional
+
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -12,7 +13,7 @@ class InputAudioBufferAppendEvent(BaseModel):
     type: Literal[RealtimeClientEvent.INPUT_AUDIO_BUFFER_APPEND] = Field(
         default=RealtimeClientEvent.INPUT_AUDIO_BUFFER_APPEND
     )
-    event_id: Optional[str] = None
+    event_id: str | None = None
     audio: str  # base64-encoded audio bytes
 
     @classmethod

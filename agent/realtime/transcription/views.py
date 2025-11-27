@@ -1,6 +1,7 @@
 from __future__ import annotations
-from typing import Optional, Literal, Union
-from typing_extensions import Annotated
+
+from typing import Annotated, Literal
+
 from pydantic import BaseModel, Field
 
 from agent.realtime.event_types import RealtimeServerEvent
@@ -14,21 +15,21 @@ class LogProbEntry(BaseModel):
 
     token: str
     logprob: float
-    bytes_: Optional[list[int]] = Field(default=None, alias="bytes")
+    bytes_: list[int] | None = Field(default=None, alias="bytes")
 
 
 class TokenInputTokenDetails(BaseModel):
-    audio_tokens: Optional[int] = None
-    text_tokens: Optional[int] = None
+    audio_tokens: int | None = None
+    text_tokens: int | None = None
 
 
 class TokenUsage(BaseModel):
     # type discriminator
     type: Literal["tokens"]
-    input_tokens: Optional[int] = None
-    output_tokens: Optional[int] = None
-    total_tokens: Optional[int] = None
-    input_token_details: Optional[TokenInputTokenDetails] = None
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    total_tokens: int | None = None
+    input_token_details: TokenInputTokenDetails | None = None
 
 
 class DurationUsage(BaseModel):
@@ -37,7 +38,7 @@ class DurationUsage(BaseModel):
     seconds: float
 
 
-Usage = Annotated[Union[TokenUsage, DurationUsage], Field(discriminator="type")]
+Usage = Annotated[TokenUsage | DurationUsage, Field(discriminator="type")]
 
 
 class InputAudioTranscriptionDelta(BaseModel):
@@ -48,7 +49,7 @@ class InputAudioTranscriptionDelta(BaseModel):
     item_id: str
     content_index: int
     delta: str
-    logprobs: Optional[list[LogProbEntry]] = None
+    logprobs: list[LogProbEntry] | None = None
 
 
 class InputAudioTranscriptionCompleted(BaseModel):
@@ -61,8 +62,8 @@ class InputAudioTranscriptionCompleted(BaseModel):
     item_id: str
     content_index: int
     transcript: str
-    logprobs: Optional[list[LogProbEntry]] = None
-    usage: Optional[Usage] = None
+    logprobs: list[LogProbEntry] | None = None
+    usage: Usage | None = None
 
 
 class ResponseOutputAudioTranscriptDelta(BaseModel):

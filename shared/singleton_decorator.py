@@ -1,10 +1,10 @@
 from functools import wraps
-from typing import Any, Type, TypeVar
+from typing import Any, TypeVar
 
 T = TypeVar("T")
 
 
-def singleton(cls: Type[T]) -> Type[T]:
+def singleton[T](cls: type[T]) -> type[T]:
     """
     Class decorator to make a class a singleton.
     Ensures only one instance of the decorated class exists.
@@ -18,7 +18,7 @@ def singleton(cls: Type[T]) -> Type[T]:
         b = MyClass()
         assert a is b  # True
     """
-    instances: dict[Type[T], T] = {}
+    instances: dict[type[T], T] = {}
 
     @wraps(cls)
     def get_instance(*args: Any, **kwargs: Any) -> T:

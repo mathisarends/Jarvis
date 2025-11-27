@@ -1,32 +1,11 @@
 from agents import Agent, Runner
-from pydantic import BaseModel, Field, field_validator
 
-
-class ResponseSpeedAdjustment(BaseModel):
-    new_response_speed: float = Field(
-        ...,
-        description="Playback speed multiplier for spoken responses. Target range is 0.25–1.5.",
-    )
-
-    @field_validator("new_response_speed")
-    @classmethod
-    def clamp_speed(cls, v: float) -> float:
-        MIN_RATE, MAX_RATE = 0.25, 1.5
-        if v < MIN_RATE:
-            return MIN_RATE
-        if v > MAX_RATE:
-            return MAX_RATE
-        return v
+from agent.tools.volume_adjustment.models import ResponseSpeedAdjustment
 
 
 async def run_volume_adjustment_agent(
     instruction: str, current_response_speed: float
 ) -> ResponseSpeedAdjustment:
-    """
-    Takes a natural-language instruction like 'faster', 'slower', 'increase by 20%', 'set to 120%' etc.
-    Uses an Agent to compute a new relative speaking speed from the current speed.
-    Returns a validated ResponseSpeedAdjustment.
-    """
     MIN_RATE = 0.25
     MAX_RATE = 1.5
 

@@ -1,5 +1,6 @@
 from enum import StrEnum
 
+
 class PorcupineWakeWord(StrEnum):
     ALEXA = "alexa"
     AMERICANO = "americano"
@@ -15,4 +16,3 @@ class PorcupineWakeWord(StrEnum):
     PICOVOICE = "picovoice"
     PORCUPINE = "porcupine"
     TERMINATOR = "terminator"
-

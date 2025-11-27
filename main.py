@@ -2,17 +2,17 @@ import asyncio
 
 from agent.config import (
     ModelSettings,
-    VoiceSettings,
     TranscriptionSettings,
+    VoiceSettings,
     WakeWordSettings,
 )
-from agent.service import RealtimeAgent
 from agent.realtime.events.client.session_update import (
     MCPRequireApprovalMode,
     MCPTool,
     NoiseReductionType,
 )
 from agent.realtime.views import AssistantVoice
+from agent.service import RealtimeAgent
 from agent.wake_word import PorcupineWakeWord
 
 

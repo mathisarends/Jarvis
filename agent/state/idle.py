@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from agent.state.base import AssistantState, StateType, VoiceAssistantEvent
 
@@ -14,7 +14,7 @@ class IdleState(AssistantState):
 
     def __init__(self):
         super().__init__(StateType.IDLE)
-        self._wake_task: Optional[asyncio.Task] = None
+        self._wake_task: asyncio.Task | None = None
 
     async def on_enter(self, context: VoiceAssistantContext) -> None:
         await self._start_wake_word_detection(context)

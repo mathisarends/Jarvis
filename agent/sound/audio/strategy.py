@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
-from agent.realtime.event_bus import EventBus
-from agent.state.base import VoiceAssistantEvent
+
+from agent.events.bus import EventBus
 from agent.sound.models import SoundFile
+from agent.state.base import VoiceAssistantEvent
 from shared.logging_mixin import LoggingMixin
 
 

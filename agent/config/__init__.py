@@ -1,15 +1,15 @@
 from .env import AgentEnv
 from .models import (
     ModelSettings,
-    VoiceSettings,
     TranscriptionSettings,
+    VoiceSettings,
     WakeWordSettings,
 )
 
 __all__ = [
     "AgentEnv",
     "ModelSettings",
-    "VoiceSettings",
     "TranscriptionSettings",
+    "VoiceSettings",
     "WakeWordSettings",
 ]

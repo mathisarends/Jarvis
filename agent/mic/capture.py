@@ -1,5 +1,5 @@
 import asyncio
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 
 import pyaudio
 
@@ -12,7 +12,7 @@ class MicrophoneCapture(LoggingMixin):
         self.config = config or AudioConfig()
         self._pyaudio = pyaudio.PyAudio()
         self._stream: pyaudio.Stream | None = None
-        
+
         self.logger.info("Initialized with %s", self.config)
 
     def __enter__(self):
@@ -21,8 +21,7 @@ class MicrophoneCapture(LoggingMixin):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.cleanup()
-        return None
-    
+
     @property
     def is_active(self) -> bool:
         return self._stream is not None
@@ -44,7 +43,7 @@ class MicrophoneCapture(LoggingMixin):
     def stop_stream(self) -> None:
         if self._stream is None:
             return
-            
+
         self._stream.stop_stream()
         self._stream.close()
         self._stream = None
@@ -58,19 +57,15 @@ class MicrophoneCapture(LoggingMixin):
     def read_chunk(self) -> bytes | None:
         if self._stream is None:
             return None
-            
-        return self._stream.read(
-            self.config.chunk_size, 
-            exception_on_overflow=False
-        )
+
+        return self._stream.read(self.config.chunk_size, exception_on_overflow=False)
 
     async def stream_chunks(
         self, sleep_interval: float = 0.01
-    ) -> AsyncGenerator[bytes, None]:
+    ) -> AsyncGenerator[bytes]:
         while self._stream is not None:
             chunk = self.read_chunk()
             if chunk is not None:
                 yield chunk
             else:
                 await asyncio.sleep(sleep_interval)
-

@@ -1,6 +1,7 @@
-from typing import Literal, Optional
+from typing import Literal
 
 from pydantic import BaseModel
+
 from agent.realtime.event_types import RealtimeClientEvent
 
 
@@ -17,6 +18,6 @@ class ConversationItemCreateEvent(BaseModel):
     type: Literal[RealtimeClientEvent.CONVERSATION_ITEM_CREATE] = (
         RealtimeClientEvent.CONVERSATION_ITEM_CREATE
     )
-    event_id: Optional[str] = None
+    event_id: str | None = None
     item: FunctionCallOutputItem
-    previous_item_id: Optional[str] = None
+    previous_item_id: str | None = None

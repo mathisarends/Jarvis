@@ -1,3 +1,7 @@
+import base64
+
+from agent.realtime.tools.views import FunctionCallResult
+
 from agent.realtime.events.client.conversation_item_truncate import (
     ConversationItemTruncateEvent,
 )
@@ -8,10 +12,8 @@ from agent.realtime.events.client.input_audio_buffer_append import (
     InputAudioBufferAppendEvent,
 )
 from agent.realtime.events.client.session_update import SessionUpdateEvent
-from agent.realtime.tools.views import FunctionCallResult
 from agent.realtime.websocket.websocket_manager import WebSocketManager
 from shared.logging_mixin import LoggingMixin
-import base64
 
 
 class RealtimeMessageSender(LoggingMixin):
@@ -64,7 +66,7 @@ class RealtimeMessageSender(LoggingMixin):
             )
             return False
 
-    async def send_response_create(self, instructions: str = None) -> bool:
+    async def send_response_create(self, instructions: str | None = None) -> bool:
         """Sendet Response-Create Event."""
         try:
             self.logger.info("Sending response create event")

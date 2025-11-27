@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+
 class AgentEnv(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -7,6 +8,6 @@ class AgentEnv(BaseSettings):
         case_sensitive=False,
         extra="ignore",
     )
-    
+
     pico_access_key: str
     openai_api_key: str
