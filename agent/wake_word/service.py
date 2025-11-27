@@ -1,10 +1,9 @@
 import asyncio
-import os
 import threading
-from enum import Enum
-from typing import Any, Mapping, Tuple
+from typing import Mapping, Tuple
 from contextlib import suppress
 
+from agent.wake_word.models import PorcupineBuiltinKeyword
 import numpy as np
 from pvporcupine import (
     create,
@@ -15,43 +14,20 @@ from pvporcupine import (
     PorcupineIOError,
 )
 import pyaudio
-from dotenv import load_dotenv
 
+from agent.config import AgentEnv
 from agent.realtime.event_bus import EventBus
 from agent.state.base import VoiceAssistantEvent
 from shared.logging_mixin import LoggingMixin
 
-load_dotenv()
-
-
-class PorcupineBuiltinKeyword(Enum):
-    ALEXA = "alexa"
-    AMERICANO = "americano"
-    BLUEBERRY = "blueberry"
-    BUMBLEBEE = "bumblebee"
-    COMPUTER = "computer"
-    GRAPEFRUIT = "grapefruit"
-    GRASSHOPPER = "grasshopper"
-    HEY_GOOGLE = "hey google"
-    HEY_SIRI = "hey siri"
-    JARVIS = "jarvis"
-    OK_GOOGLE = "ok google"
-    PICOVOICE = "picovoice"
-    PORCUPINE = "porcupine"
-    TERMINATOR = "terminator"
-
-
 
 class WakeWordListener(LoggingMixin):
-    """
-    Wake word listener using Porcupine + PyAudio.
-    """
-
     def __init__(
         self,
         wakeword: PorcupineBuiltinKeyword,
         sensitivity: float,
         event_bus: EventBus,
+        env: AgentEnv | None = None,
     ):
         self._detection_event = threading.Event()
         self.is_listening = False
@@ -67,7 +43,8 @@ class WakeWordListener(LoggingMixin):
             self.sensitivity,
         )
 
-        self.access_key = self._load_access_key()
+        self.env = env or AgentEnv()
+        self.access_key = self.env.pico_access_key
         self.handle = self._create_handle(self.sensitivity)
 
         self.pa_input = pyaudio.PyAudio()
@@ -85,7 +62,6 @@ class WakeWordListener(LoggingMixin):
         return False
 
     async def listen_for_wakeword(self) -> bool:
-        """Non-blocking wait for wake word."""
         self.logger.info("Starting async wake word listening…")
         self._detection_event.clear()
         self.should_stop = False
@@ -142,18 +118,10 @@ class WakeWordListener(LoggingMixin):
             raise ValueError("sensitivity must be between 0.0 and 1.0")
         return float(sens)
 
-    @staticmethod
-    def _load_access_key() -> str:
-        key = os.getenv("PICO_ACCESS_KEY")
-        if not key:
-            raise ValueError("PICO_ACCESS_KEY not found in environment")
-        return key
-
     def _create_handle(
         self,
         sensitivity: float,
     ) -> Porcupine:
-        """Create a Porcupine handle with given config."""
         try:
             handle = create(
                 access_key=self.access_key,

@@ -14,8 +14,6 @@ from audio.wake_word_listener import PorcupineBuiltinKeyword
 
 
 class AgentConfig(BaseModel):
-    """Configuration for the agent"""
-
     model: RealtimeModel = RealtimeModel.GPT_REALTIME
     instructions: str | None = None
     temperature: float = 0.8
@@ -23,8 +21,6 @@ class AgentConfig(BaseModel):
 
 
 class WakeWordConfig(BaseModel):
-    """Configuration for the wake word"""
-
     keyword: PorcupineBuiltinKeyword = PorcupineBuiltinKeyword.PICOVOICE
     sensitivity: float = Field(0.7, ge=0.0, le=1.0)
 
