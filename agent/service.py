@@ -14,9 +14,9 @@ from agent.realtime.tools.views import SpecialToolParameters
 from agent.state.context import VoiceAssistantContext
 from agent.wake_word import WakeWordListener
 from agent.mic import MicrophoneCapture
-from audio.detection import AudioDetectionService
-from audio.player.audio_manager import AudioManager
-from audio.sound_event_handler import SoundEventHandler
+from agent.sound.detector import AudioDetectionService
+from agent.sound import AudioPlayer
+from agent.sound.handler import SoundEventHandler
 from shared.logging_mixin import LoggingMixin
 
 
@@ -39,7 +39,7 @@ class RealtimeAgent(LoggingMixin):
 
         self.event_bus = self._create_event_bus()
         self.audio_capture = self._create_audio_capture()
-        self.audio_manager = self._create_audio_manager()
+        self._audio_player = self._create_audio_player()
         self.audio_detection_service = self._create_audio_detection_service()
         self.wake_word_listener = self._create_wake_word_listener()
         self.sound_event_handler = self._create_sound_event_handler()
@@ -111,7 +111,7 @@ class RealtimeAgent(LoggingMixin):
             self.wake_word_listener.cleanup()
 
     async def _cleanup_sound_service(self) -> None:
-        self.audio_manager.stop_sounds()
+        self._audio_player.stop_sounds()
 
     def _create_event_bus(self) -> EventBus:
         event_bus = EventBus()
@@ -121,8 +121,8 @@ class RealtimeAgent(LoggingMixin):
     def _create_audio_capture(self) -> MicrophoneCapture:
         return MicrophoneCapture()
 
-    def _create_audio_manager(self) -> AudioManager:
-        return AudioManager(self.voice_settings.playback_strategy)
+    def _create_audio_player(self) -> AudioPlayer:
+        return AudioPlayer(self.voice_settings.playback_strategy)
 
     def _create_audio_detection_service(self) -> AudioDetectionService:
         return AudioDetectionService(
@@ -141,13 +141,13 @@ class RealtimeAgent(LoggingMixin):
         )
 
     def _create_sound_event_handler(self) -> SoundEventHandler:
-        return SoundEventHandler(self.audio_manager, self.event_bus)
+        return SoundEventHandler(self._audio_player, self.event_bus)
 
     def _create_realtime_client(self) -> RealtimeClient:
         self.voice_settings.playback_strategy.set_event_bus(self.event_bus)
 
         special_tool_parameters = SpecialToolParameters(
-            audio_manager=self.audio_manager,
+            audio_player=self._audio_player,
             event_bus=self.event_bus,
             voice_settings=self.voice_settings,
             tool_calling_model_name=self.model_settings.tool_calling_model_name,
@@ -167,7 +167,7 @@ class RealtimeAgent(LoggingMixin):
             wake_word_listener=self.wake_word_listener,
             audio_capture=self.audio_capture,
             audio_detection_service=self.audio_detection_service,
-            audio_manager=self.audio_manager,
+            audio_player=self._audio_player,
             event_bus=self.event_bus,
             realtime_client=self.realtime_client,
         )

@@ -3,7 +3,7 @@ from typing import AsyncGenerator
 
 import pyaudio
 
-from audio.config import AudioConfig
+from agent.sound import AudioConfig
 from shared.logging_mixin import LoggingMixin
 
 

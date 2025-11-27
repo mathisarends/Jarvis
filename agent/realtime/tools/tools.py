@@ -7,7 +7,7 @@ from agent.realtime.events.client.session_update import MCPTool
 from agent.realtime.tools.registry import ToolRegistry
 from agent.realtime.tools.assistant import run_volume_adjustment_agent
 from agent.state.base import VoiceAssistantEvent
-from audio.player.audio_manager import AudioManager
+from agent.sound import AudioPlayer
 from shared.logging_mixin import LoggingMixin
 
 
@@ -45,9 +45,9 @@ class Tools(LoggingMixin):
         @self.registry.action("Adjust volume level.")
         def adjust_volume(
             level: Annotated[float, "Volume level from 0.0 (0%) to 1.0 (100%)"],
-            audio_manager: AudioManager,
+            audio_player: AudioPlayer,
         ) -> None:
-            audio_manager.strategy.set_volume_level(level)
+            audio_player.set_volumne_level(level)
 
         @self.registry.action(
             "Change the assistant's talking speed by a relative amount. Acknowledge the change before calling the tool. The tool internally retrieves the current speed and adjusts it relative to the current rate.",

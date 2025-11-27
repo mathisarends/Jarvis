@@ -43,7 +43,7 @@ class RealtimeClient(LoggingMixin):
         self.tool_registry = self.tools.registry
 
         # Extract components from special tool parameters
-        self.audio_manager = special_tool_parameters.audio_manager
+        self._audio_player = special_tool_parameters.audio_player
 
         # Create WebSocketManager and TranscriptionService internally
         self.ws_manager = WebSocketManager.from_model(

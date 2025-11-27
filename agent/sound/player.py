@@ -1,29 +1,23 @@
-from audio.player.audio_strategy import AudioStrategy
+from agent.sound.audio import AudioStrategy
 from shared.logging_mixin import LoggingMixin
 
 
-class AudioManager(LoggingMixin):
-    """Context that holds and switches audio strategies
-
-    Both `event_bus` and `strategy` are required. The caller is responsible
-    for creating the desired `AudioStrategy` instance (e.g. `PyAudioStrategy`).
-    """
-
+class AudioPlayer(LoggingMixin):
     def __init__(self, strategy: AudioStrategy):
         self._strategy = strategy
 
     def set_strategy(self, strategy: AudioStrategy) -> None:
-        """Switch audio strategy at runtime"""
         old_name = type(self._strategy).__name__
         new_name = type(strategy).__name__
         self.logger.info(f"Switching from {old_name} to {new_name}")
         self._strategy = strategy
 
+    def set_volumne_level(self, volume: float) -> float:
+        return self._strategy.set_volume_level(volume)
+
     @property
     def strategy(self) -> AudioStrategy:
-        """Get current strategy for direct access (readonly)"""
         return self._strategy
 
     def stop_sounds(self) -> None:
-        """Stop all playing sounds"""
         self._strategy.stop_sounds()

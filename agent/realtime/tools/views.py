@@ -8,19 +8,16 @@ from agent.realtime.events.conversation_item_create import (
     ConversationItemCreateEvent,
     FunctionCallOutputItem,
 )
-from audio.player.audio_manager import AudioManager
 from agent.config.models import VoiceSettings
+from agent.sound.player import AudioPlayer
 
 
 class FunctionCallItem(BaseModel):
-    """
-    One tool/function call request emitted by the model.
-    """
     type: Literal[RealtimeServerEvent.RESPONSE_FUNCTION_CALL_ARGUMENTS_DONE] = (
         RealtimeServerEvent.RESPONSE_FUNCTION_CALL_ARGUMENTS_DONE
     )
 
-    name: Optional[str] = None
+    name: str | None = None
     call_id: str
     event_id: str
     item_id: str
@@ -48,8 +45,8 @@ class FunctionCallItem(BaseModel):
 class FunctionCallResult(BaseModel):
     tool_name: str
     call_id: str
-    output: Optional[Any] = None
-    response_instruction: Optional[str] = None
+    output: Any | None = None
+    response_instruction: str | None = None
 
     def to_conversation_item(self) -> ConversationItemCreateEvent:
         return ConversationItemCreateEvent(
@@ -72,17 +69,9 @@ class FunctionCallResult(BaseModel):
 
 
 class SpecialToolParameters(BaseModel):
-    """Model defining all special parameters that can be injected into actions"""
-
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    audio_manager: AudioManager
+    audio_player: AudioPlayer
     event_bus: EventBus
     voice_settings: VoiceSettings
     tool_calling_model_name: str | None = None
-
-    # optional user-provided context object passed down from Agent(context=...)
-    # e.g. can contain anything, external db connections, file handles, queues, runtime config objects, etc.
-    # that you might want to be able to access quickly from within many of your actions
-    # passed down for convenience, but not automatically used by the system
-    context: Any | None = None

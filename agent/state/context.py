@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING, Any
 from agent.realtime.event_bus import EventBus
 from agent.realtime.reatlime_client import RealtimeClient
 from agent.mic import MicrophoneCapture
-from audio.detection import AudioDetectionService
-from audio.player.audio_manager import AudioManager
+from agent.sound.detector import AudioDetectionService
+from agent.sound import AudioPlayer
 from shared.logging_mixin import LoggingMixin
 from agent.state.base import VoiceAssistantEvent
 
@@ -23,7 +23,7 @@ class VoiceAssistantContext(LoggingMixin):
         wake_word_listener: WakeWordListener,
         audio_capture: MicrophoneCapture,
         audio_detection_service: AudioDetectionService,
-        audio_manager: AudioManager,
+        audio_player: AudioPlayer,
         event_bus: EventBus,
         realtime_client: RealtimeClient,
     ):
@@ -33,7 +33,7 @@ class VoiceAssistantContext(LoggingMixin):
         self.wake_word_listener = wake_word_listener
         self.audio_capture = audio_capture
         self.audio_detection_service = audio_detection_service
-        self.audio_manager = audio_manager
+        self._audio_player = audio_player
         self.event_bus = event_bus
         self.realtime_client = realtime_client
 
@@ -44,7 +44,7 @@ class VoiceAssistantContext(LoggingMixin):
         self.realtime_task = None
 
     async def run(self) -> None:
-        self.audio_manager.strategy.play_startup_sound()
+        self._audio_player.strategy.play_startup_sound()
         await self.state.on_enter(self)
 
     def _setup_event_subscriptions(self) -> None:

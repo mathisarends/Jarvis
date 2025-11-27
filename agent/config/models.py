@@ -8,8 +8,7 @@ from agent.realtime.events.client.session_update import (
 )
 from agent.realtime.views import AssistantVoice
 from agent.wake_word.models import PorcupineWakeWord
-from audio.player.audio_strategy import AudioStrategy
-from audio.player.pyaudio_strategy import PyAudioStrategy
+from agent.sound.audio import AudioStrategy, PyAudioStrategy
 
 
 class ModelSettings(BaseModel):
