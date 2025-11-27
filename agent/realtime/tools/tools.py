@@ -5,8 +5,6 @@ from agent.config.views import AssistantAudioConfig
 from agent.realtime.event_bus import EventBus
 from agent.realtime.events.client.session_update import MCPTool
 from agent.realtime.tools.registry import ToolRegistry
-from agent.realtime.tools.weather import get_weather_for_current_location
-from agent.realtime.tools.web_search import run_web_search_agent
 from agent.realtime.tools.assistant import run_volume_adjustment_agent
 from agent.state.base import VoiceAssistantEvent
 from audio.player.audio_manager import AudioManager
@@ -47,30 +45,6 @@ class Tools(LoggingMixin):
         @self.registry.action("Get the current local time")
         def get_current_time() -> str:
             return datetime.now().strftime("%H:%M:%S")
-
-        @self.registry.action(
-            "Get weather forecast for your current location. Automatically detects your location via IP and fetches detailed weather data including current conditions and forecasts.",
-            response_instruction="State the number of forecast days: 1 for today only, 3 for 3-day forecast (default: 1).",
-        )
-        async def get_weather(
-            forecast_days: Annotated[
-                int,
-                "Number of forecast days: 1 for today only, 3 for 3-day forecast (default: 1)",
-            ] = 1,
-        ) -> str:
-            """Get weather report for current location with configurable forecast days."""
-            return await get_weather_for_current_location(forecast_days)
-
-        @self.registry.action(
-            "Delegates a task to a specialized web search agent that automatically optimizes the query with contextual information and returns aggregated search results from the web. Use this whenever the user asks for information that requires up-to-date knowledge or specific details from the web."
-        )
-        async def delegate_task_to_web_search_agent(
-            query: Annotated[
-                str, "The search query or task to delegate to the web search agent"
-            ],
-        ) -> str:
-            """Perform a web search and return the aggregated results."""
-            return await run_web_search_agent(query)
 
         @self.registry.action("Adjust volume level.")
         def adjust_volume(

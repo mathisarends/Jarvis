@@ -1,17 +1,13 @@
-"""
-Voice Assistant Application Entry Point.
-"""
-
 import asyncio
 
-from agent.agent import RealtimeAgent
+from agent.service import RealtimeAgent
 from agent.realtime.events.client.session_update import (
     MCPRequireApprovalMode,
     MCPTool,
     NoiseReductionType,
 )
 from agent.realtime.views import AssistantVoice
-from audio.wake_word_listener import PorcupineBuiltinKeyword
+from agent.wake_word import PorcupineWakeWord
 
 
 # Beispiel für einen einfachen Context-Typ (hier ein Dict, aber es könnte jede Klasse sein)
@@ -45,7 +41,7 @@ async def main():
             enable_transcription=False,
             noise_reduction_mode=NoiseReductionType.NEAR_FIELD,
             enable_wake_word=True,
-            wakeword=PorcupineBuiltinKeyword.PICOVOICE,
+            wakeword=PorcupineWakeWord.PICOVOICE,
             wake_word_sensitivity=0.7,
         )
 

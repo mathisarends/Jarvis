@@ -13,7 +13,7 @@ from agent.state.base import VoiceAssistantEvent
 
 
 if TYPE_CHECKING:
-    from audio.wake_word_listener import WakeWordListener
+    from agent.wake_word import WakeWordListener
     from agent.state.base import AssistantState
 
 

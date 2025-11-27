@@ -23,10 +23,6 @@ from agent.realtime.tools.views import SpecialToolParameters
 
 
 class ToolRegistry:
-    """
-    Registry for OpenAI Agents SDK FunctionTool objects.
-    """
-
     def __init__(
         self,
         mcp_tools: list[MCPTool] | None = None,
@@ -41,19 +37,9 @@ class ToolRegistry:
         response_instruction: Optional[str] = None,
         execution_message: Optional[str] = None,
     ):
-        """
-        Decorator to register a function as a tool.
-
-        Usage:
-        @registry.action("Get current time")
-        def get_time(self):
-            return datetime.now().isoformat()
-        """
-
         def decorator(func: Callable) -> Callable:
             tool_name = name or func.__name__
 
-            # Check for synchrone Generatoren und verhindere Registrierung
             if inspect.isgeneratorfunction(func):
                 warnings.warn(
                     f"Synchronous generator function '{tool_name}' cannot be registered as tool. "
@@ -61,12 +47,11 @@ class ToolRegistry:
                     UserWarning,
                     stacklevel=3,
                 )
-                return func  # Return function unchanged, don't register
+                return func
 
             schema = self._generate_schema_from_function(func)
             is_async_generator = inspect.isasyncgenfunction(func)
 
-            # Create bound method if it's an instance method
             if hasattr(self, func.__name__):
                 bound_func = getattr(self, func.__name__)
             else:
@@ -96,7 +81,6 @@ class ToolRegistry:
         return [tool.to_pydantic() for tool in self._tools.values()] + self.mcp_tools
 
     def _register(self, tool: Tool):
-        """Register a tool."""
         if tool.name in self._tools:
             raise ValueError(f"Tool '{tool.name}' already registered")
         self._tools[tool.name] = tool

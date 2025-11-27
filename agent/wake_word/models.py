@@ -1,6 +1,6 @@
 from enum import StrEnum
 
-class PorcupineBuiltinKeyword(StrEnum):
+class PorcupineWakeWord(StrEnum):
     ALEXA = "alexa"
     AMERICANO = "americano"
     BLUEBERRY = "blueberry"

@@ -11,11 +11,11 @@ from agent.realtime.reatlime_client import RealtimeClient
 from agent.realtime.tools.tools import Tools
 from agent.realtime.tools.views import SpecialToolParameters
 from agent.state.context import VoiceAssistantContext
+from agent.wake_word import WakeWordListener
 from audio.capture import AudioCapture
 from audio.detection import AudioDetectionService
 from audio.player.audio_manager import AudioManager
 from audio.sound_event_handler import SoundEventHandler
-from audio.wake_word_listener import WakeWordListener
 
 
 @dataclass

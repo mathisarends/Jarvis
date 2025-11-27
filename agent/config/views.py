@@ -9,8 +9,8 @@ from agent.realtime.events.client.session_update import (
 from agent.realtime.views import (
     AssistantVoice,
 )
+from agent.wake_word.models import PorcupineWakeWord
 from audio.player.audio_strategy import AudioStrategy
-from audio.wake_word_listener import PorcupineBuiltinKeyword
 
 
 class AgentConfig(BaseModel):
@@ -21,7 +21,7 @@ class AgentConfig(BaseModel):
 
 
 class WakeWordConfig(BaseModel):
-    keyword: PorcupineBuiltinKeyword = PorcupineBuiltinKeyword.PICOVOICE
+    keyword: PorcupineWakeWord = PorcupineWakeWord.PICOVOICE
     sensitivity: float = Field(0.7, ge=0.0, le=1.0)
 
 
