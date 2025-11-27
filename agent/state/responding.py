@@ -66,11 +66,8 @@ class RespondingState(AssistantState):
         )
 
     async def _stop_wake_word_detection(self, context: VoiceAssistantContext) -> None:
-        """Stop wake word detection"""
         self.logger.debug("Stopping wake word detection")
-        context.wake_word_listener.stop_listening()
-
-        # Cancel the wake word detection task if it's running
+        context._wake_word_listener.stop_listening()
         if self._wake_word_task and not self._wake_word_task.done():
             self._wake_word_task.cancel()
             try:
@@ -82,14 +79,11 @@ class RespondingState(AssistantState):
                 self._wake_word_task = None
 
     async def _wake_word_detection_loop(self, context: VoiceAssistantContext) -> None:
-        """Background loop for wake word detection"""
         try:
-            wake_word_detected = await context.wake_word_listener.listen_for_wakeword()
+            wake_word_detected = await context._wake_word_listener.listen_for_wakeword()
             if wake_word_detected:
-                # WakeWordListener publishes event directly via EventBus
                 self.logger.info("Wake word detected during assistant response")
         except Exception as e:
             self.logger.error("Wake word detection error: %s", e)
-            # Only publish error if EventBus is not available in WakeWordListener
-            if not context.wake_word_listener.event_bus:
-                context.event_bus.publish_sync(VoiceAssistantEvent.ERROR_OCCURRED)
+            if not context._wake_word_listener.event_bus:
+                context._event_bus.publish_sync(VoiceAssistantEvent.ERROR_OCCURRED)

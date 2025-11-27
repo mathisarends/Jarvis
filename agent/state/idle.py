@@ -32,7 +32,6 @@ class IdleState(AssistantState):
                 self.logger.debug("Ignoring event %s in Idle state", event.value)
 
     async def _start_wake_word_detection(self, context: VoiceAssistantContext) -> None:
-        """Start the wake word detection task"""
         self.logger.debug("Starting wake word detection task")
         self._wake_task = asyncio.create_task(
             self._wake_word_loop(context), name="wake_word_detection"
@@ -51,10 +50,9 @@ class IdleState(AssistantState):
             self._wake_task = None
 
     async def _wake_word_loop(self, context: VoiceAssistantContext) -> None:
-        """Wake word detection - waits for detection and lets EventBus handle the rest"""
         try:
             self.logger.debug("Starting wake word detection...")
-            await context.wake_word_listener.listen_for_wakeword()
+            await context._wake_word_listener.listen_for_wakeword()
             self.logger.debug("Wake word detection completed")
 
         except asyncio.CancelledError:

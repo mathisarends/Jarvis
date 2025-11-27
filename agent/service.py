@@ -13,8 +13,7 @@ from agent.realtime.tools.tools import Tools
 from agent.realtime.tools.views import SpecialToolParameters
 from agent.state.context import VoiceAssistantContext
 from agent.wake_word import WakeWordListener
-from agent.mic import MicrophoneCapture
-from agent.sound.detector import AudioDetectionService
+from agent.mic import MicrophoneCapture, SpeechDetector
 from agent.sound import AudioPlayer
 from agent.sound.handler import SoundEventHandler
 from shared.logging_mixin import LoggingMixin
@@ -29,22 +28,22 @@ class RealtimeAgent(LoggingMixin):
         wake_word_settings: WakeWordSettings | None = None,
         env: AgentEnv | None = None,
     ):
-        self.env = env or AgentEnv()
-        self.model_settings = model_settings or ModelSettings()
-        self.voice_settings = voice_settings or VoiceSettings()
-        self.transcription_settings = transcription_settings or TranscriptionSettings()
-        self.wake_word_settings = wake_word_settings or WakeWordSettings()
+        self._env = env or AgentEnv()
+        self._model_settings = model_settings or ModelSettings()
+        self._voice_settings = voice_settings or VoiceSettings()
+        self._transcription_settings = transcription_settings or TranscriptionSettings()
+        self._wake_word_settings = wake_word_settings or WakeWordSettings()
 
-        self.tools = Tools(mcp_tools=self.model_settings.mcp_tools)
+        self._tools = Tools(mcp_tools=self._model_settings.mcp_tools)
 
-        self.event_bus = self._create_event_bus()
-        self.audio_capture = self._create_audio_capture()
+        self._event_bus = self._create_event_bus()
+        self._audio_capture = self._create_audio_capture()
         self._audio_player = self._create_audio_player()
-        self.audio_detection_service = self._create_audio_detection_service()
-        self.wake_word_listener = self._create_wake_word_listener()
-        self.sound_event_handler = self._create_sound_event_handler()
-        self.realtime_client = self._create_realtime_client()
-        self.context = self._create_context()
+        self._speech_detector = self._create_speech_detector()
+        self._wake_word_listener = self._create_wake_word_listener()
+        self._sound_event_handler = self._create_sound_event_handler()
+        self._realtime_client = self._create_realtime_client()
+        self._context = self._create_context()
 
         self._running = False
         self._shutdown_event = asyncio.Event()
@@ -58,7 +57,7 @@ class RealtimeAgent(LoggingMixin):
             self.logger.info("Starting Voice Assistant")
             self._running = True
 
-            await self.context.run()
+            await self._context.run()
 
             while self._running:
                 try:
@@ -104,11 +103,11 @@ class RealtimeAgent(LoggingMixin):
         self.logger.info("All services cleaned up")
 
     async def _cleanup_state_machine(self) -> None:
-        await self.context.state.on_exit(self.context)
+        await self._context.state.on_exit(self._context)
 
     async def _cleanup_wake_word_service(self) -> None:
-        if self.wake_word_listener:
-            self.wake_word_listener.cleanup()
+        if self._wake_word_listener:
+            self._wake_word_listener.cleanup()
 
     async def _cleanup_sound_service(self) -> None:
         self._audio_player.stop_sounds()
@@ -122,52 +121,52 @@ class RealtimeAgent(LoggingMixin):
         return MicrophoneCapture()
 
     def _create_audio_player(self) -> AudioPlayer:
-        return AudioPlayer(self.voice_settings.playback_strategy)
+        return AudioPlayer(self._voice_settings.playback_strategy)
 
-    def _create_audio_detection_service(self) -> AudioDetectionService:
-        return AudioDetectionService(
-            audio_capture=self.audio_capture,
-            event_bus=self.event_bus,
+    def _create_speech_detector(self) -> SpeechDetector:
+        return SpeechDetector(
+            audio_capture=self._audio_capture,
+            event_bus=self._event_bus,
         )
 
     def _create_wake_word_listener(self) -> WakeWordListener | None:
-        if not self.wake_word_settings.enabled:
+        if not self._wake_word_settings.enabled:
             return None
 
         return WakeWordListener(
-            wakeword=self.wake_word_settings.keyword,
-            sensitivity=self.wake_word_settings.sensitivity,
-            event_bus=self.event_bus,
+            wakeword=self._wake_word_settings.keyword,
+            sensitivity=self._wake_word_settings.sensitivity,
+            event_bus=self._event_bus,
         )
 
     def _create_sound_event_handler(self) -> SoundEventHandler:
-        return SoundEventHandler(self._audio_player, self.event_bus)
+        return SoundEventHandler(self._audio_player, self._event_bus)
 
     def _create_realtime_client(self) -> RealtimeClient:
-        self.voice_settings.playback_strategy.set_event_bus(self.event_bus)
+        self._voice_settings.playback_strategy.set_event_bus(self._event_bus)
 
         special_tool_parameters = SpecialToolParameters(
             audio_player=self._audio_player,
-            event_bus=self.event_bus,
-            voice_settings=self.voice_settings,
-            tool_calling_model_name=self.model_settings.tool_calling_model_name,
+            event_bus=self._event_bus,
+            voice_settings=self._voice_settings,
+            tool_calling_model_name=self._model_settings.tool_calling_model_name,
         )
 
         return RealtimeClient(
-            model_settings=self.model_settings,
-            voice_settings=self.voice_settings,
-            audio_capture=self.audio_capture,
+            model_settings=self._model_settings,
+            voice_settings=self._voice_settings,
+            audio_capture=self._audio_capture,
             special_tool_parameters=special_tool_parameters,
-            event_bus=self.event_bus,
-            tools=self.tools,
+            event_bus=self._event_bus,
+            tools=self._tools,
         )
 
     def _create_context(self) -> VoiceAssistantContext:
         return VoiceAssistantContext(
-            wake_word_listener=self.wake_word_listener,
-            audio_capture=self.audio_capture,
-            audio_detection_service=self.audio_detection_service,
+            wake_word_listener=self._wake_word_listener,
+            audio_capture=self._audio_capture,
+            speech_detector=self._speech_detector,
             audio_player=self._audio_player,
-            event_bus=self.event_bus,
-            realtime_client=self.realtime_client,
+            event_bus=self._event_bus,
+            realtime_client=self._realtime_client,
         )

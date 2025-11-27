@@ -1,3 +1,4 @@
 from .capture import MicrophoneCapture
+from .detector import SpeechDetector
 
-__all__ = ["MicrophoneCapture"]
+__all__ = ["MicrophoneCapture", "SpeechDetector"]

@@ -1,5 +1,6 @@
 import base64
 import os
+from pathlib import Path
 import queue
 import threading
 import time
@@ -18,12 +19,13 @@ from agent.sound.models import SoundFile
 
 class PyAudioStrategy(AudioStrategy):
     SUPPORTED_FORMATS = {".mp3"}
+    DEFAULT_SOUNDS_DIR = Path(__file__).parent / "res"
 
     def __init__(
         self,
         event_bus: EventBus | None = None,
         config: AudioConfig | None = None,
-        sounds_dir: str | None = None,
+        sounds_dir: str | Path | None = None,
     ):
         self._config = config or AudioConfig()
         self._pyaudio = pyaudio.PyAudio()
@@ -41,7 +43,7 @@ class PyAudioStrategy(AudioStrategy):
         self.event_bus = event_bus
         self.volume = 1.0
 
-        self._sounds_dir = sounds_dir or os.path.join(os.path.dirname(__file__), "res")
+        self._sounds_dir = Path(sounds_dir) if sounds_dir else self.DEFAULT_SOUNDS_DIR
         self.logger.debug(
             "Initializing PyAudioStrategy with sounds directory: %s", self._sounds_dir
         )
@@ -58,15 +60,9 @@ class PyAudioStrategy(AudioStrategy):
 
         with self._stream_lock:
             if self._stream and self._stream.is_active():
-                try:
-                    self._stream.stop_stream()
-                    time.sleep(0.05)
-                    self._stream.start_stream()
-                except Exception as e:
-                    self.logger.error(
-                        "Error while pausing/resuming audio stream: %s", e
-                    )
-                    self._recreate_audio_stream()
+                self._stream.stop_stream()
+                time.sleep(0.05)
+                self._stream.start_stream()
 
         with self._state_lock:
             if self._is_busy:
@@ -99,52 +95,48 @@ class PyAudioStrategy(AudioStrategy):
             return False
 
     @override
-    def play_sound(self, sound_name: str) -> bool:
-        try:
-            self._validate_audio_format(sound_name)
+    def play_sound(self, sound_name: str) -> None:
+        self._validate_audio_format(sound_name)
+        sound_path = self._get_sound_path(sound_name)
+        
+        sound = pygame.mixer.Sound(sound_path)
+        sound.set_volume(self.volume)
+        sound.play()
+        self.logger.debug("Playing sound: %s", sound_name)
+        
+    def _validate_audio_format(self, sound_name: str) -> None:
+        if "." not in sound_name:
+            return
 
-            sound_path = self._get_sound_path(sound_name)
+        _, ext = os.path.splitext(sound_name.lower())
+        if ext in self.SUPPORTED_FORMATS:
+            return
 
-            if not os.path.exists(sound_path):
-                self.logger.warning("Sound file not found: %s", sound_path)
-                return False
+        supported_list = ", ".join(self.SUPPORTED_FORMATS)
+        raise ValueError(
+            f"Audio format '{ext}' is not supported. "
+            f"Supported formats: {supported_list}. "
+            f"Please convert '{sound_name}' to MP3 format."
+        )
+    
+    def _get_sound_path(self, sound_name: str) -> str:
+        filename = sound_name if sound_name.endswith(".mp3") else f"{sound_name}.mp3"
+        return str(self._sounds_dir / filename)
 
-            sound = pygame.mixer.Sound(sound_path)
-            sound.set_volume(self.volume)
-            sound.play()
-            self.logger.debug("Playing sound: %s", sound_name)
-            return True
-
-        except (RuntimeError, MemoryError, UnicodeDecodeError) as e:
-            self.logger.error("Error while playing %s: %s", sound_name, e)
-            return False
-        except ValueError as e:
-            self.logger.error("Format validation failed: %s", e)
-            raise
-        except OSError as e:
-            self.logger.error("File access error for %s: %s", sound_name, e)
-            return False
 
     @override
     def stop_sounds(self) -> None:
         self.logger.debug("Stopping all sound playback")
 
         if pygame.mixer.get_init():
-            try:
-                pygame.mixer.stop()
-                self.logger.debug("Pygame mixer stopped")
-            except (AttributeError, RuntimeError) as e:
-                self.logger.warning("Could not stop pygame mixer: %s", e)
+            pygame.mixer.stop()
+            self.logger.debug("Pygame mixer stopped")
 
         if self._player_thread and self._player_thread.is_alive():
             with self._stream_lock:
-                if self._stream:
-                    try:
-                        if self._stream.is_active():
-                            self._stream.stop_stream()
-                            self.logger.debug("Audio stream paused")
-                    except Exception as e:
-                        self.logger.error("Error stopping audio stream: %s", e)
+                if self._stream and self._stream.is_active():
+                    self._stream.stop_stream()
+                    self.logger.debug("Audio stream paused")
 
         self.clear_queue_and_stop_chunks()
 
@@ -153,17 +145,16 @@ class PyAudioStrategy(AudioStrategy):
         return self.volume
 
     @override
-    def set_volume_level(self, volume: float) -> float:
+    def set_volume_level(self, volume: float) -> None:
         if not 0.0 <= volume <= 1.0:
             raise ValueError("Volume must be between 0.0 and 1.0")
 
         self.volume = volume
         self.logger.info("Volume set to: %.2f", self.volume)
-        return self.volume
 
     @override
-    def play_sound_file(self, sound_file: SoundFile) -> bool:
-        return self.play_sound(sound_file.value)
+    def play_sound_file(self, sound_file: SoundFile) -> None:
+        self.play_sound(sound_file)
 
     @override
     def add_audio_chunk(self, base64_audio: str) -> None:
@@ -308,28 +299,5 @@ class PyAudioStrategy(AudioStrategy):
 
     def _init_mixer(self) -> None:
         if not pygame.mixer.get_init():
-            try:
-                pygame.mixer.init()
-                self.logger.debug("Pygame mixer initialized")
-            except (RuntimeError, OSError) as e:
-                self.logger.error("Failed to init pygame.mixer: %s", e)
-                raise
-
-    def _validate_audio_format(self, sound_name: str) -> None:
-        if "." not in sound_name:
-            return
-
-        _, ext = os.path.splitext(sound_name.lower())
-        if ext in self.SUPPORTED_FORMATS:
-            return
-
-        supported_list = ", ".join(self.SUPPORTED_FORMATS)
-        raise ValueError(
-            f"Audio format '{ext}' is not supported. "
-            f"Supported formats: {supported_list}. "
-            f"Please convert '{sound_name}' to MP3 format."
-        )
-
-    def _get_sound_path(self, sound_name: str) -> str:
-        filename = sound_name if sound_name.endswith(".mp3") else f"{sound_name}.mp3"
-        return os.path.join(self._sounds_dir, filename)
+            pygame.mixer.init()
+            self.logger.debug("Pygame mixer initialized")

@@ -15,7 +15,7 @@ class AudioStrategy(ABC, LoggingMixin):
         pass
 
     @abstractmethod
-    def play_sound(self, sound_name: str) -> bool:
+    def play_sound(self, sound_name: str) -> None:
         pass
 
     @abstractmethod
@@ -27,11 +27,11 @@ class AudioStrategy(ABC, LoggingMixin):
         pass
 
     @abstractmethod
-    def set_volume_level(self, volume: float) -> float:
+    def set_volume_level(self, volume: float) -> None:
         pass
 
     @abstractmethod
-    def play_sound_file(self, sound_file: SoundFile) -> bool:
+    def play_sound_file(self, sound_file: SoundFile) -> None:
         pass
 
     @abstractmethod
@@ -56,14 +56,14 @@ class AudioStrategy(ABC, LoggingMixin):
         except Exception as e:
             self.logger.error("Error publishing event '%s': %s", event, e)
 
-    def play_startup_sound(self) -> bool:
-        return self.play_sound_file(SoundFile.STARTUP)
+    def play_startup_sound(self) -> None:
+        self.play_sound_file(SoundFile.STARTUP)
 
-    def play_wake_word_sound(self) -> bool:
-        return self.play_sound_file(SoundFile.WAKE_WORD)
+    def play_wake_word_sound(self) -> None:
+        self.play_sound_file(SoundFile.WAKE_WORD)
 
-    def play_return_to_idle_sound(self) -> bool:
-        return self.play_sound_file(SoundFile.RETURN_TO_IDLE)
+    def play_return_to_idle_sound(self) -> None:
+        self.play_sound_file(SoundFile.RETURN_TO_IDLE)
 
-    def play_error_sound(self) -> bool:
-        return self.play_sound_file(SoundFile.ERROR)
+    def play_error_sound(self) -> None:
+        self.play_sound_file(SoundFile.ERROR)

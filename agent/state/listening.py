@@ -10,7 +10,7 @@ class ListeningState(AssistantState):
 
     async def on_enter(self, context: VoiceAssistantContext) -> None:
         self.logger.info("Entering Listening state - user is speaking")
-        context.audio_manager.strategy.clear_queue_and_stop_chunks()
+        context._audio_player.clear_queue_and_stop_chunks()
 
         await context.ensure_realtime_audio_channel_connected()
 
