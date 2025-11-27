@@ -1,6 +1,5 @@
 import collections.abc
 import inspect
-import warnings
 from collections.abc import Callable
 from typing import (
     Annotated,
@@ -38,18 +37,7 @@ class ToolRegistry:
     ):
         def decorator(func: Callable) -> Callable:
             tool_name = name or func.__name__
-
-            if inspect.isgeneratorfunction(func):
-                warnings.warn(
-                    f"Synchronous generator function '{tool_name}' cannot be registered as tool. "
-                    f"Only async generators are supported. Use 'async def' with 'yield'.",
-                    UserWarning,
-                    stacklevel=3,
-                )
-                return func
-
             schema = self._generate_schema_from_function(func)
-            is_async_generator = inspect.isasyncgenfunction(func)
 
             if hasattr(self, func.__name__):
                 bound_func = getattr(self, func.__name__)
@@ -63,7 +51,6 @@ class ToolRegistry:
                 schema=schema,
                 response_instruction=response_instruction,
                 execution_message=execution_message,
-                is_async_generator=is_async_generator,
             )
 
             self._register(tool)

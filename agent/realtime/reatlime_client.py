@@ -11,7 +11,6 @@ from agent.realtime.events.client.input_audio_buffer_append import (
     InputAudioBufferAppendEvent,
 )
 from agent.realtime.messaging.message_manager import RealtimeMessageManager
-from agent.realtime.transcription.service import TranscriptionService
 from agent.realtime.websocket.websocket_manager import WebSocketManager
 from agent.tools import (
     RemoteMcpToolEventListener,
@@ -19,6 +18,7 @@ from agent.tools import (
     ToolExecutor,
     Tools,
 )
+from agent.transcription import TranscriptionEventListener
 from shared.logging_mixin import LoggingMixin
 
 
@@ -47,7 +47,9 @@ class RealtimeClient(LoggingMixin):
         self.ws_manager = WebSocketManager.from_model(
             model=model_settings.model, event_bus=self.event_bus, env=env
         )
-        self.transcription_service = TranscriptionService(event_bus=self.event_bus)
+        self.transcription_service = TranscriptionEventListener(
+            event_bus=self.event_bus
+        )
 
         # instantiate message manager (handles events and websocket messages)
         self.message_manager = RealtimeMessageManager(

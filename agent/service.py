@@ -25,6 +25,7 @@ class RealtimeAgent(LoggingMixin):
         transcription_settings: TranscriptionSettings | None = None,
         wake_word_settings: WakeWordSettings | None = None,
         env: AgentEnv | None = None,
+        tools: Tools | None = None,
     ):
         self._env = env or AgentEnv()
         self._model_settings = model_settings or ModelSettings()
@@ -32,7 +33,8 @@ class RealtimeAgent(LoggingMixin):
         self._transcription_settings = transcription_settings or TranscriptionSettings()
         self._wake_word_settings = wake_word_settings or WakeWordSettings()
 
-        self._tools = Tools(mcp_tools=self._model_settings.mcp_tools)
+        self._tools = tools or Tools()
+        self._tools.mcp_tools = self._model_settings.mcp_tools
 
         self._event_bus = self._create_event_bus()
         self._audio_capture = self._create_audio_capture()

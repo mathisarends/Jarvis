@@ -3,10 +3,6 @@ from typing import Any
 
 from agent.events import EventBus
 from agent.realtime.event_types import RealtimeServerEvent
-from agent.realtime.transcription.views import (
-    InputAudioTranscriptionCompleted,
-    ResponseOutputAudioTranscriptDone,
-)
 from agent.realtime.views import (
     ConversationItemTruncatedEvent,
     ErrorEvent,
@@ -15,6 +11,10 @@ from agent.realtime.views import (
 )
 from agent.state.base import VoiceAssistantEvent
 from agent.tools.models import FunctionCallItem
+from agent.transcription.models import (
+    InputAudioTranscriptionCompleted,
+    ResponseOutputAudioTranscriptDone,
+)
 from shared.logging_mixin import LoggingMixin
 
 

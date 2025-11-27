@@ -14,7 +14,6 @@ class Tool:
         schema: FunctionParameters,
         response_instruction: str | None = None,
         execution_message: str | None = None,
-        is_async_generator: bool = False,
     ):
         self.name = name
         self.description = description
@@ -22,7 +21,6 @@ class Tool:
         self.schema = schema
         self.response_instruction = response_instruction
         self.execution_message = execution_message
-        self.is_async_generator = is_async_generator
 
     async def execute(self, arguments: dict[str, Any]) -> Any:
         if inspect.iscoroutinefunction(self.function):
