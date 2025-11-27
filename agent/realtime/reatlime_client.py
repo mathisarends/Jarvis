@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import base64
 
-from agent.config.views import AgentConfig, AssistantAudioConfig
+from agent.config.models import ModelSettings, VoiceSettings
 from agent.realtime.events.client.input_audio_buffer_append import (
     InputAudioBufferAppendEvent,
 )
@@ -16,17 +16,16 @@ from agent.realtime.tools.tools import Tools
 from agent.realtime.transcription.service import TranscriptionService
 from agent.realtime.websocket.websocket_manager import WebSocketManager
 
-from agent.state import base
-from audio.capture import AudioCapture
+from agent.mic import MicrophoneCapture
 from shared.logging_mixin import LoggingMixin
 
 
 class RealtimeClient(LoggingMixin):
     def __init__(
         self,
-        agent_config: AgentConfig,
-        assistant_audio_config: AssistantAudioConfig,
-        audio_capture: AudioCapture,
+        model_settings: ModelSettings,
+        voice_settings: VoiceSettings,
+        audio_capture: MicrophoneCapture,
         special_tool_parameters: SpecialToolParameters,
         event_bus: EventBus,
         tools: Tools,
@@ -35,8 +34,8 @@ class RealtimeClient(LoggingMixin):
         Initializes the OpenAI Realtime API client.
         All configuration is loaded from configuration files.
         """
-        self.agent_config = agent_config
-        self.assistant_audio_config = assistant_audio_config
+        self.model_settings = model_settings
+        self.voice_settings = voice_settings
         self.audio_capture = audio_capture
         self.special_tool_parameters = special_tool_parameters
         self.event_bus = event_bus
@@ -48,7 +47,7 @@ class RealtimeClient(LoggingMixin):
 
         # Create WebSocketManager and TranscriptionService internally
         self.ws_manager = WebSocketManager.from_model(
-            model=agent_config.model, event_bus=self.event_bus
+            model=model_settings.model, event_bus=self.event_bus
         )
         self.transcription_service = TranscriptionService(event_bus=self.event_bus)
 
@@ -56,8 +55,8 @@ class RealtimeClient(LoggingMixin):
         self.message_manager = RealtimeMessageManager(
             ws_manager=self.ws_manager,
             tool_registry=self.tool_registry,
-            agent_config=agent_config,
-            assistant_audio_config=assistant_audio_config,
+            model_settings=model_settings,
+            voice_settings=voice_settings,
             event_bus=self.event_bus,
         )
 
@@ -155,23 +154,26 @@ class RealtimeClient(LoggingMixin):
             self.logger.error("Error while sending audio: %s", e)
 
     async def _process_audio_loop(self) -> None:
-        """Process the main audio streaming loop using the new async generator."""
-        self.audio_capture.start_stream()
+        """Process the main audio streaming loop using the async generator."""
+        if not self.audio_capture.is_active:
+            self.audio_capture.start_stream()
+            
         try:
             async for chunk in self.audio_capture.stream_chunks():
                 if not self._should_continue_streaming():
                     break
+                    
                 await self._wait_for_streaming_resume()
                 if self._audio_streaming_paused:
                     continue
+                    
                 base64_audio_data = base64.b64encode(chunk).decode("utf-8")
-
                 input_audio_buffer_append_event = (
                     InputAudioBufferAppendEvent.from_audio(base64_audio_data)
                 )
                 await self.ws_manager.send_message(input_audio_buffer_append_event)
         finally:
-            self.audio_capture.cleanup()
+            self.audio_capture.stop_stream()
 
     def _should_continue_streaming(self) -> bool:
         """Check if audio streaming should continue."""

@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any
 
 from agent.realtime.event_bus import EventBus
 from agent.realtime.reatlime_client import RealtimeClient
-from audio.capture import AudioCapture
+from agent.mic import MicrophoneCapture
 from audio.detection import AudioDetectionService
 from audio.player.audio_manager import AudioManager
 from shared.logging_mixin import LoggingMixin
@@ -18,12 +18,10 @@ if TYPE_CHECKING:
 
 
 class VoiceAssistantContext(LoggingMixin):
-    """Context object that holds state and dependencies"""
-
     def __init__(
         self,
         wake_word_listener: WakeWordListener,
-        audio_capture: AudioCapture,
+        audio_capture: MicrophoneCapture,
         audio_detection_service: AudioDetectionService,
         audio_manager: AudioManager,
         event_bus: EventBus,

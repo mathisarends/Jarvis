@@ -1,18 +1,19 @@
 import asyncio
 from dataclasses import dataclass
-from agent.config.views import (
-    AgentConfig,
-    AssistantAudioConfig,
-    WakeWordConfig,
+
+from agent.config.models import (
+    ModelSettings,
+    VoiceSettings,
+    TranscriptionSettings,
+    WakeWordSettings,
 )
 from agent.realtime.event_bus import EventBus
-from agent.realtime.events.client.session_update import InputAudioTranscriptionConfig
 from agent.realtime.reatlime_client import RealtimeClient
 from agent.realtime.tools.tools import Tools
 from agent.realtime.tools.views import SpecialToolParameters
 from agent.state.context import VoiceAssistantContext
 from agent.wake_word import WakeWordListener
-from audio.capture import AudioCapture
+from agent.mic import MicrophoneCapture
 from audio.detection import AudioDetectionService
 from audio.player.audio_manager import AudioManager
 from audio.sound_event_handler import SoundEventHandler
@@ -20,15 +21,8 @@ from audio.sound_event_handler import SoundEventHandler
 
 @dataclass
 class ServiceBundle:
-    """All created services bundled together
-
-    Note: `wake_word_listener` and `audio_detection_service` may be None when
-    the corresponding features are not configured. Callers should treat them
-    as optional.
-    """
-
     event_bus: EventBus
-    audio_capture: AudioCapture
+    audio_capture: MicrophoneCapture
     audio_manager: AudioManager
     sound_event_handler: SoundEventHandler
     realtime_client: RealtimeClient
@@ -43,19 +37,19 @@ class ServiceFactory:
 
     def __init__(
         self,
-        agent_config: AgentConfig,
-        assistant_audio_config: AssistantAudioConfig,
+        model_settings: ModelSettings,
+        voice_settings: VoiceSettings,
+        transcription_settings: TranscriptionSettings,
+        wake_word_settings: WakeWordSettings,
         tools: Tools,
-        wake_word_config: WakeWordConfig | None = None,
-        transcription_config: InputAudioTranscriptionConfig | None = None,
     ):
-        self.agent_config = agent_config
-        self.assistant_audio_config = assistant_audio_config
+        self.model_settings = model_settings
+        self.voice_settings = voice_settings
+        self.transcription_settings = transcription_settings
+        self.wake_word_settings = wake_word_settings
         self.tools = tools
 
-        self.wake_word_config = wake_word_config
-        self.transcription_config = transcription_config
-        self.event_bus = EventBus()  # Created once, shared everywhere
+        self.event_bus = EventBus()
         self.event_bus.attach_loop(asyncio.get_running_loop())
 
     def create_services(self) -> ServiceBundle:
@@ -72,7 +66,7 @@ class ServiceFactory:
         sound_event_handler = self._create_sound_event_handler(audio_manager)
 
         # Set EventBus here for simplified interface
-        self.assistant_audio_config.audio_playback_strategy.set_event_bus(
+        self.voice_settings.playback_strategy.set_event_bus(
             self.event_bus
         )
 
@@ -99,14 +93,14 @@ class ServiceFactory:
             context=context,
         )
 
-    def _create_audio_capture(self) -> AudioCapture:
-        return AudioCapture()
+    def _create_audio_capture(self) -> MicrophoneCapture:
+        return MicrophoneCapture()
 
     def _create_audio_manager(self) -> AudioManager:
-        return AudioManager(self.assistant_audio_config.audio_playback_strategy)
+        return AudioManager(self.voice_settings.playback_strategy)
 
     def _create_audio_detection_service(
-        self, audio_capture: AudioCapture
+        self, audio_capture: MicrophoneCapture
     ) -> AudioDetectionService:
         return AudioDetectionService(
             audio_capture=audio_capture,
@@ -114,13 +108,12 @@ class ServiceFactory:
         )
 
     def _create_wake_word_listener_if_configured(self) -> WakeWordListener:
-        # Create wake-word listener only if a WakeWordConfig was provided
-        if not self.wake_word_config:
+        if not self.wake_word_settings.enabled:
             return None
 
         return WakeWordListener(
-            wakeword=self.wake_word_config.keyword,
-            sensitivity=self.wake_word_config.sensitivity,
+            wakeword=self.wake_word_settings.keyword,
+            sensitivity=self.wake_word_settings.sensitivity,
             event_bus=self.event_bus,
         )
 
@@ -130,18 +123,18 @@ class ServiceFactory:
         return SoundEventHandler(audio_manager.strategy, self.event_bus)
 
     def _create_realtime_client(
-        self, audio_capture: AudioCapture, audio_manager: AudioManager
+        self, audio_capture: MicrophoneCapture, audio_manager: AudioManager
     ) -> RealtimeClient:
         special_tool_parameters = SpecialToolParameters(
             audio_manager=audio_manager,
             event_bus=self.event_bus,
-            assistant_audio_config=self.assistant_audio_config,
-            tool_calling_model_name=self.agent_config.tool_calling_model_name,
+            voice_settings=self.voice_settings,
+            tool_calling_model_name=self.model_settings.tool_calling_model_name,
         )
 
         return RealtimeClient(
-            agent_config=self.agent_config,
-            assistant_audio_config=self.assistant_audio_config,
+            model_settings=self.model_settings,
+            voice_settings=self.voice_settings,
             audio_capture=audio_capture,
             special_tool_parameters=special_tool_parameters,
             event_bus=self.event_bus,
@@ -151,7 +144,7 @@ class ServiceFactory:
     def _create_context(
         self,
         wake_word_listener: WakeWordListener,
-        audio_capture: AudioCapture,
+        audio_capture: MicrophoneCapture,
         audio_detection_service: AudioDetectionService,
         audio_manager: AudioManager,
         realtime_client: RealtimeClient,

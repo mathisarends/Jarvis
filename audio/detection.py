@@ -4,16 +4,14 @@ import numpy as np
 
 from agent.realtime.event_bus import EventBus
 from agent.state.base import VoiceAssistantEvent
-from audio.capture import AudioCapture
+from agent.mic import MicrophoneCapture
 from shared.logging_mixin import LoggingMixin
 
 
 class AudioDetectionService(LoggingMixin):
-    """Service for Audio-Level Detection and Speech Detection with polling"""
-
     def __init__(
         self,
-        audio_capture: AudioCapture,
+        audio_capture: MicrophoneCapture,
         event_bus: EventBus,
         threshold: float = 40.0,
         check_interval: float = 0.1,
@@ -23,11 +21,10 @@ class AudioDetectionService(LoggingMixin):
         self.threshold = threshold
         self.check_interval = check_interval
 
-        self._monitoring_task: Optional[asyncio.Task] = None
+        self._monitoring_task: asyncio.Task | None = None
         self._is_monitoring = False
 
     async def start_monitoring(self) -> None:
-        """Start audio monitoring"""
         if self._is_monitoring:
             self.logger.warning("Audio monitoring already active")
             return
@@ -39,7 +36,6 @@ class AudioDetectionService(LoggingMixin):
         self._monitoring_task = asyncio.create_task(self._monitoring_loop())
 
     async def stop_monitoring(self) -> None:
-        """Stop audio monitoring"""
         if not self._is_monitoring:
             return
 
@@ -59,11 +55,11 @@ class AudioDetectionService(LoggingMixin):
             self._monitoring_task = None
 
     async def _monitoring_loop(self) -> None:
-        """Polling-based monitoring loop instead of streaming"""
+        """Polling-based monitoring loop for audio level detection"""
         try:
             while self._is_monitoring:
-                # Get current audio data snapshot instead of streaming
-                audio_data = self.audio_capture.get_current_buffer()
+                # Read current audio chunk
+                audio_data = self.audio_capture.read_chunk()
 
                 if audio_data and self._process_audio_chunk(audio_data):
                     break
@@ -104,9 +100,7 @@ class AudioDetectionService(LoggingMixin):
             return False
 
     def _trigger_speech_detected(self) -> None:
-        """Trigger speech detected via EventBus"""
         self.event_bus.publish_sync(VoiceAssistantEvent.USER_STARTED_SPEAKING)
 
     def _trigger_error(self, error: Exception) -> None:
-        """Trigger error via EventBus"""
         self.event_bus.publish_sync(VoiceAssistantEvent.ERROR_OCCURRED)

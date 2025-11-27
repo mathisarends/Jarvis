@@ -294,16 +294,13 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "aiohttp" },
-    { name = "click" },
     { name = "numpy" },
-    { name = "openai", extra = ["realtime"] },
     { name = "openai-agents" },
     { name = "pvporcupine" },
     { name = "pyaudio" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "pygame" },
-    { name = "python-dotenv" },
     { name = "websocket-client" },
     { name = "websockets" },
 ]
@@ -316,16 +313,13 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "aiohttp", specifier = ">=3.12.15" },
-    { name = "click", specifier = ">=8.2.1" },
     { name = "numpy", specifier = ">=2.3.5" },
-    { name = "openai", extras = ["realtime"], specifier = ">=1.102.0" },
     { name = "openai-agents", specifier = ">=0.2.11" },
     { name = "pvporcupine", specifier = ">=3.0.5" },
     { name = "pyaudio", specifier = ">=0.2.14" },
     { name = "pydantic", specifier = ">=2.11.7" },
     { name = "pydantic-settings", specifier = ">=2.10.1" },
     { name = "pygame", specifier = ">=2.6.1" },
-    { name = "python-dotenv", specifier = ">=1.1.1" },
     { name = "websocket-client", specifier = ">=1.8.0" },
     { name = "websockets", specifier = ">=15.0.1" },
 ]
@@ -541,11 +535,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/94/dc/965b3528ed0435b717acca45e2541d94bd827c0520ce172366323c9edcab/openai-1.104.2.tar.gz", hash = "sha256:9b582ead9dd208753f89dae8e36b6548c6ada076e87ba3db36630e29239661ab", size = 557160, upload-time = "2025-09-02T21:42:31.054Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/46/9c/d0b56971e5584aea338bb00d3ca96a7f6694dff77006581b21cd773497ce/openai-1.104.2-py3-none-any.whl", hash = "sha256:0148951da12ea651f890ef38f8adef75b78c053dba37ea2bdba857c8945860d4", size = 928160, upload-time = "2025-09-02T21:42:28.678Z" },
-]
-
-[package.optional-dependencies]
-realtime = [
-    { name = "websockets" },
 ]
 
 [[package]]

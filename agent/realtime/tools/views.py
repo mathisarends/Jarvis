@@ -9,14 +9,13 @@ from agent.realtime.events.conversation_item_create import (
     FunctionCallOutputItem,
 )
 from audio.player.audio_manager import AudioManager
-from agent.config.views import AssistantAudioConfig
+from agent.config.models import VoiceSettings
 
 
 class FunctionCallItem(BaseModel):
     """
     One tool/function call request emitted by the model.
     """
-
     type: Literal[RealtimeServerEvent.RESPONSE_FUNCTION_CALL_ARGUMENTS_DONE] = (
         RealtimeServerEvent.RESPONSE_FUNCTION_CALL_ARGUMENTS_DONE
     )
@@ -79,7 +78,7 @@ class SpecialToolParameters(BaseModel):
 
     audio_manager: AudioManager
     event_bus: EventBus
-    assistant_audio_config: AssistantAudioConfig
+    voice_settings: VoiceSettings
     tool_calling_model_name: str | None = None
 
     # optional user-provided context object passed down from Agent(context=...)

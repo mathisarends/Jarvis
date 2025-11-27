@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Annotated
 
-from agent.config.views import AssistantAudioConfig
+from agent.config.models import VoiceSettings
 from agent.realtime.event_bus import EventBus
 from agent.realtime.events.client.session_update import MCPTool
 from agent.realtime.tools.registry import ToolRegistry
@@ -22,12 +22,10 @@ class Tools(LoggingMixin):
 
     @property
     def mcp_tools(self) -> list[MCPTool] | None:
-        """Get the current MCP tools."""
         return self._mcp_tools
 
     @mcp_tools.setter
     def mcp_tools(self, mcp_tools: list[MCPTool] | None) -> None:
-        """Set MCP tools and sync with registry."""
         self._mcp_tools = mcp_tools
 
         # Sync with registry
@@ -40,8 +38,6 @@ class Tools(LoggingMixin):
         return self.registry.action(description, **kwargs)
 
     def _register_default_tools(self) -> None:
-        """Register all default tools using the action decorator."""
-
         @self.registry.action("Get the current local time")
         def get_current_time() -> str:
             return datetime.now().strftime("%H:%M:%S")
@@ -62,10 +58,10 @@ class Tools(LoggingMixin):
             instructions: Annotated[
                 str, "Natural language command: 'faster' or 'slower'"
             ],
-            assistant_audio_config: AssistantAudioConfig,
+            voice_settings: VoiceSettings,
             event_bus: EventBus,
         ) -> str:
-            current_response_speed = assistant_audio_config.playback_speed
+            current_response_speed = voice_settings.speech_speed
             response_speed_adjustment_result = await run_volume_adjustment_agent(
                 instructions, current_response_speed
             )

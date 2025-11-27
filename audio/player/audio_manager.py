@@ -23,3 +23,7 @@ class AudioManager(LoggingMixin):
     def strategy(self) -> AudioStrategy:
         """Get current strategy for direct access (readonly)"""
         return self._strategy
+
+    def stop_sounds(self) -> None:
+        """Stop all playing sounds"""
+        self._strategy.stop_sounds()
