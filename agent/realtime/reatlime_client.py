@@ -1,15 +1,13 @@
-from __future__ import annotations
-
 import asyncio
 import base64
 
 from agent.config import AgentEnv
 from agent.config.models import ModelSettings, VoiceSettings
 from agent.events import EventBus
-from agent.mic import MicrophoneCapture
-from agent.realtime.events.client.input_audio_buffer_append import (
+from agent.events.schemas.audio import (
     InputAudioBufferAppendEvent,
 )
+from agent.mic import MicrophoneCapture
 from agent.realtime.messaging.message_manager import RealtimeMessageManager
 from agent.realtime.websocket.websocket_manager import WebSocketManager
 from agent.tools import (
@@ -41,7 +39,6 @@ class RealtimeClient(LoggingMixin):
         self.tools = tools
         self.tool_registry = self.tools.registry
 
-        # Extract components from special tool parameters
         self._audio_player = special_tool_parameters.audio_player
 
         self.ws_manager = WebSocketManager.from_model(
@@ -51,7 +48,6 @@ class RealtimeClient(LoggingMixin):
             event_bus=self.event_bus
         )
 
-        # instantiate message manager (handles events and websocket messages)
         self.message_manager = RealtimeMessageManager(
             ws_manager=self.ws_manager,
             tool_registry=self.tool_registry,
@@ -73,88 +69,48 @@ class RealtimeClient(LoggingMixin):
             ws_manager=self.ws_manager,
         )
 
-        # Audio streaming control
         self._audio_streaming_paused = False
         self._audio_streaming_event = asyncio.Event()
-        self._audio_streaming_event.set()  # Initially not paused
+        self._audio_streaming_event.set()
 
-    async def setup_and_run(self) -> bool:
-        """
-        Sets up the connection and runs the main loop.
-        """
-        if not await self.ws_manager.create_connection():
-            return False
-
-        if not await self.message_manager.initialize_session():
-            await self.ws_manager.close()
-            return False
-
+    async def setup_and_run(self) -> None:
         try:
-            # Only send audio stream - WebSocketManager handles all responses automatically
+            await self.ws_manager.create_connection()
+            await self.message_manager.initialize_session()
             await self._send_audio_stream()
-            return True
-        except asyncio.CancelledError:  # NOSONAR
+        except asyncio.CancelledError:
             self.logger.info("Audio streaming was cancelled")
-            return True
         finally:
             await self.ws_manager.close()
 
     async def close_connection(self) -> None:
-        """Closes WebSocket and unblocks any waiting audio streams"""
-        try:
-            self.logger.info("Closing WebSocket connection programmatically...")
-
-            # 1. WebSocket schließen
-            await self.ws_manager.close()
-
-            # 2. Audio-Event setzen um blockierten Task zu befreien
-            self._audio_streaming_event.set()
-
-            self.logger.info("WebSocket connection closed successfully")
-        except Exception as e:
-            self.logger.error("Error closing WebSocket connection: %s", e)
+        self.logger.info("Closing WebSocket connection programmatically...")
+        await self.ws_manager.close()
+        self._audio_streaming_event.set()
+        self.logger.info("WebSocket connection closed successfully")
 
     def pause_audio_streaming(self) -> None:
-        """
-        Pauses the audio streaming. The WebSocket connection remains intact.
-        """
         self.logger.info("Pausing audio streaming...")
         self._audio_streaming_paused = True
         self._audio_streaming_event.clear()
 
     def resume_audio_streaming(self) -> None:
-        """
-        Resumes the audio streaming.
-        """
         self.logger.info("Resuming audio streaming...")
         self._audio_streaming_paused = False
         self._audio_streaming_event.set()
 
     def is_audio_streaming_paused(self) -> bool:
-        """
-        Returns whether the audio streaming is currently paused.
-        """
         return self._audio_streaming_paused
 
     async def _send_audio_stream(self) -> None:
-        """
-        Sends audio data from the microphone to the OpenAI API.
-        """
         if not self.ws_manager.is_connected():
-            self.logger.error("No connection available for audio transmission")
-            return
+            raise RuntimeError("No connection available for audio transmission")
 
-        try:
-            self.logger.info("Starting audio transmission...")
-            await self._process_audio_loop()
-            self.logger.info("Audio transmission ended")
-        except TimeoutError as e:
-            self.logger.error("Timeout while sending audio: %s", e)
-        except Exception as e:
-            self.logger.error("Error while sending audio: %s", e)
+        self.logger.info("Starting audio transmission...")
+        await self._process_audio_loop()
+        self.logger.info("Audio transmission ended")
 
     async def _process_audio_loop(self) -> None:
-        """Process the main audio streaming loop using the async generator."""
         if not self.audio_capture.is_active:
             self.audio_capture.start_stream()
 
@@ -176,9 +132,7 @@ class RealtimeClient(LoggingMixin):
             self.audio_capture.stop_stream()
 
     def _should_continue_streaming(self) -> bool:
-        """Check if audio streaming should continue."""
         return self.audio_capture.is_active and self.ws_manager.is_connected()
 
     async def _wait_for_streaming_resume(self) -> None:
-        """Wait until audio streaming is not paused."""
         await self._audio_streaming_event.wait()

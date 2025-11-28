@@ -2,7 +2,7 @@ import inspect
 from collections.abc import Callable
 from typing import Any
 
-from agent.realtime.events.client.session_update import FunctionParameters, FunctionTool
+from agent.events.schemas import FunctionParameters, FunctionTool
 
 
 class Tool:

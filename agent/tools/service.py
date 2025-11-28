@@ -9,7 +9,7 @@ if TYPE_CHECKING:
     from agent.config.models import VoiceSettings
 else:
     VoiceSettings = "VoiceSettings"
-from agent.realtime.events.client.session_update import MCPTool
+from agent.events.schemas import MCPTool
 from agent.sound import AudioPlayer
 from agent.state.base import VoiceAssistantEvent
 from agent.tools.registry import ToolRegistry

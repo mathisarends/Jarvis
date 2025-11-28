@@ -3,9 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from agent.events import EventBus
-from agent.realtime.events.client.conversation_response_create import (
-    ConversationResponseCreateEvent,
-)
+from agent.events.schemas import ConversationResponseCreateEvent
 from agent.state.base import VoiceAssistantEvent
 from shared.logging_mixin import LoggingMixin
 

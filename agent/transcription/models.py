@@ -2,7 +2,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
-from agent.realtime.event_types import RealtimeServerEvent
+from agent.events.schemas.base import RealtimeServerEvent
 
 
 class LogProbEntry(BaseModel):

@@ -1,16 +1,14 @@
-from __future__ import annotations
-
 import asyncio
 import json
 import threading
-from typing import Any
+from typing import Any, Self
 
 import websocket
 from pydantic import BaseModel
 
 from agent.config import AgentEnv
 from agent.events import EventBus
-from agent.realtime.events.client.session_update import RealtimeModel
+from agent.events.schemas import RealtimeModel
 from agent.realtime.websocket.realtime_event_dispatcher import RealtimeEventDispatcher
 from agent.state.base import VoiceAssistantEvent
 from shared.logging_mixin import LoggingMixin
@@ -42,13 +40,13 @@ class WebSocketManager(LoggingMixin):
         model: RealtimeModel = RealtimeModel.GPT_REALTIME,
         event_bus: EventBus,
         env: AgentEnv | None = None,
-    ) -> WebSocketManager:
+    ) -> Self:
         env = env or AgentEnv()
         ws_url = cls._get_websocket_url(model.value)
         headers = cls._get_auth_header(env.openai_api_key)
         return cls(ws_url, headers, event_bus)
 
-    async def create_connection(self) -> bool:
+    async def create_connection(self) -> None:
         self.logger.info("Establishing connection to %s...", self._websocket_url)
 
         self._ws = websocket.WebSocketApp(
@@ -68,11 +66,8 @@ class WebSocketManager(LoggingMixin):
             None, lambda: self._connection_event.wait(timeout=10)
         )
 
-        if connected and self._connected:
-            return True
-
-        self.logger.error("Failed to establish connection within timeout")
-        return False
+        if not (connected and self._connected):
+            raise RuntimeError("Failed to establish connection within timeout")
 
     async def send_message(self, message: dict[str, Any] | BaseModel) -> None:
         if not self._connected or not self._ws:

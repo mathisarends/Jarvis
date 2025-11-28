@@ -1,5 +1,5 @@
 from agent.events import EventBus
-from agent.realtime.views import ResponseOutputAudioDelta
+from agent.events.schemas import ResponseOutputAudioDeltaEvent
 from agent.sound.player import AudioPlayer
 from agent.state.base import VoiceAssistantEvent
 from shared.logging_mixin import LoggingMixin
@@ -34,7 +34,7 @@ class SoundEventHandler(LoggingMixin):
     def _handle_audio_chunk_event(
         self,
         event: VoiceAssistantEvent,
-        response_output_audio_delta: ResponseOutputAudioDelta,
+        response_output_audio_delta: ResponseOutputAudioDeltaEvent,
     ) -> None:
         if event == VoiceAssistantEvent.AUDIO_CHUNK_RECEIVED:
             self.logger.debug("Received audio chunk via EventBus")
@@ -42,22 +42,26 @@ class SoundEventHandler(LoggingMixin):
                 response_output_audio_delta.delta
             )
 
-    def _handle_wake_word_event(self, event: VoiceAssistantEvent) -> None:
+    def _handle_wake_word_event(self, event: VoiceAssistantEvent, data=None) -> None:
         if event == VoiceAssistantEvent.WAKE_WORD_DETECTED:
             self.logger.debug("Playing wake word sound via EventBus")
             self._audio_manager.strategy.play_wake_word_sound()
 
-    def _handle_idle_transition_event(self, event: VoiceAssistantEvent) -> None:
+    def _handle_idle_transition_event(
+        self, event: VoiceAssistantEvent, data=None
+    ) -> None:
         if event == VoiceAssistantEvent.IDLE_TRANSITION:
             self.logger.debug("Playing return to idle sound via EventBus")
             self._audio_manager.strategy.play_return_to_idle_sound()
 
-    def _handle_error_event(self, event: VoiceAssistantEvent) -> None:
+    def _handle_error_event(self, event: VoiceAssistantEvent, data=None) -> None:
         if event == VoiceAssistantEvent.ERROR_OCCURRED:
             self.logger.debug("Playing error sound via EventBus")
             self._audio_manager.strategy.play_error_sound()
 
-    def _handle_user_started_speaking(self, event: VoiceAssistantEvent) -> None:
+    def _handle_user_started_speaking(
+        self, event: VoiceAssistantEvent, data=None
+    ) -> None:
         if event == VoiceAssistantEvent.USER_STARTED_SPEAKING:
             if self._audio_manager.strategy.is_currently_playing_chunks():
                 self.event_bus.publish_sync(

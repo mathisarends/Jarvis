@@ -6,30 +6,15 @@ from agent.config import (
     VoiceSettings,
     WakeWordSettings,
 )
-from agent.realtime.events.client.session_update import (
-    MCPRequireApprovalMode,
-    MCPTool,
-    NoiseReductionType,
-)
-from agent.realtime.views import AssistantVoice
+from agent.events.schemas import AssistantVoice, NoiseReductionType
 from agent.service import RealtimeAgent
 from agent.wake_word import PorcupineWakeWord
 
 
 async def main():
-    """Run the voice assistant application."""
-
-    mcp_tool = MCPTool(
-        server_label="dmcp",
-        server_url="https://dmcp-server.deno.dev/sse",
-        require_approval=MCPRequireApprovalMode.NEVER,
-    )
-
-    # Configure settings
     model_settings = ModelSettings(
         instructions="Be concise and friendly. Answer in German. Always use tools if necessary.",
         temperature=0.8,
-        mcp_tools=[mcp_tool],
     )
 
     voice_settings = VoiceSettings(

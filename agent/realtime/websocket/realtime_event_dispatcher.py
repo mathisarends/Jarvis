@@ -2,13 +2,13 @@ from collections.abc import Callable
 from typing import Any
 
 from agent.events import EventBus
-from agent.realtime.event_types import RealtimeServerEvent
-from agent.realtime.views import (
+from agent.events.schemas import (
     ConversationItemTruncatedEvent,
     ErrorEvent,
-    ResponseOutputAudioDelta,
+    ResponseOutputAudioDeltaEvent,
     SessionCreatedEvent,
 )
+from agent.events.schemas.base import RealtimeServerEvent
 from agent.state.base import VoiceAssistantEvent
 from agent.tools.models import FunctionCallItem
 from agent.transcription.models import (
@@ -130,7 +130,7 @@ class RealtimeEventDispatcher(LoggingMixin):
         self._event_bus.publish_sync(VoiceAssistantEvent.USER_SPEECH_ENDED)
 
     def _handle_audio_chunk_received(self, data: dict[str, Any]) -> None:
-        audio_data = ResponseOutputAudioDelta.model_validate(data)
+        audio_data = ResponseOutputAudioDeltaEvent.model_validate(data)
         if not audio_data.delta:
             self.logger.warning("Received empty audio delta")
             return

@@ -1,4 +1,5 @@
 import asyncio
+import inspect
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
@@ -67,18 +68,37 @@ class EventBus(LoggingMixin):
     def _invoke_sync(
         self, callback: Callable, event: VoiceAssistantEvent, data: Any
     ) -> None:
-        try:
-            callback(event, data)
-        except Exception:
-            self.logger.exception("Error in sync callback %s", callback)
+        result = self._call_with_appropriate_args(callback, event, data)
+        if asyncio.iscoroutine(result):
+            self.logger.error(
+                "Sync callback %s returned coroutine - use async callback",
+                callback,
+            )
 
     async def _invoke_async(
         self, callback: Callable, event: VoiceAssistantEvent, data: Any
     ) -> None:
-        try:
-            await callback(event, data)
-        except Exception:
-            self.logger.exception("Error in async callback %s", callback.__name__)
+        result = self._call_with_appropriate_args(callback, event, data)
+        if asyncio.iscoroutine(result):
+            await result
+
+    def _call_with_appropriate_args(
+        self, callback: Callable, event: VoiceAssistantEvent, data: Any
+    ) -> Any:
+        sig = inspect.signature(callback)
+        params = list(sig.parameters.values())
+
+        if params and params[0].name == "self":
+            params = params[1:]
+
+        param_count = len(params)
+
+        if param_count == 0:
+            return callback()
+        elif param_count == 1:
+            return callback(data) if data is not None else callback(event)
+        else:
+            return callback(event, data)
 
     def _require_loop(self) -> asyncio.AbstractEventLoop:
         if self._loop is None:

@@ -8,11 +8,11 @@ from pydantic import BaseModel, ConfigDict, field_validator
 
 from agent.config.models import VoiceSettings
 from agent.events import EventBus
-from agent.realtime.event_types import RealtimeServerEvent
-from agent.realtime.events.client.conversation_item_create import (
+from agent.events.schemas.base import RealtimeServerEvent
+from agent.events.schemas.conversation import (
     ConversationItemCreateEvent,
 )
-from agent.realtime.events.conversation_item_create import FunctionCallOutputItem
+from agent.events.schemas.tools import FunctionCallOutputItem
 from agent.sound.player import AudioPlayer
 
 

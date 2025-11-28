@@ -10,7 +10,7 @@ from typing import (
     get_type_hints,
 )
 
-from agent.realtime.events.client.session_update import (
+from agent.events.schemas import (
     FunctionParameterProperty,
     FunctionParameters,
     FunctionTool,
