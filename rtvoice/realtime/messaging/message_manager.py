@@ -98,8 +98,8 @@ class RealtimeMessageManager(LoggingMixin):
     async def send_tool_result(self, function_call_result: FunctionCallResult) -> None:
         await self._send_or_queue(self._send_tool_result_direct, function_call_result)
 
-    async def send_execution_message(self, message: str) -> None:
-        await self._send_or_queue(self._send_execution_message_direct, message)
+    async def send_loading_message(self, message: str) -> None:
+        await self._send_or_queue(self._send_loading_message_direct, message)
 
     async def _send_tool_result_direct(
         self, function_call_result: FunctionCallResult
@@ -109,7 +109,7 @@ class RealtimeMessageManager(LoggingMixin):
         await self._send_conversation_item(function_call_result)
         await self._trigger_response(function_call_result)
 
-    async def _send_execution_message_direct(self, message: str) -> None:
+    async def _send_loading_message_direct(self, message: str) -> None:
         self.logger.info("Sending generator tool update")
 
         response_event = ConversationResponseCreateEvent.with_instructions(

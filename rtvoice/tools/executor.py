@@ -3,7 +3,7 @@ from __future__ import annotations
 import inspect
 from typing import TYPE_CHECKING, Any
 
-from rtvoice.events import EventBus
+from rtvoice.events.bus import EventBus
 from rtvoice.shared.logging_mixin import LoggingMixin
 from rtvoice.state.base import VoiceAssistantEvent
 from rtvoice.tools.models import (
@@ -42,8 +42,8 @@ class ToolExecutor(LoggingMixin):
 
         tool = self._tool_registry.get(function_name)
 
-        if tool.execution_message:
-            await self._message_manager.send_execution_message(tool.execution_message)
+        if tool.loading_message:
+            await self._message_manager.send_loading_message(tool.loading_message)
 
         await self._execute_tool(tool, data, llm_arguments)
 

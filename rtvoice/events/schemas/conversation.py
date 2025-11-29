@@ -17,10 +17,19 @@ class MessageRole(StrEnum):
     SYSTEM = "system"
 
 
-class ConversationItem(BaseModel):
+class MessageConversationItem(BaseModel):
     type: Literal["message"]
     role: MessageRole
     content: list[ConversationContent]
+
+
+class FunctionCallOutputConversationItem(BaseModel):
+    type: Literal["function_call_output"] = "function_call_output"
+    call_id: str
+    output: str
+
+
+ConversationItem = MessageConversationItem | FunctionCallOutputConversationItem
 
 
 class ConversationItemCreateEvent(BaseModel):
@@ -31,10 +40,21 @@ class ConversationItemCreateEvent(BaseModel):
     def assistant_message(cls, text: str) -> Self:
         return cls(
             type=RealtimeClientEvent.CONVERSATION_ITEM_CREATE,
-            item=ConversationItem(
+            item=MessageConversationItem(
                 type="message",
                 role=MessageRole.ASSISTANT,
                 content=[ConversationContent(type="output_text", text=text)],
+            ),
+        )
+
+    @classmethod
+    def function_call_output(cls, call_id: str, output: str) -> Self:
+        return cls(
+            type=RealtimeClientEvent.CONVERSATION_ITEM_CREATE,
+            item=FunctionCallOutputConversationItem(
+                type="function_call_output",
+                call_id=call_id,
+                output=output,
             ),
         )
 

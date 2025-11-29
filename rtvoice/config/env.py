@@ -11,3 +11,4 @@ class AgentEnv(BaseSettings):
 
     pico_access_key: str
     openai_api_key: str
+    rtvoice_log_level: str = "WARNING"

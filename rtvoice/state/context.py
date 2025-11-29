@@ -40,6 +40,34 @@ class VoiceAssistantContext(LoggingMixin):
 
         self._setup_event_subscriptions()
 
+    @property
+    def state(self) -> AssistantState:
+        return self._state
+
+    @property
+    def wake_word_listener(self) -> WakeWordListener:
+        return self._wake_word_listener
+
+    @property
+    def audio_capture(self) -> MicrophoneCapture:
+        return self._audio_capture
+
+    @property
+    def speech_detector(self) -> SpeechDetector:
+        return self._speech_detector
+
+    @property
+    def audio_player(self) -> AudioPlayer:
+        return self._audio_player
+
+    @property
+    def event_bus(self) -> EventBus:
+        return self._event_bus
+
+    @property
+    def realtime_client(self) -> RealtimeClient:
+        return self._realtime_client
+
     async def run(self) -> None:
         self._audio_player.play_startup_sound()
         await self._state.on_enter(self)

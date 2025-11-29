@@ -13,9 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from rtvoice.events import EventBus
 from rtvoice.events.schemas.base import RealtimeServerEvent
-from rtvoice.events.schemas.conversation import (
-    ConversationItemCreateEvent,
-)
+from rtvoice.events.schemas.conversation import ConversationItemCreateEvent
 from rtvoice.sound.player import AudioPlayer
 
 if TYPE_CHECKING:
@@ -108,15 +106,6 @@ class ToolChoice(BaseModel):
     mcp: MCPTool | None = None
 
 
-class FunctionCallOutputItem(BaseModel):
-    type: Literal["function_call_output"] = "function_call_output"
-    call_id: str
-    output: str
-    id: str | None = None
-    object: Literal["realtime.item"] | None = None
-    status: str | None = None
-
-
 class FunctionCallItem(BaseModel):
     type: Literal[RealtimeServerEvent.RESPONSE_FUNCTION_CALL_ARGUMENTS_DONE] = (
         RealtimeServerEvent.RESPONSE_FUNCTION_CALL_ARGUMENTS_DONE
@@ -152,11 +141,9 @@ class FunctionCallResult(BaseModel):
     response_instruction: str | None = None
 
     def to_conversation_item(self) -> ConversationItemCreateEvent:
-        return ConversationItemCreateEvent(
-            item=FunctionCallOutputItem(
-                call_id=self.call_id,
-                output=self._format_output(),
-            )
+        return ConversationItemCreateEvent.function_call_output(
+            call_id=self.call_id,
+            output=self._format_output(),
         )
 
     def _format_output(self) -> str:
@@ -177,7 +164,3 @@ class SpecialToolParameters(BaseModel):
     event_bus: EventBus
     voice_settings: VoiceSettings
     tool_calling_model_name: str | None = None
-
-
-def _rebuild_special_tool_parameters() -> None:
-    SpecialToolParameters.model_rebuild()

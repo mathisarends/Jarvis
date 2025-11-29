@@ -13,14 +13,14 @@ class Tool:
         function: Callable,
         schema: FunctionParameters,
         response_instruction: str | None = None,
-        execution_message: str | None = None,
+        loading_message: str | None = None,
     ):
         self.name = name
         self.description = description
         self.function = function
         self.schema = schema
         self.response_instruction = response_instruction
-        self.execution_message = execution_message
+        self.loading_message = loading_message
 
     async def execute(self, arguments: dict[str, Any]) -> Any:
         if inspect.iscoroutinefunction(self.function):

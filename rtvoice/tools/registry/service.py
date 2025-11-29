@@ -33,7 +33,7 @@ class ToolRegistry:
         description: str,
         name: str | None = None,
         response_instruction: str | None = None,
-        execution_message: str | None = None,
+        loading_message: str | None = None,
     ):
         def decorator(func: Callable) -> Callable:
             tool_name = name or func.__name__
@@ -50,7 +50,7 @@ class ToolRegistry:
                 function=bound_func,
                 schema=schema,
                 response_instruction=response_instruction,
-                execution_message=execution_message,
+                loading_message=loading_message,
             )
 
             self._register(tool)

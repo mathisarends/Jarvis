@@ -16,13 +16,16 @@ from rtvoice.events.schemas import (
 )
 from rtvoice.mic import MicrophoneCapture, SpeechDetector
 from rtvoice.realtime.reatlime_client import RealtimeClient
-from rtvoice.shared.logging_mixin import LoggingMixin
+from rtvoice.shared.logging_mixin import LoggingMixin, ensure_logging_configured
 from rtvoice.sound import AudioPlayer, SoundEventHandler
 from rtvoice.sound.audio import AudioStrategy, PyAudioStrategy
 from rtvoice.state.context import VoiceAssistantContext
 from rtvoice.tools import SpecialToolParameters, Tools
+from rtvoice.tools.models import SpecialToolParameters as _SpecialToolParameters
 from rtvoice.wake_word import WakeWordListener
 from rtvoice.wake_word.models import PorcupineWakeWord
+
+_SpecialToolParameters.model_rebuild()
 
 
 class Agent(LoggingMixin):
@@ -48,6 +51,7 @@ class Agent(LoggingMixin):
         wake_word_settings: WakeWordSettings | None = None,
         env: AgentEnv | None = None,
     ):
+        ensure_logging_configured()
         self._env = env or AgentEnv()
 
         self._model_settings = model_settings or ModelSettings(
