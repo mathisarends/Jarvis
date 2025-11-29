@@ -1,4 +1,3 @@
-# 1. Separate Queue Manager
 import asyncio
 from collections import deque
 from collections.abc import Callable
@@ -7,15 +6,12 @@ from shared.logging_mixin import LoggingMixin
 
 
 class MessageQueue(LoggingMixin):
-    """Handles message queueing when responses are active."""
-
     def __init__(self):
         self._response_active = False
         self._message_queue = deque()
         self._queue_processing = False
 
     async def send_or_queue(self, message_func: Callable, *args, **kwargs) -> None:
-        """Send message immediately or queue if response is active."""
         if self._response_active:
             self.logger.debug("Response active - queueing message")
             self._message_queue.append((message_func, args, kwargs))
@@ -24,7 +20,6 @@ class MessageQueue(LoggingMixin):
             await message_func(*args, **kwargs)
 
     async def process_queue(self) -> None:
-        """Process all queued messages."""
         if self._queue_processing:
             return
 
@@ -41,5 +36,4 @@ class MessageQueue(LoggingMixin):
             self._queue_processing = False
 
     def set_response_active(self, active: bool) -> None:
-        """Set response active state."""
         self._response_active = active

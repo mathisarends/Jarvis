@@ -7,16 +7,14 @@ import websocket
 from pydantic import BaseModel
 
 from agent.config import AgentEnv
-from agent.events import EventBus
+from agent.events import EventBus, EventDispatcher
 from agent.events.schemas import RealtimeModel
-from agent.realtime.websocket.realtime_event_dispatcher import RealtimeEventDispatcher
 from agent.state.base import VoiceAssistantEvent
 from shared.logging_mixin import LoggingMixin
 
 
 class WebSocketManager(LoggingMixin):
     DEFAULT_BASE_URL = "wss://api.openai.com/v1/realtime"
-    NO_CONNECTION_ERROR_MSG = "No connection available. Call create_connection() first."
 
     def __init__(
         self,
@@ -31,7 +29,7 @@ class WebSocketManager(LoggingMixin):
         self._connection_event = threading.Event()
         self._running = False
         self._event_bus = event_bus
-        self._event_dispatcher = RealtimeEventDispatcher(self._event_bus)
+        self._event_dispatcher = EventDispatcher(self._event_bus)
 
     @classmethod
     def from_model(
@@ -71,7 +69,9 @@ class WebSocketManager(LoggingMixin):
 
     async def send_message(self, message: dict[str, Any] | BaseModel) -> None:
         if not self._connected or not self._ws:
-            raise RuntimeError(self.NO_CONNECTION_ERROR_MSG)
+            raise RuntimeError(
+                "No connection available. Call create_connection() first."
+            )
 
         payload = (
             message.model_dump(exclude_none=True)
@@ -105,9 +105,6 @@ class WebSocketManager(LoggingMixin):
 
     def _on_message(self, ws, message: str) -> None:
         data = json.loads(message)
-        message_type = data.get("type", "")
-        self.logger.debug("Received message: %s", message_type)
-
         self._event_dispatcher.dispatch_event(data)
 
     def _on_error(self, ws, error) -> None:

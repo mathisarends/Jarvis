@@ -1,13 +1,9 @@
-from __future__ import annotations
-
 from pydantic import BaseModel, ConfigDict, Field
 
-from agent.realtime.events.client.session_update import (
+from agent.events.schemas import (
+    AssistantVoice,
     InputAudioNoiseReductionConfig,
     RealtimeModel,
-)
-from agent.realtime.views import (
-    AssistantVoice,
 )
 from agent.sound.audio.strategy import AudioStrategy
 from agent.wake_word.models import PorcupineWakeWord

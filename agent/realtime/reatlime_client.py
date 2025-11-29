@@ -1,7 +1,6 @@
 import asyncio
 import base64
 
-from agent.config import AgentEnv
 from agent.config.models import ModelSettings, VoiceSettings
 from agent.events import EventBus
 from agent.events.schemas.audio import (
@@ -28,7 +27,6 @@ class RealtimeClient(LoggingMixin):
         audio_capture: MicrophoneCapture,
         special_tool_parameters: SpecialToolParameters,
         event_bus: EventBus,
-        env: AgentEnv,
         tools: Tools,
     ):
         self.model_settings = model_settings
@@ -42,7 +40,7 @@ class RealtimeClient(LoggingMixin):
         self._audio_player = special_tool_parameters.audio_player
 
         self.ws_manager = WebSocketManager.from_model(
-            model=model_settings.model, event_bus=self.event_bus, env=env
+            model=model_settings.model, event_bus=self.event_bus
         )
         self.transcription_service = TranscriptionEventListener(
             event_bus=self.event_bus

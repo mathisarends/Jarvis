@@ -10,13 +10,13 @@ from typing import (
     get_type_hints,
 )
 
-from agent.events.schemas import (
+from agent.tools.models import (
     FunctionParameterProperty,
     FunctionParameters,
     FunctionTool,
     MCPTool,
+    SpecialToolParameters,
 )
-from agent.tools.models import SpecialToolParameters
 from agent.tools.registry.models import Tool
 
 

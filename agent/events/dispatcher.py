@@ -18,7 +18,7 @@ from agent.transcription.models import (
 from shared.logging_mixin import LoggingMixin
 
 
-class RealtimeEventDispatcher(LoggingMixin):
+class EventDispatcher(LoggingMixin):
     def __init__(self, event_bus: EventBus):
         self._event_bus = event_bus
         self._event_handlers = self._build_event_handler_map()
@@ -116,10 +116,7 @@ class RealtimeEventDispatcher(LoggingMixin):
             self.logger.debug("No handler registered for event: %s", event_type_str)
             return
 
-        try:
-            handler(data)
-        except Exception as e:
-            self.logger.error("Error handling event %s: %s", event_type_str, e)
+        handler(data)
 
     def _handle_user_speech_started(self, data: dict[str, Any]) -> None:
         self.logger.debug("User started speaking")

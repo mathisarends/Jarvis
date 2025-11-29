@@ -14,7 +14,6 @@ class CurrentMessageContext(LoggingMixin):
         self._start_time: float | None = None
         self._item_id: str | None = None
 
-        # Subscribe to response events
         self.event_bus.subscribe(
             VoiceAssistantEvent.ASSISTANT_STARTED_RESPONDING, self._on_response_started
         )
@@ -24,7 +23,6 @@ class CurrentMessageContext(LoggingMixin):
         self.event_bus.subscribe(
             VoiceAssistantEvent.ASSISTANT_SPEECH_INTERRUPTED, self._on_response_ended
         )
-        # Subscribe to audio chunk events
         self.event_bus.subscribe(
             VoiceAssistantEvent.AUDIO_CHUNK_RECEIVED, self._handle_audio_chunk_received
         )

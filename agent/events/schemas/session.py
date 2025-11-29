@@ -11,7 +11,7 @@ from agent.events.schemas.base import (
     RealtimeModel,
     RealtimeServerEvent,
 )
-from agent.events.schemas.tools import FunctionTool, MCPTool, ToolChoice, ToolChoiceMode
+from agent.tools.models import FunctionTool, MCPTool, ToolChoice, ToolChoiceMode
 
 
 class RealtimeSessionConfig(BaseModel):

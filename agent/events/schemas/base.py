@@ -3,6 +3,7 @@ from enum import StrEnum
 
 class RealtimeModel(StrEnum):
     GPT_REALTIME = "gpt-realtime"
+    GPT_REALTIME_MINI = "gpt-realtime-mini"
 
 
 class RealtimeClientEvent(StrEnum):

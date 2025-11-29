@@ -1,5 +1,6 @@
 import asyncio
 
+from agent import Agent
 from agent.config import (
     ModelSettings,
     TranscriptionSettings,
@@ -7,7 +8,6 @@ from agent.config import (
     WakeWordSettings,
 )
 from agent.events.schemas import AssistantVoice, NoiseReductionType
-from agent.service import RealtimeAgent
 from agent.wake_word import PorcupineWakeWord
 
 
@@ -34,7 +34,8 @@ async def main():
     )
 
     try:
-        agent = RealtimeAgent(
+        agent = Agent(
+            instructions="seit nett",
             model_settings=model_settings,
             voice_settings=voice_settings,
             transcription_settings=transcription_settings,

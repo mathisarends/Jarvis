@@ -1,19 +1,118 @@
 import json
+from enum import StrEnum
 from typing import (
+    TYPE_CHECKING,
     Any,
     Literal,
+    Self,
 )
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from agent.config.models import VoiceSettings
 from agent.events import EventBus
 from agent.events.schemas.base import RealtimeServerEvent
 from agent.events.schemas.conversation import (
     ConversationItemCreateEvent,
 )
-from agent.events.schemas.tools import FunctionCallOutputItem
 from agent.sound.player import AudioPlayer
+
+if TYPE_CHECKING:
+    from agent.config.models import VoiceSettings
+
+
+class JsonType(StrEnum):
+    OBJECT = "object"
+    ARRAY = "array"
+    STRING = "string"
+    NUMBER = "number"
+    INTEGER = "integer"
+    BOOLEAN = "boolean"
+
+
+class ToolChoiceMode(StrEnum):
+    NONE = "none"
+    AUTO = "auto"
+    REQUIRED = "required"
+
+
+class MCPConnectorId(StrEnum):
+    DROPBOX = "connector_dropbox"
+    GMAIL = "connector_gmail"
+    GOOGLE_CALENDAR = "connector_googlecalendar"
+    GOOGLE_DRIVE = "connector_googledrive"
+    MICROSOFT_TEAMS = "connector_microsoftteams"
+    OUTLOOK_CALENDAR = "connector_outlookcalendar"
+    OUTLOOK_EMAIL = "connector_outlookemail"
+    SHAREPOINT = "connector_sharepoint"
+
+
+class MCPRequireApprovalMode(StrEnum):
+    NEVER = "never"
+    AUTO = "auto"
+    ALWAYS = "always"
+    FIRST_USE = "first_use"
+
+
+class FunctionParameterProperty(BaseModel):
+    type: JsonType
+    description: str | None = None
+
+
+class FunctionParameters(BaseModel):
+    type: str = "object"
+    strict: bool = True
+    properties: dict[str, FunctionParameterProperty] = Field(default_factory=dict)
+    required: list[str] = Field(default_factory=list)
+
+
+class FunctionTool(BaseModel):
+    type: Literal["function"] = "function"
+    name: str
+    description: str | None = None
+    parameters: FunctionParameters
+
+
+class MCPToolFilter(BaseModel):
+    patterns: list[str] | None = None
+    exclude: list[str] | None = None
+
+
+class MCPRequireApproval(BaseModel):
+    tools: list[str] | None = None
+    all: bool | None = None
+
+
+class MCPTool(BaseModel):
+    type: Literal["mcp"] = "mcp"
+    server_label: str
+    allowed_tools: list[str] | MCPToolFilter | None = None
+    authorization: str | None = None
+    connector_id: MCPConnectorId | str | None = None
+    headers: dict[str, Any] | None = None
+    require_approval: MCPRequireApproval | str | None = None
+    server_description: str | None = None
+    server_url: str | None = None
+
+    @model_validator(mode="after")
+    def validate_server_config(self) -> Self:
+        if not self.server_url and not self.connector_id:
+            raise ValueError("Either 'server_url' or 'connector_id' must be provided")
+        return self
+
+
+class ToolChoice(BaseModel):
+    mode: ToolChoiceMode = ToolChoiceMode.AUTO
+    function: FunctionTool | None = None
+    mcp: MCPTool | None = None
+
+
+class FunctionCallOutputItem(BaseModel):
+    type: Literal["function_call_output"] = "function_call_output"
+    call_id: str
+    output: str
+    id: str | None = None
+    object: Literal["realtime.item"] | None = None
+    status: str | None = None
 
 
 class FunctionCallItem(BaseModel):
@@ -40,8 +139,6 @@ class FunctionCallItem(BaseModel):
             try:
                 return json.loads(v)
             except json.JSONDecodeError:
-                # fallback: gib den raw string in einem Feld zurück,
-                # damit nichts verloren geht
                 return {"__raw__": v}
         raise TypeError("arguments must be a dict or a JSON string")
 
@@ -76,5 +173,9 @@ class SpecialToolParameters(BaseModel):
 
     audio_player: AudioPlayer
     event_bus: EventBus
-    voice_settings: VoiceSettings
+    voice_settings: "VoiceSettings"
     tool_calling_model_name: str | None = None
+
+
+def _rebuild_special_tool_parameters() -> None:
+    SpecialToolParameters.model_rebuild()

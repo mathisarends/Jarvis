@@ -8,27 +8,36 @@ from agent.config.models import (
     WakeWordSettings,
 )
 from agent.events import EventBus
+from agent.events.schemas import RealtimeModel
 from agent.mic import MicrophoneCapture, SpeechDetector
 from agent.realtime.reatlime_client import RealtimeClient
 from agent.sound import AudioPlayer, SoundEventHandler
 from agent.state.context import VoiceAssistantContext
 from agent.tools import SpecialToolParameters, Tools
+from agent.tools.models import _rebuild_special_tool_parameters
 from agent.wake_word import WakeWordListener
 from shared.logging_mixin import LoggingMixin
 
+_rebuild_special_tool_parameters()
 
-class RealtimeAgent(LoggingMixin):
+
+class Agent(LoggingMixin):
     def __init__(
         self,
+        instructions: str = "",
+        model: RealtimeModel = RealtimeModel.GPT_REALTIME_MINI,
+        tools: Tools | None = None,
         model_settings: ModelSettings | None = None,
         voice_settings: VoiceSettings | None = None,
         transcription_settings: TranscriptionSettings | None = None,
         wake_word_settings: WakeWordSettings | None = None,
         env: AgentEnv | None = None,
-        tools: Tools | None = None,
     ):
         self._env = env or AgentEnv()
         self._model_settings = model_settings or ModelSettings()
+        self._model_settings.instructions = instructions
+        self._model_settings.model = model
+
         self._voice_settings = voice_settings or VoiceSettings()
         self._transcription_settings = transcription_settings or TranscriptionSettings()
         self._wake_word_settings = wake_word_settings or WakeWordSettings()
@@ -158,7 +167,6 @@ class RealtimeAgent(LoggingMixin):
             special_tool_parameters=special_tool_parameters,
             event_bus=self._event_bus,
             tools=self._tools,
-            env=self._env,
         )
 
     def _create_context(self) -> VoiceAssistantContext:

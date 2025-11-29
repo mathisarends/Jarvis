@@ -2,12 +2,12 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from agent.events.schemas import (
     AssistantVoice,
-    MCPTool,
     NoiseReductionType,
     RealtimeModel,
     TranscriptionModel,
 )
 from agent.sound.audio import AudioStrategy, PyAudioStrategy
+from agent.tools.models import MCPTool
 from agent.wake_word.models import PorcupineWakeWord
 
 
