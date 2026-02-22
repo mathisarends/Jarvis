@@ -3,7 +3,8 @@ import logging
 
 from hueify import Light
 
-from jarvis.events import EventBus, WakeWordDetected
+from jarvis.events import EventBus
+from jarvis.events.views import WakeWordDetected
 
 logger = logging.getLogger(__name__)
 

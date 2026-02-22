@@ -5,7 +5,8 @@ from importlib.resources import files
 import sounddevice as sd
 import soundfile as sf
 
-from jarvis.events import EventBus, WakeWordDetected
+from jarvis.events import EventBus
+from jarvis.events.views import WakeWordDetected
 
 logger = logging.getLogger(__name__)
 

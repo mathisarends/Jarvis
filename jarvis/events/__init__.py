@@ -1,13 +1,7 @@
 from .bus import EventBus
-from .views import (
-    WakeWordDetected, 
-    AgentStopped, 
-    AgentInterrupted
-)
+from .agent_event_adapter import AgentEventAdapter
 
 __all__ = [
     "EventBus",
-    "WakeWordDetected"
-    "AgentStopped",
-    "AgentInterrupted",
+    "AgentEventAdapter",
 ]

@@ -1,5 +1,6 @@
 import logging
-from jarvis.events import EventBus, WakeWordDetected
+from jarvis.events import EventBus
+from jarvis.events.views import WakeWordDetected
 from jarvis.wake_word import WakeWord, WakeWordListener
 
 logger = logging.getLogger(__name__)
