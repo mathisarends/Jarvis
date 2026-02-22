@@ -14,7 +14,8 @@ from rtvoice import (
     RealtimeAgent, 
     RealtimeModel, 
     AgentListener, 
-    SubAgent
+    SubAgent,
+    AssistantVoice
 )
 from rtvoice.mcp import MCPServer
 
@@ -24,8 +25,9 @@ logger = logging.getLogger(__name__)
 class Jarvis(AgentListener):
     def __init__(
         self,
-        realtime_model: RealtimeModel,
-        instructions: str,
+        realtime_model: RealtimeModel = RealtimeModel.GPT_REALTIME,
+        voice: AssistantVoice = AssistantVoice.MARIN,
+        instructions: str = "",
         subagents: list[SubAgent] | None = None,
         mcp_servers: list[MCPServer] | None = None,
         wake_word: WakeWord = WakeWord.JARVIS,
@@ -33,6 +35,7 @@ class Jarvis(AgentListener):
         access_key: str | None = None,
     ) -> None:
         self._realtime_model = realtime_model
+        self._voice = voice
         self._instructions = instructions
         self._subagents = subagents or []
         self._mcp_servers = mcp_servers or []
@@ -66,14 +69,17 @@ class Jarvis(AgentListener):
         await self._event_bus.dispatch(AgentInterrupted())
 
     def configure_agent(self) -> RealtimeAgent:
-        return RealtimeAgent(instructions=self._instructions, 
-                             model=self._realtime_model, 
-                             subagents=self._subagents,
-                             mcp_servers=self._mcp_servers,
-                             agent_listener=self._agent_adapter)
+        return RealtimeAgent(
+            instructions=self._instructions,
+            model=self._realtime_model,
+            subagents=self._subagents,
+            mcp_servers=self._mcp_servers,
+            agent_listener=self._agent_adapter
+        )
 
     async def run(self) -> None:
         await self._listener.listen()
 
+    # Implement agent running and stop for this facade here aswell (would be pretty nices)
     async def stop(self) -> None:
         ...
