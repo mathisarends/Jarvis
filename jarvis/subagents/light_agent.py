@@ -20,7 +20,6 @@ class LightAgent(SubAgent):
             tools=self._build_tools(),
             llm=ChatOpenAI(model="gpt-4o-mini", temperature=0.2),
             handoff_instructions="Use this agent for light and ambiance control.",
-            pending_message="Adjusting the lights...",
         )
 
     def _build_tools(self) -> Tools:

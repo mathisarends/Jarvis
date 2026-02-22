@@ -32,7 +32,6 @@ class WeatherAgent(SubAgent):
             tools=self._build_tools(),
             llm=ChatOpenAI(model="gpt-4o", temperature=0.2),
             handoff_instructions="Use this agent for weather-related questions.",
-            pending_message="Let me check the weather for you...",
         )
 
     def _build_tools(self) -> Tools:

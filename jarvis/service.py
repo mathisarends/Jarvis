@@ -19,6 +19,7 @@ from rtvoice import (
     Tools,
 )
 from rtvoice.views import NoiseReduction
+from rtvoice.audio import AudioOutputDevice
 
 from rtvoice.mcp import MCPServer
 
@@ -27,7 +28,7 @@ logger = logging.getLogger(__name__)
 class Jarvis(AgentListener):
     def __init__(
         self,
-        realtime_model: RealtimeModel = RealtimeModel.GPT_REALTIME,
+        realtime_model: RealtimeModel = RealtimeModel.GPT_REALTIME_MINI,
         voice: AssistantVoice = AssistantVoice.MARIN,
         instructions: str = "",
         tools: Tools | None = None,
@@ -37,6 +38,7 @@ class Jarvis(AgentListener):
         wake_word_sensitivity: float = 0.8,
         noise_reduction: NoiseReduction = NoiseReduction.FAR_FIELD,
         access_key: str | None = None,
+        audio_output_device: AudioOutputDevice | None = None,
     ) -> None:
         self._realtime_model = realtime_model
         self._voice = voice
@@ -45,6 +47,7 @@ class Jarvis(AgentListener):
         self._subagents = subagents or []
         self._mcp_servers = mcp_servers or []
         self._noise_reduction = noise_reduction
+        self._audio_output_device = audio_output_device
 
         self._event_bus = EventBus()
         self._agent: RealtimeAgent | None = None
@@ -69,6 +72,7 @@ class Jarvis(AgentListener):
             subagents=self._subagents,
             mcp_servers=self._mcp_servers,
             noise_reduction=self._noise_reduction,
+            audio_output=self._audio_output_device,
             agent_listener=self,
         )
         async with self._agent:
