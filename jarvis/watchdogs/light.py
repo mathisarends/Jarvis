@@ -18,8 +18,6 @@ class LightsWatchdog:
     _LIGHT_NAME = "Hue lightstrip plus 1"
     _FLASH_DURATION = 1
     _SHORT_FLASH_DURATION = 0.3
-    _PULSE_UP = 10
-    _PULSE_INTERVAL = 1.5
 
     def __init__(self, event_bus: EventBus) -> None:
         self._event_bus = event_bus
@@ -30,7 +28,6 @@ class LightsWatchdog:
 
         self._light: Light | None = None
         self._hueify: Hueify | None = None
-        self._pulse_task: asyncio.Task | None = None
 
     @property
     def is_connected(self) -> bool:
@@ -48,34 +45,13 @@ class LightsWatchdog:
         logger.info("Lights watchdog started")
 
     async def stop(self) -> None:
-        self._stop_pulse()
         if self.is_connected:
             await self._hueify.close()
-
-    def _start_pulse(self) -> None:
-        self._stop_pulse()
-        self._pulse_task = asyncio.create_task(self._pulse_loop())
-
-    def _stop_pulse(self) -> None:
-        if self._pulse_task is not None and not self._pulse_task.done():
-            self._pulse_task.cancel()
-            self._pulse_task = None
-
-    async def _pulse_loop(self) -> None:
-        try:
-            while True:
-                await self._light.increase_brightness(self._PULSE_UP)
-                await asyncio.sleep(self._PULSE_INTERVAL)
-                await self._light.decrease_brightness(self._PULSE_UP)
-                await asyncio.sleep(self._PULSE_INTERVAL)
-        except asyncio.CancelledError:
-            pass
 
     async def _on_wake_word_detected(self, _: WakeWordDetected) -> None:
         if not self._is_ready:
             return
         asyncio.create_task(self._flash())
-        self._start_pulse()
 
     async def _flash(self) -> None:
         await self._light.increase_brightness(20)
@@ -108,7 +84,6 @@ class LightsWatchdog:
         await self._light.increase_brightness(30)
 
     async def _on_agent_stopped(self, _: AgentStopped) -> None:
-        self._stop_pulse()
         if not self._is_ready:
             return
         asyncio.create_task(self._flash_stopped())

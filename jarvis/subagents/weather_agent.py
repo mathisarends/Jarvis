@@ -6,6 +6,12 @@ import httpx
 from rtvoice import SubAgent, Tools
 from llmify import ChatOpenAI
 
+async def _get_user_location() -> str:
+    async with httpx.AsyncClient() as client:
+        response = await client.get("https://ipapi.co/json/")
+        data = response.json()
+        return f"{data['city']}, {data['region']}, {data['country_name']}"
+
 
 def _build_weather_tools() -> Tools:
     tools = Tools()
@@ -19,10 +25,7 @@ def _build_weather_tools() -> Tools:
         "Always call this first before fetching weather."
     )
     async def get_current_location() -> str:
-        async with httpx.AsyncClient() as client:
-            response = await client.get("https://ipapi.co/json/")
-            data = response.json()
-            return f"{data['city']}, {data['region']}, {data['country_name']}"
+        return await _get_user_location()
 
     @tools.action(
         "Fetch current weather and hourly forecast for a given location. "
@@ -80,29 +83,31 @@ def _build_weather_tools() -> Tools:
     return tools
 
 
-_INSTRUCTIONS = (
-    "You are a weather assistant.\n\n"
-    "When asked about the weather, always follow these steps:\n"
-    "1. Call get_current_location to determine the user's current location.\n"
-    "2. Call get_weather with that location.\n"
-    "3. Answer based on what the user actually asked:\n"
-    "   - Asked in the morning (before 11:00) → give a brief day overview: "
-    "how the temperature develops and whether it will rain and when.\n"
-    "   - 'this evening' / 'tonight' → use the hourly forecast for 18:00–22:00\n"
-    "   - 'this afternoon' → use 12:00–17:00\n"
-    "   - 'tomorrow' → use tomorrow's hourly data\n"
-    "   - general / current → current conditions only\n\n"
-    "Never assume or hardcode a location – always fetch it fresh via get_current_location.\n\n"
-    "Be extremely concise – 1 to 2 sentences max. "
-    "Focus only on two things: temperature feel and rain. "
-    "Say 'pretty warm', 'mild', 'cold' etc. "
-    "For rain: mention if and roughly when it might rain. If no rain expected, say so briefly.\n\n"
-    "When calling the done tool, always begin your answer by mentioning the city "
-    "that was fetched dynamically via get_current_location."
-)
+async def _build_instructions() -> str:
+    location = await _get_user_location()
+
+    return (
+        "You are a weather assistant.\n\n"
+        f"The user's current location is: {location}\n\n"
+        "When asked about the weather:\n"
+        f"- Always use {location} as the location for get_weather, "
+        "unless the user explicitly mentions a different city.\n"
+        "- Answer based on what the user actually asked:\n"
+        "   - Asked in the morning (before 11:00) → give a brief day overview: "
+        "how the temperature develops and whether it will rain and when.\n"
+        "   - 'this evening' / 'tonight' → use the hourly forecast for 18:00–22:00\n"
+        "   - 'this afternoon' → use 12:00–17:00\n"
+        "   - 'tomorrow' → use tomorrow's hourly data\n"
+        "   - general / current → current conditions only\n\n"
+        "Be extremely concise – 1 to 2 sentences max. "
+        "Focus only on two things: temperature feel and rain. "
+        "Say 'pretty warm', 'mild', 'cold' etc. "
+        "For rain: mention if and roughly when it might rain. If no rain expected, say so briefly.\n\n"
+        "When calling the done tool, always begin your answer by mentioning the city used."
+    )
 
 
-def create_weather_agent() -> SubAgent:
+async def create_weather_agent() -> SubAgent:
     return SubAgent(
         name="Weather Agent",
         description=(
@@ -110,8 +115,8 @@ def create_weather_agent() -> SubAgent:
             "Use this agent for questions about weather, temperature, rain, "
             "or conditions at specific times like 'this evening' or 'later today'."
         ),
-        instructions=_INSTRUCTIONS,
+        instructions=await _build_instructions(),
         tools=_build_weather_tools(),
         llm=ChatOpenAI(model="gpt-4o-mini", temperature=0.2),
-        handoff_instructions="Use this agent for weather-related questions.",
+        handoff_instructions="Always ask only: 'What is the weather like today?' – do not include any location.",
     )

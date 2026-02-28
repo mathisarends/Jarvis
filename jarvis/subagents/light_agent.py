@@ -15,7 +15,7 @@ def _build_instructions(hueify: Hueify) -> str:
     sections = [
         "You are a smart home lighting assistant with access to Philips Hue lights via MCP tools.",
         "When the user asks you to control lights, use the available tools to do so.",
-        "Always confirm what you did in a short, natural response.",
+        "Confirm what you did in one short sentence. No follow-up offers or questions.",
         "",
         "## Available Resources",
         "",
@@ -76,5 +76,8 @@ async def create_light_agent(llm) -> SubAgent:
             "change brightness or color temperature, activate scenes, "
             "or turn lights/rooms/zones on or off."
         ),
-        result_instructions="Return a short, natural confirmation of what was changed.",
+        result_instructions=(
+            "Return a short, natural confirmation of what was changed. "
+            "No follow-up offers, no 'Sag Bescheid', no questions."
+        ),
     )
