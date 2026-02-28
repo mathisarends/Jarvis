@@ -12,9 +12,9 @@ logger = logging.getLogger(__name__)
 
 
 class SoundEffectWatchdog:
-    _WAKE_SOUND = str(files("jarvis.sounds").joinpath("wakesound.wav"))
-    _STOPPED_SOUND = str(files("jarvis.sounds").joinpath("agent_stopped.wav"))
-    _ERROR_SOUND = str(files("jarvis.sounds").joinpath("error_sound.wav"))
+    _WAKE_SOUND = str(files("jarvis.sounds").joinpath("wakesound.mp3"))
+    _STOPPED_SOUND = str(files("jarvis.sounds").joinpath("agent_stopped.mp3"))
+    _ERROR_SOUND = str(files("jarvis.sounds").joinpath("error_sound.mp3"))
 
     def __init__(self, event_bus: EventBus) -> None:
         self._event_bus = event_bus

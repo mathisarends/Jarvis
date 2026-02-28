@@ -6,7 +6,6 @@ from rtvoice.views import NoiseReduction
 from rtvoice.mcp import MCPServerStdio
 from jarvis import Jarvis, WakeWord, configure_logging
 from jarvis.subagents import WeatherAgent
-""" from jarvis.sonos import SonosAudioOutputDevice """
 
 configure_logging()
 
@@ -37,6 +36,7 @@ async def main() -> None:
         instructions=instructions,
         noise_reduction=NoiseReduction.NEAR_FIELD,
     )
+    await jarvis.prepare()
     await jarvis.run()
 
 

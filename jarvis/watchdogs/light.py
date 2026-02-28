@@ -19,13 +19,17 @@ class LightsWatchdog:
         self._event_bus.subscribe(AgentError, self._on_agent_error)
         self._hueify: Hueify | None = None
 
+    @property
+    def is_conntected(self) -> bool:
+        return self._hueify is not None
+
     async def start(self) -> None:
         self._hueify = Hueify()
         await self._hueify.connect()
         logger.info("Lights watchdog started")
 
     async def stop(self) -> None:
-        if self._hueify:
+        if self.is_conntected:
             await self._hueify.close()
 
     async def _on_wake_word_detected(self, _: WakeWordDetected) -> None:
@@ -37,7 +41,7 @@ class LightsWatchdog:
         )
 
     async def _flash(self) -> None:
-        if not self._hueify:
+        if not self.is_conntected:
             return
         light = self._hueify.lights.from_name(_LIGHT_NAME)
         await light.increase_brightness(20)

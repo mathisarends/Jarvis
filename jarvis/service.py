@@ -13,19 +13,19 @@ from jarvis.wake_word import WakeWord, WakeWordListener
 from jarvis.watchdogs import SoundEffectWatchdog, LightsWatchdog
 
 from rtvoice import (
-    RealtimeAgent, 
-    RealtimeModel, 
-    AgentListener, 
+    RealtimeAgent,
+    RealtimeModel,
+    AgentListener,
     SubAgent,
     AssistantVoice,
     Tools,
 )
 from rtvoice.views import NoiseReduction
 from rtvoice.audio import AudioOutputDevice
-
 from rtvoice.mcp import MCPServer
 
 logger = logging.getLogger(__name__)
+
 
 class Jarvis(AgentListener):
     def __init__(
@@ -54,8 +54,9 @@ class Jarvis(AgentListener):
         self._event_bus = EventBus()
         self._agent: RealtimeAgent | None = None
         self._next_agent: RealtimeAgent | None = None
+        self._prepared: bool = False
 
-        self._listener = WakeWordListener(
+        self._wake_word_listener = WakeWordListener(
             wake_word=wake_word,
             sensitivity=wake_word_sensitivity,
             access_key=access_key,
@@ -117,10 +118,32 @@ class Jarvis(AgentListener):
             AgentError(type=type, message=message, code=code, param=param)
         )
 
+    async def prepare(self) -> None:
+        """Pre-warms the agent and starts background services.
+
+        Optional but recommended: call this before run() to reduce latency
+        on the first wake-word detection. Safe to call multiple times –
+        subsequent calls are no-ops.
+        """
+        if self._prepared:
+            return
+
+        logger.info("Preparing Jarvis...")
+        await self._lights_watchdog.start()
+        await self._prepare_next_agent()
+        self._prepared = True
+        logger.info("Jarvis prepared and ready")
+
     async def run(self) -> None:
-        asyncio.create_task(self._prepare_next_agent())
+        """Starts the wake-word listener loop.
+
+        Calls prepare() automatically if not already prepared, so calling
+        prepare() beforehand is optional but gives faster first-response time.
+        """
+        await self.prepare()
+
         while True:
-            await self._listener.listen()
+            await self._wake_word_listener.listen()
 
     async def stop(self) -> None:
         if self._is_running():
