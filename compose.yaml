@@ -1,0 +1,11 @@
+services:
+  jarvis:
+    build: .
+    env_file: .env
+    devices:
+      - /dev/snd:/dev/snd
+    environment:
+      - PULSE_SERVER=unix:${XDG_RUNTIME_DIR}/pulse/native
+    volumes:
+      - ${XDG_RUNTIME_DIR}/pulse/native:${XDG_RUNTIME_DIR}/pulse/native
+    network_mode: host

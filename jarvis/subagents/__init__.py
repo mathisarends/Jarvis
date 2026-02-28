@@ -1,7 +1,4 @@
-from .weather_agent import WeatherAgent
-from .light_agent import LightAgent
+from .light_agent import create_light_agent
+from .weather_agent import create_weather_agent
 
-__all__ = [
-    "WeatherAgent",
-    "LightAgent",
-]
+__all__ = ["create_light_agent", "create_weather_agent"]

@@ -1,21 +1,14 @@
 import asyncio
 import logging
 
-from jarvis.events import EventBus
-from jarvis.events.views import (
-    WakeWordDetected,
-    AgentStarted,
-    AgentStopped,
-    AgentInterrupted,
-    AgentError,
-)
+from jarvis.events import EventBus, AgentEventAdapter
+from jarvis.events.views import WakeWordDetected
 from jarvis.wake_word import WakeWord, WakeWordListener
 from jarvis.watchdogs import SoundEffectWatchdog, LightsWatchdog
 
 from rtvoice import (
     RealtimeAgent,
     RealtimeModel,
-    AgentListener,
     SubAgent,
     AssistantVoice,
     Tools,
@@ -27,7 +20,7 @@ from rtvoice.mcp import MCPServer
 logger = logging.getLogger(__name__)
 
 
-class Jarvis(AgentListener):
+class Jarvis:
     def __init__(
         self,
         realtime_model: RealtimeModel = RealtimeModel.GPT_REALTIME_MINI,
@@ -52,6 +45,7 @@ class Jarvis(AgentListener):
         self._audio_output_device = audio_output_device
 
         self._event_bus = EventBus()
+        self._agent_listener = AgentEventAdapter(event_bus=self._event_bus)
         self._agent: RealtimeAgent | None = None
         self._next_agent: RealtimeAgent | None = None
         self._prepared: bool = False
@@ -75,7 +69,7 @@ class Jarvis(AgentListener):
             mcp_servers=self._mcp_servers,
             noise_reduction=self._noise_reduction,
             audio_output=self._audio_output_device,
-            agent_listener=self,
+            agent_listener=self._agent_listener,
         )
 
     async def _prepare_next_agent(self) -> None:
@@ -95,28 +89,6 @@ class Jarvis(AgentListener):
 
         self._agent = None
         asyncio.create_task(self._prepare_next_agent())
-
-    async def on_agent_started(self) -> None:
-        logger.info("Agent started – dispatching event...")
-        await self._event_bus.dispatch(AgentStarted())
-
-    async def on_agent_stopped(self) -> None:
-        logger.info("Agent stopped – dispatching event...")
-        await self._event_bus.dispatch(AgentStopped())
-
-    async def on_agent_interrupted(self) -> None:
-        logger.info("Agent interrupted – dispatching event...")
-        await self._event_bus.dispatch(AgentInterrupted())
-
-    async def on_agent_error(
-        self, type: str, message: str, code: str | None, param: str | None
-    ) -> None:
-        logger.error(
-            "Agent error [%s]: %s (code=%s, param=%s)", type, message, code, param
-        )
-        await self._event_bus.dispatch(
-            AgentError(type=type, message=message, code=code, param=param)
-        )
 
     async def prepare(self) -> None:
         """Pre-warms the agent and starts background services.

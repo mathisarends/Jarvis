@@ -17,3 +17,7 @@ class AgentError(BaseModel):
     message: str
     code: str | None = None
     param: str | None = None
+
+class SubagentCalled(BaseModel):
+    agent_name: str
+    task: str

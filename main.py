@@ -1,38 +1,41 @@
 import asyncio
-import sys
+from datetime import datetime
+import logging
 
-from rtvoice import AssistantVoice
+from llmify import ChatOpenAI
+from rtvoice import AssistantVoice, Tools
 from rtvoice.views import NoiseReduction
-from rtvoice.mcp import MCPServerStdio
 from jarvis import Jarvis, WakeWord, configure_logging
-from jarvis.subagents import WeatherAgent
+from jarvis.subagents import create_light_agent, create_weather_agent
 
 configure_logging()
 
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("websockets").setLevel(logging.WARNING)
+logging.getLogger("openai").setLevel(logging.WARNING)
+logging.getLogger("hueify").setLevel(logging.WARNING)
 
 async def main() -> None:
-    weather_agent = WeatherAgent()
+    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.2)
+    weather_agent = create_weather_agent()
+    light_agent = await create_light_agent(llm=llm)
 
-    hueify_mcp = MCPServerStdio(
-        command=sys.executable,
-        args=["-m", "hueify.mcp.app"],
-    )
+    tools = Tools()
+
+    @tools.action("Get the current local date and time.")
+    def get_current_time() -> str:
+        return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     instructions = (
-        "Du bist Jarvis, ein persönlicher Sprachassistent. "
-        "Antworte immer auf Deutsch, kurz und direkt – maximal 1–2 Sätze. "
-        "Keine Rückfragen, keine Höflichkeitsfloskeln wie 'Kann ich sonst noch helfen?' oder 'Gerne unterstütze ich Sie'. "
-        "Erfinde niemals Kontext über den Nutzer, seine Umgebung oder seinen Zustand – "
-        "mache keine Aussagen über Gegenstände, Lichter, Kleidung oder andere Details, "
-        "die du nicht explizit durch ein Tool-Ergebnis oder den Nutzer selbst erfahren hast. "
-        "Halte dich strikt an das, was dir bekannt ist."
+        "Du bist Jarvis. Antworte auf Deutsch, maximal 1–2 Sätze, keine Floskeln, keine Rückfragen. "
+        "Sag nur, was du durch ein Tool-Ergebnis oder den Nutzer selbst weißt – nichts erfinden."
     )
 
     jarvis = Jarvis(
         voice=AssistantVoice.MARIN,
         wake_word=WakeWord.PICOVOICE,
-        subagents=[weather_agent],
-        mcp_servers=[hueify_mcp],
+        subagents=[weather_agent, light_agent],
         instructions=instructions,
         noise_reduction=NoiseReduction.NEAR_FIELD,
     )
