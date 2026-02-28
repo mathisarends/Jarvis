@@ -29,7 +29,7 @@ class Jarvis:
         tools: Tools | None = None,
         subagents: list[SubAgent] | None = None,
         mcp_servers: list[MCPServer] | None = None,
-        wake_word: WakeWord = WakeWord.JARVIS,
+        wake_word: WakeWord = WakeWord.HEY_JARVIS,
         wake_word_sensitivity: float = 0.8,
         noise_reduction: NoiseReduction = NoiseReduction.FAR_FIELD,
         audio_output_device: AudioOutputDevice | None = None,

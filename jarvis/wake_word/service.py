@@ -10,7 +10,7 @@ import pyaudio
 import openwakeword
 from openwakeword.model import Model
 
-from jarvis.wake_word.views import WakeWord
+from jarvis.wake_word.views import WAKE_WORD_MODEL, WakeWord
 
 logger = logging.getLogger(__name__)
 
@@ -18,16 +18,14 @@ CHUNK = 1280
 RATE = 16000
 CHANNELS = 1
 
-MODEL_PATH = (
-    Path(openwakeword.__file__).parent / "resources" / "models" / "hey_jarvis_v0.1.onnx"
-)
+MODELS_DIR = Path(openwakeword.__file__).parent / "resources" / "models"
 
 
 class WakeWordListener:
     def __init__(
         self,
         on_detection: Callable[[], Awaitable[None]],
-        wake_word: WakeWord = WakeWord.JARVIS,
+        wake_word: WakeWord = WakeWord.HEY_JARVIS,
         sensitivity: float = 0.5,
     ) -> None:
         if not 0.0 <= sensitivity <= 1.0:
@@ -36,7 +34,8 @@ class WakeWordListener:
         self._wake_word = wake_word
         self._sensitivity = sensitivity
         self._on_detection = on_detection
-        self._model = Model(wakeword_model_paths=[str(MODEL_PATH)])
+        model_path = MODELS_DIR / WAKE_WORD_MODEL[wake_word]
+        self._model = Model(wakeword_model_paths=[str(model_path)])
         self._pa = pyaudio.PyAudio()
         self._stream = self._pa.open(
             rate=RATE,

@@ -34,7 +34,7 @@ async def main() -> None:
 
     jarvis = Jarvis(
         voice=AssistantVoice.MARIN,
-        wake_word=WakeWord.PICOVOICE,
+        wake_word=WakeWord.HEY_JARVIS,
         subagents=[weather_agent, light_agent],
         instructions=instructions,
         noise_reduction=NoiseReduction.NEAR_FIELD,
