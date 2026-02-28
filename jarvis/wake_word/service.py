@@ -1,80 +1,88 @@
 import asyncio
+import functools
 import logging
-import os
-from collections.abc import Awaitable, Callable
-from jarvis.wake_word.views import WakeWord
-import pvporcupine
-import pyaudio
-import struct
-import signal
 import sys
+from collections.abc import Awaitable, Callable
+from pathlib import Path
 
-from dotenv import load_dotenv
+import numpy as np
+import pyaudio
+import openwakeword
+from openwakeword.model import Model
 
-load_dotenv(override=True)
+from jarvis.wake_word.views import WakeWord
 
 logger = logging.getLogger(__name__)
+
+CHUNK = 1280
+RATE = 16000
+CHANNELS = 1
+
+MODEL_PATH = (
+    Path(openwakeword.__file__).parent / "resources" / "models" / "hey_jarvis_v0.1.onnx"
+)
 
 
 class WakeWordListener:
     def __init__(
         self,
         on_detection: Callable[[], Awaitable[None]],
-        wake_word: WakeWord = WakeWord.PORCUPINE,
+        wake_word: WakeWord = WakeWord.JARVIS,
         sensitivity: float = 0.5,
-        access_key: str | None = None,
     ) -> None:
         if not 0.0 <= sensitivity <= 1.0:
-            raise ValueError("sensitivity muss zwischen 0.0 und 1.0 liegen.")
+            raise ValueError("Sensitivity must be between 0.0 and 1.0.")
 
         self._wake_word = wake_word
+        self._sensitivity = sensitivity
         self._on_detection = on_detection
-        self._access_key = access_key or os.getenv("PICO_ACCESS_KEY")
-
-        if not self._access_key:
-            raise ValueError("No access key found.")
-
-        self._porcupine = pvporcupine.create(
-            access_key=self._access_key,
-            keywords=[wake_word],
-            sensitivities=[sensitivity],
-        )
-
+        self._model = Model(wakeword_model_paths=[str(MODEL_PATH)])
         self._pa = pyaudio.PyAudio()
         self._stream = self._pa.open(
-            rate=self._porcupine.sample_rate,
-            channels=1,
+            rate=RATE,
+            channels=CHANNELS,
             format=pyaudio.paInt16,
             input=True,
-            frames_per_buffer=self._porcupine.frame_length,
+            frames_per_buffer=CHUNK,
         )
 
     async def listen(self) -> None:
         logger.info('Listening for "%s"...', self._wake_word)
 
         loop = asyncio.get_running_loop()
-        signal.signal(signal.SIGINT, lambda sig, frame: self._shutdown())
+        loop.add_signal_handler(asyncio.unix_events.signal.SIGINT, self._shutdown)
 
         while True:
             pcm = await loop.run_in_executor(
                 None,
-                lambda: self._stream.read(self._porcupine.frame_length, exception_on_overflow=False),
+                functools.partial(self._stream.read, CHUNK, exception_on_overflow=False),
             )
-            pcm_unpacked = struct.unpack_from("h" * self._porcupine.frame_length, pcm)
+            await self._process_audio(pcm)
 
-            if self._porcupine.process(pcm_unpacked) >= 0:
-                logger.info('Wake word "%s" detected – pausing listener.', self._wake_word)
-                self._stream.stop_stream()
+    async def _process_audio(self, pcm: bytes) -> None:
+        audio = np.frombuffer(pcm, dtype=np.int16)
+        predictions = self._model.predict(audio)
 
-                await self._on_detection()
+        if not predictions:
+            return
 
-                self._stream.start_stream()
-                logger.info('Listening for "%s"...', self._wake_word)
+        score = max(predictions.values())
+
+        if score < self._sensitivity:
+            return
+
+        logger.info('Wake word detected (score=%.2f) – pausing listener.', score)
+        self._stream.stop_stream()
+
+        await self._on_detection()
+
+        self._model.reset()
+        self._stream.start_stream()
+        logger.info('Listening for "%s"...', self._wake_word)
 
     def _shutdown(self) -> None:
         logger.info("Shutting down...")
         self._stream.stop_stream()
         self._stream.close()
         self._pa.terminate()
-        self._porcupine.delete()
         sys.exit(0)

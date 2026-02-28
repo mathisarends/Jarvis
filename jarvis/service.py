@@ -32,7 +32,6 @@ class Jarvis:
         wake_word: WakeWord = WakeWord.JARVIS,
         wake_word_sensitivity: float = 0.8,
         noise_reduction: NoiseReduction = NoiseReduction.FAR_FIELD,
-        access_key: str | None = None,
         audio_output_device: AudioOutputDevice | None = None,
     ) -> None:
         self._realtime_model = realtime_model
@@ -53,7 +52,6 @@ class Jarvis:
         self._wake_word_listener = WakeWordListener(
             wake_word=wake_word,
             sensitivity=wake_word_sensitivity,
-            access_key=access_key,
             on_detection=self._on_wake_word_detected,
         )
         self._sound_effect_watchdog = SoundEffectWatchdog(event_bus=self._event_bus)
