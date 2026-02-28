@@ -5,11 +5,11 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13,<3.14"
 dependencies = [
-    "hueify>=0.2.0",
+    "hueify[mcp]>=0.3.0",
     "lameenc>=1.8.1",
     "pvporcupine>=4.0.2",
     "pyaudio>=0.2.14",
-    "rtvoice>=0.1.0",
+    "rtvoice>=0.1.3",
     "soco>=0.30.14",
     "sounddevice>=0.5.5",
     "soundfile>=0.13.1",

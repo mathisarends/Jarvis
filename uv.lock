@@ -222,7 +222,7 @@ wheels = [
 
 [[package]]
 name = "cyclopts"
-version = "4.5.4"
+version = "4.6.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "attrs" },
@@ -230,9 +230,9 @@ dependencies = [
     { name = "rich" },
     { name = "rich-rst" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/3b/d2/f37df900b163f51b4faacdb01bf4895c198906d67c5b2a85c2522de85459/cyclopts-4.5.4.tar.gz", hash = "sha256:eed4d6c76d4391aa796d8fcaabd50e5aad7793261792beb19285f62c5c456c8b", size = 162438, upload-time = "2026-02-20T00:58:46.161Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/49/5c/88a4068c660a096bbe87efc5b7c190080c9e86919c36ec5f092cb08d852f/cyclopts-4.6.0.tar.gz", hash = "sha256:483c4704b953ea6da742e8de15972f405d2e748d19a848a4d61595e8e5360ee5", size = 162724, upload-time = "2026-02-23T15:44:49.286Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a9/0f/119fa63fa93e0a331fbedcb27162d8f88d3ba2f38eba1567e3e44307b857/cyclopts-4.5.4-py3-none-any.whl", hash = "sha256:ad001986ec403ca1dc1ed20375c439d62ac796295ea32b451dfe25d6696bc71a", size = 200225, upload-time = "2026-02-20T00:58:47.275Z" },
+    { url = "https://files.pythonhosted.org/packages/8f/eb/1e8337755a70dc7d7ff10a73dc8f20e9352c9ad6c2256ed863ac95cd3539/cyclopts-4.6.0-py3-none-any.whl", hash = "sha256:0a891cb55bfd79a3cdce024db8987b33316aba11071e5258c21ac12a640ba9f2", size = 200518, upload-time = "2026-02-23T15:44:47.854Z" },
 ]
 
 [[package]]
@@ -304,7 +304,7 @@ wheels = [
 
 [[package]]
 name = "fastmcp"
-version = "3.0.1"
+version = "3.0.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "authlib" },
@@ -328,9 +328,9 @@ dependencies = [
     { name = "watchfiles" },
     { name = "websockets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f3/39/0847a868a8681f0d9bf42ad4b6856ef675f799eb464bd10dbcfe9ae87323/fastmcp-3.0.1.tar.gz", hash = "sha256:ba463ae51e357fba2bafe513cc97f0a06c9f31220e6584990b7d8bcbf69f0516", size = 17236395, upload-time = "2026-02-21T01:35:25.696Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/11/6b/1a7ec89727797fb07ec0928e9070fa2f45e7b35718e1fe01633a34c35e45/fastmcp-3.0.2.tar.gz", hash = "sha256:6bd73b4a3bab773ee6932df5249dcbcd78ed18365ed0aeeb97bb42702a7198d7", size = 17239351, upload-time = "2026-02-22T16:32:28.843Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/87/f9/94f2531d0c519e1e394c264941848caf2309284c5318c070f7b0e95ac496/fastmcp-3.0.1-py3-none-any.whl", hash = "sha256:71de15ffa4e54baebb78d7031c4c9a042a1ab8d1c0b44a9961b75d65809b67e8", size = 605494, upload-time = "2026-02-21T01:35:22.857Z" },
+    { url = "https://files.pythonhosted.org/packages/0a/5a/f410a9015cfde71adf646dab4ef2feae49f92f34f6050fcfb265eb126b30/fastmcp-3.0.2-py3-none-any.whl", hash = "sha256:f513d80d4b30b54749fe8950116b1aab843f3c293f5cb971fc8665cb48dbb028", size = 606268, upload-time = "2026-02-22T16:32:30.992Z" },
 ]
 
 [[package]]
@@ -390,18 +390,22 @@ wheels = [
 
 [[package]]
 name = "hueify"
-version = "0.2.0"
+version = "0.3.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "fastmcp" },
     { name = "httpx" },
     { name = "httpx-sse" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/24/47/2e854f1c6dc4940536ced17c091d1a67a2b2a213be9a44cc34a8b88a98cf/hueify-0.2.0.tar.gz", hash = "sha256:5141ab15e62ef4f5d38f3fe32c32d6f78ba271a0c1b520d8ef0c585c84822e77", size = 33678, upload-time = "2025-11-18T19:04:57.638Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/9f/9d/c384ab4fad8b265f5e95b2fe40e649fe7643b0f57084c26b5416d02d8138/hueify-0.3.0.tar.gz", hash = "sha256:0adefc81029aaa405c07f394e1817570643c869441a1bffba7dcd25d62a3983b", size = 89994, upload-time = "2026-02-26T16:58:09.351Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/21/f2/9d0a3b7de062acca7f5891b703359cac4ed13919f59ae291d02a70561917/hueify-0.2.0-py3-none-any.whl", hash = "sha256:040cd068eccae636c6ef4022aabfdadf5259eca24f4e598cc07a025b59c56cc8", size = 48312, upload-time = "2025-11-18T19:04:56.397Z" },
+    { url = "https://files.pythonhosted.org/packages/2e/66/3b3959aa54d1eac4c664542837184acfc53aa261ff95b61a2e71f21d9d6e/hueify-0.3.0-py3-none-any.whl", hash = "sha256:47af2a5d7f14fc78240aab2c3a6f4dd5564a15ba1c6c213f781720a520d69342", size = 37196, upload-time = "2026-02-26T16:58:08.364Z" },
+]
+
+[package.optional-dependencies]
+mcp = [
+    { name = "fastmcp" },
 ]
 
 [[package]]
@@ -481,7 +485,7 @@ name = "jarvis"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
-    { name = "hueify" },
+    { name = "hueify", extra = ["mcp"] },
     { name = "lameenc" },
     { name = "pvporcupine" },
     { name = "pyaudio" },
@@ -498,11 +502,11 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "hueify", specifier = ">=0.2.0" },
+    { name = "hueify", extras = ["mcp"], specifier = ">=0.3.0" },
     { name = "lameenc", specifier = ">=1.8.1" },
     { name = "pvporcupine", specifier = ">=4.0.2" },
     { name = "pyaudio", specifier = ">=0.2.14" },
-    { name = "rtvoice", specifier = ">=0.1.0" },
+    { name = "rtvoice", specifier = ">=0.1.3" },
     { name = "soco", specifier = ">=0.30.14" },
     { name = "sounddevice", specifier = ">=0.5.5" },
     { name = "soundfile", specifier = ">=0.13.1" },
@@ -572,16 +576,16 @@ wheels = [
 
 [[package]]
 name = "jsonschema-path"
-version = "0.4.1"
+version = "0.4.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pathable" },
     { name = "pyyaml" },
     { name = "referencing" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a8/8d/4b2e648cf643d19e1f76260d9cb002d242e38b4298d6da110bd3c3d8d0d2/jsonschema_path-0.4.1.tar.gz", hash = "sha256:ffca3bd37f66364ae3afeaa2804d6078a9ab3b9359ade4dd9923aabbbd475e71", size = 13450, upload-time = "2026-02-20T10:09:41.611Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/1c/35/c0788d641d8a63e6775820ac9e754207d01455ee767fcbdf23cfa7788f05/jsonschema_path-0.4.3.tar.gz", hash = "sha256:0c30506aae534a9cd328c149bf95d39a8f5045745a5f30354c73a96db05a43aa", size = 14185, upload-time = "2026-02-27T17:50:16.724Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/42/5a/5a735fd9c889fd7ee214525620ead725861f9f4ddd27097408b63e596b06/jsonschema_path-0.4.1-py3-none-any.whl", hash = "sha256:727d8714158c41327908677e6119f9db9d5e0f486d4cc79ca4b4016eee2f33e8", size = 16745, upload-time = "2026-02-20T10:09:40.03Z" },
+    { url = "https://files.pythonhosted.org/packages/e4/62/3bae8519266e4ae0c06d227922f91fa782dd872c01f8565da2905e319219/jsonschema_path-0.4.3-py3-none-any.whl", hash = "sha256:d21d77a5b5585edbc86c841c06eda34f9ad126590fda670d6958e25529459f75", size = 17325, upload-time = "2026-02-27T17:50:15.365Z" },
 ]
 
 [[package]]
@@ -1140,7 +1144,7 @@ wheels = [
 
 [[package]]
 name = "rtvoice"
-version = "0.1.0"
+version = "0.1.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "py-llmify" },
@@ -1149,9 +1153,9 @@ dependencies = [
     { name = "python-dotenv" },
     { name = "websockets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/fe/ba/d142af240ab84b0876e298608ee2be1304b2826861b7776e445e6ded9a00/rtvoice-0.1.0.tar.gz", hash = "sha256:8686cac7b252fd5fd465b0dadfc8e6b38bfed92ddffae0cb61744aed138e22bf", size = 50841, upload-time = "2026-02-22T08:46:38.845Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ab/76/eec77ed4a9ab5c1692f9f6dcf0c8b1a81efe9a4902dfd3b03f87dffc1659/rtvoice-0.1.3.tar.gz", hash = "sha256:13853905003ee60eca7fad5b50718cbf3936b44bd48860ee6b67f6b898e8c813", size = 52934, upload-time = "2026-02-27T20:25:38.277Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f2/da/54e68ea3e3e091984c3230525efa02e2743c889826f1f4dcdc7c6f17e36c/rtvoice-0.1.0-py3-none-any.whl", hash = "sha256:21854a7ccb7e32ba35b49a7bd4585617cab6338241cca0b7a2ec3013cc04695e", size = 36237, upload-time = "2026-02-22T08:46:37.319Z" },
+    { url = "https://files.pythonhosted.org/packages/7d/da/8a580125d34eb69078664e37e0eb877c3d3fb74e697a4f3c2ef7f407272c/rtvoice-0.1.3-py3-none-any.whl", hash = "sha256:4a6744bbae8bdd1898fe23b9899287bfea4d629299e4a04652d8cc5de68936af", size = 38787, upload-time = "2026-02-27T20:25:36.982Z" },
 ]
 
 [[package]]

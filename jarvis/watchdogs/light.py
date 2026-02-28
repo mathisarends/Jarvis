@@ -1,10 +1,10 @@
 import asyncio
 import logging
 
-from hueify import Light
+from hueify import Hueify
 
 from jarvis.events import EventBus
-from jarvis.events.views import WakeWordDetected
+from jarvis.events.views import WakeWordDetected, AgentError
 
 logger = logging.getLogger(__name__)
 
@@ -16,12 +16,30 @@ class LightsWatchdog:
     def __init__(self, event_bus: EventBus) -> None:
         self._event_bus = event_bus
         self._event_bus.subscribe(WakeWordDetected, self._on_wake_word_detected)
+        self._event_bus.subscribe(AgentError, self._on_agent_error)
+        self._hueify: Hueify | None = None
+
+    async def start(self) -> None:
+        self._hueify = Hueify()
+        await self._hueify.connect()
+        logger.info("Lights watchdog started")
+
+    async def stop(self) -> None:
+        if self._hueify:
+            await self._hueify.close()
 
     async def _on_wake_word_detected(self, _: WakeWordDetected) -> None:
         asyncio.create_task(self._flash())
 
+    async def _on_agent_error(self, event: AgentError) -> None:
+        logger.warning(
+            "AgentError received – type=%s message=%s", event.type, event.message
+        )
+
     async def _flash(self) -> None:
-        light = await Light.from_name(_LIGHT_NAME)
-        await light.increase_brightness_percentage(20)
+        if not self._hueify:
+            return
+        light = self._hueify.lights.from_name(_LIGHT_NAME)
+        await light.increase_brightness(20)
         await asyncio.sleep(_FLASH_DURATION)
-        await light.decrease_brightness_percentage(20)
+        await light.decrease_brightness(20)
