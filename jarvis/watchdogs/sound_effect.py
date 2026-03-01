@@ -1,12 +1,13 @@
 import asyncio
 import logging
+import threading
 from importlib.resources import files
 
 import sounddevice as sd
 import soundfile as sf
 
 from jarvis.events import EventBus
-from jarvis.events.views import AgentStarted, WakeWordDetected, AgentStopped, AgentError, SubagentCalled
+from jarvis.events.views import AgentStartedEvent, WakeWordDetectedEvent, AgentStoppedEvent, AgentErrorEvent, SubagentCalledEvent
 
 logger = logging.getLogger(__name__)
 
@@ -20,11 +21,11 @@ class SoundEffectWatchdog:
 
     def __init__(self, event_bus: EventBus) -> None:
         self._event_bus = event_bus
-        self._event_bus.subscribe(WakeWordDetected, self._on_wake_word_detected)
-        self._event_bus.subscribe(AgentStarted, self._on_agent_started)
-        self._event_bus.subscribe(AgentStopped, self._on_agent_stopped)
-        self._event_bus.subscribe(AgentError, self._on_agent_error)
-        self._event_bus.subscribe(SubagentCalled, self._on_subagent_called)
+        self._event_bus.subscribe(WakeWordDetectedEvent, self._on_wake_word_detected)
+        self._event_bus.subscribe(AgentStartedEvent, self._on_agent_started)
+        self._event_bus.subscribe(AgentStoppedEvent, self._on_agent_stopped)
+        self._event_bus.subscribe(AgentErrorEvent, self._on_agent_error)
+        self._event_bus.subscribe(SubagentCalledEvent, self._on_subagent_called)
 
         self._wake_data, self._samplerate = sf.read(self._WAKE_SOUND, dtype="float32")
         self._stopped_data, _ = sf.read(self._STOPPED_SOUND, dtype="float32")
@@ -32,31 +33,37 @@ class SoundEffectWatchdog:
         self._subagent_data, _ = sf.read(self._SUBAGENT_SOUND, dtype="float32")
         self._voice_assistant_started_data, _ = sf.read(self._VOICE_ASSISTANT_STARTED, dtype="float32")
 
-    async def _on_wake_word_detected(self, _: WakeWordDetected) -> None:
-        logger.info("WakeWordDetected received – playing wake sound")
+        self._playback_lock = threading.Lock()
+
+    async def _on_wake_word_detected(self, _: WakeWordDetectedEvent) -> None:
+        logger.info("WakeWordDetectedEvent received – playing wake sound")
         asyncio.create_task(self._play(self._wake_data))
 
-    async def _on_agent_started(self, _: AgentStarted) -> None:
-        logger.info("AgentStarted received – playing voice assistant started sound")
+    async def _on_agent_started(self, _: AgentStartedEvent) -> None:
+        logger.info("AgentStartedEvent received – playing voice assistant started sound")
         asyncio.create_task(self._play(self._voice_assistant_started_data))
 
-    async def _on_agent_stopped(self, _: AgentStopped) -> None:
-        logger.info("AgentStopped received – playing stopped sound")
+    async def _on_agent_stopped(self, _: AgentStoppedEvent) -> None:
+        logger.info("AgentStoppedEvent received – playing stopped sound")
         asyncio.create_task(self._play(self._stopped_data))
 
-    async def _on_agent_error(self, event: AgentError) -> None:
+    async def _on_agent_error(self, event: AgentErrorEvent) -> None:
         logger.warning(
-            "AgentError received – type=%s message=%s", event.type, event.message
+            "AgentErrorEvent received – type=%s message=%s", event.type, event.message
         )
-        # most of the time it is not critical if an error occurs (see whether we need audio feedback here)
         """ asyncio.create_task(self._play(self._error_data)) """
 
-    async def _on_subagent_called(self, _: SubagentCalled) -> None:
-        logger.info("SubagentCalled received – playing subagent sound")
+    async def _on_subagent_called(self, _: SubagentCalledEvent) -> None:
+        logger.info("SubagentCalledEvent received – playing subagent sound")
         asyncio.create_task(self._play(self._subagent_data))
 
     async def _play(self, data) -> None:
         logger.debug("Playing sound effect (%d frames)", len(data))
         loop = asyncio.get_running_loop()
-        await loop.run_in_executor(None, lambda: (sd.stop(), sd.play(data, self._samplerate, blocking=True)))
+        await loop.run_in_executor(None, self._play_blocking, data)
         logger.debug("Sound effect playback finished")
+
+    def _play_blocking(self, data) -> None:
+        with self._playback_lock:
+            sd.stop()
+            sd.play(data, self._samplerate, blocking=True)

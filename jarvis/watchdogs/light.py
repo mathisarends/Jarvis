@@ -5,11 +5,11 @@ from hueify import Hueify, Light
 
 from jarvis.events import EventBus
 from jarvis.events.views import (
-    WakeWordDetected,
-    AgentStarted,
-    AgentError,
-    AgentInterrupted,
-    AgentStopped,
+    WakeWordDetectedEvent,
+    AgentStartedEvent,
+    AgentErrorEvent,
+    AgentInterruptedEvent,
+    AgentStoppedEvent,
 )
 
 logger = logging.getLogger(__name__)
@@ -22,11 +22,11 @@ class LightsWatchdog:
 
     def __init__(self, event_bus: EventBus) -> None:
         self._event_bus = event_bus
-        self._event_bus.subscribe(WakeWordDetected, self._on_wake_word_detected)
-        self._event_bus.subscribe(AgentStarted, self._on_agent_started)
-        self._event_bus.subscribe(AgentError, self._on_agent_error)
-        self._event_bus.subscribe(AgentInterrupted, self._on_agent_interrupted)
-        self._event_bus.subscribe(AgentStopped, self._on_agent_stopped)
+        self._event_bus.subscribe(WakeWordDetectedEvent, self._on_wake_word_detected)
+        self._event_bus.subscribe(AgentStartedEvent, self._on_agent_started)
+        self._event_bus.subscribe(AgentErrorEvent, self._on_agent_error)
+        self._event_bus.subscribe(AgentInterruptedEvent, self._on_agent_interrupted)
+        self._event_bus.subscribe(AgentStoppedEvent, self._on_agent_stopped)
 
         self._light: Light | None = None
         self._hueify: Hueify | None = None
@@ -51,13 +51,13 @@ class LightsWatchdog:
         if self.is_connected:
             await self._hueify.close()
 
-    async def _on_wake_word_detected(self, _: WakeWordDetected) -> None:
+    async def _on_wake_word_detected(self, _: WakeWordDetectedEvent) -> None:
         if not self._is_ready:
             return
         self._agent_started_event = asyncio.Event()
         asyncio.create_task(self._flash())
 
-    async def _on_agent_started(self, _: AgentStarted) -> None:
+    async def _on_agent_started(self, _: AgentStartedEvent) -> None:
         if self._agent_started_event is not None:
             self._agent_started_event.set()
 
@@ -67,9 +67,9 @@ class LightsWatchdog:
             await self._agent_started_event.wait()
         await self._light.decrease_brightness(20)
 
-    async def _on_agent_error(self, event: AgentError) -> None:
+    async def _on_agent_error(self, event: AgentErrorEvent) -> None:
         logger.warning(
-            "AgentError received – type=%s message=%s", event.type, event.message
+            "AgentErrorEvent received – type=%s message=%s", event.type, event.message
         )
         if not self._is_ready:
             return
@@ -82,7 +82,7 @@ class LightsWatchdog:
             await self._light.decrease_brightness(30)
             await asyncio.sleep(self._SHORT_FLASH_DURATION)
 
-    async def _on_agent_interrupted(self, _: AgentInterrupted) -> None:
+    async def _on_agent_interrupted(self, _: AgentInterruptedEvent) -> None:
         if not self._is_ready:
             return
         asyncio.create_task(self._flash_interrupted())
@@ -92,7 +92,7 @@ class LightsWatchdog:
         await asyncio.sleep(self._SHORT_FLASH_DURATION)
         await self._light.increase_brightness(30)
 
-    async def _on_agent_stopped(self, _: AgentStopped) -> None:
+    async def _on_agent_stopped(self, _: AgentStoppedEvent) -> None:
         if not self._is_ready:
             return
         asyncio.create_task(self._flash_stopped())

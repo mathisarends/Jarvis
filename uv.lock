@@ -472,7 +472,7 @@ requires-dist = [
     { name = "numpy", specifier = ">=2.4.2" },
     { name = "openwakeword", specifier = ">=0.4.0" },
     { name = "pyaudio", specifier = ">=0.2.14" },
-    { name = "rtvoice", specifier = ">=0.1.6" },
+    { name = "rtvoice", specifier = "==0.1.8" },
     { name = "sounddevice", specifier = ">=0.5.5" },
     { name = "soundfile", specifier = ">=0.13.1" },
 ]
@@ -1128,7 +1128,7 @@ wheels = [
 
 [[package]]
 name = "rtvoice"
-version = "0.1.6"
+version = "0.1.8"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "py-llmify" },
@@ -1137,9 +1137,9 @@ dependencies = [
     { name = "python-dotenv" },
     { name = "websockets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/52/a8/a3db931c105913c457118ab88c91d6ceb6fc08ccc4becfbbace233e6b68a/rtvoice-0.1.6.tar.gz", hash = "sha256:d2c9642240b47409b8ce3e9aefc14e1d9697b1723b006c951345bb0b649be458", size = 53142, upload-time = "2026-03-01T07:15:37.67Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/01/0e/5570ee029a6be74b61677e878e8bc74562e1dcccc952c407f382a748fab6/rtvoice-0.1.8.tar.gz", hash = "sha256:8d319c0ea6bded8d76b965ac598ce3734eba6163828699b8e6e1bb312db85ce7", size = 52924, upload-time = "2026-03-01T08:55:02.173Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/65/14/9369934c91353256ea6b2c1205b1b013c6eb9f4a337022497edf9b6a73f4/rtvoice-0.1.6-py3-none-any.whl", hash = "sha256:25216b28ab19c3f4e6f9c0615b9716d6aaae25838e023847ded25ec0c6b0510a", size = 38685, upload-time = "2026-03-01T07:15:36.655Z" },
+    { url = "https://files.pythonhosted.org/packages/fa/8a/8002adc6cef849efc74fde931a6e20639f458181b58ec2a2bac7423607ef/rtvoice-0.1.8-py3-none-any.whl", hash = "sha256:61203c030911c77f572e9876807a76aa0f319ab4d764a4b6dc8948f034b007c6", size = 38957, upload-time = "2026-03-01T08:55:01.168Z" },
 ]
 
 [[package]]

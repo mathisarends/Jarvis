@@ -56,11 +56,31 @@ class WakeWordListener:
             signal.signal(signal.SIGINT, lambda *_: self._shutdown())
 
         while True:
-            pcm = await loop.run_in_executor(
-                None,
-                functools.partial(self._stream.read, CHUNK, exception_on_overflow=False),
-            )
+            try:
+                pcm = await loop.run_in_executor(
+                    None,
+                    functools.partial(self._stream.read, CHUNK, exception_on_overflow=False),
+                )
+            except OSError as e:
+                if e.errno in (-9988, -9983):
+                    logger.warning("Audio stream closed – reopening...")
+                    self._reopen_stream()
+                    continue
+                raise
             await self._process_audio(pcm)
+
+    def _reopen_stream(self) -> None:
+        try:
+            self._stream.close()
+        except Exception:
+            pass
+        self._stream = self._pa.open(
+            rate=RATE,
+            channels=CHANNELS,
+            format=pyaudio.paInt16,
+            input=True,
+            frames_per_buffer=CHUNK,
+        )
 
     async def _process_audio(self, pcm: bytes) -> None:
         audio = np.frombuffer(pcm, dtype=np.int16)

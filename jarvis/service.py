@@ -1,8 +1,10 @@
 import asyncio
 import logging
+from typing import Generic, TypeVar
 
 from jarvis.events import EventBus, AgentEventAdapter
-from jarvis.events.views import WakeWordDetected
+from jarvis.events.views import WakeWordDetectedEvent
+from jarvis.views import JarvisContext
 from jarvis.wake_word import WakeWord, WakeWordListener
 from jarvis.watchdogs import SoundEffectWatchdog, LightsWatchdog
 
@@ -18,7 +20,6 @@ from rtvoice.audio import AudioOutputDevice
 from rtvoice.mcp import MCPServer
 
 logger = logging.getLogger(__name__)
-
 
 class Jarvis:
     def __init__(
@@ -44,6 +45,7 @@ class Jarvis:
         self._audio_output_device = audio_output_device
 
         self._event_bus = EventBus()
+        self._context = JarvisContext(event_bus=self._event_bus)
         self._agent_listener = AgentEventAdapter(event_bus=self._event_bus)
         self._agent: RealtimeAgent | None = None
         self._next_agent: RealtimeAgent | None = None
@@ -69,6 +71,7 @@ class Jarvis:
             noise_reduction=self._noise_reduction,
             audio_output=self._audio_output_device,
             agent_listener=self._agent_listener,
+            context=self._context,
         )
 
     async def _prepare_next_agent(self) -> None:
@@ -83,7 +86,7 @@ class Jarvis:
 
     async def _on_wake_word_detected(self) -> None:
         logger.info("Wake word detected – dispatching event...")
-        await self._event_bus.dispatch(WakeWordDetected())
+        await self._event_bus.dispatch(WakeWordDetectedEvent())
 
         self._agent = self._next_agent or self._create_agent()
         self._next_agent = None

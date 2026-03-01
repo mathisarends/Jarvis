@@ -5,7 +5,8 @@ import logging
 from llmify import ChatOpenAI
 from rtvoice import AssistantVoice, Tools
 from rtvoice.views import NoiseReduction
-from jarvis import Jarvis, WakeWord, configure_logging
+from jarvis import Jarvis, WakeWord, configure_logging, JarvisContext
+from jarvis.events.views import AgentStoppedEvent
 from jarvis.subagents import create_light_agent, create_weather_agent
 
 configure_logging()
@@ -23,6 +24,10 @@ async def main() -> None:
 
     tools = Tools()
 
+    @tools.action("Stop the current assistant run")
+    async def stop_current_run(context: JarvisContext) -> None:
+        context.event_bus.dispatch(AgentStoppedEvent())
+
     @tools.action("Get the current local date and time.")
     def get_current_time() -> str:
         return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -39,6 +44,7 @@ async def main() -> None:
         tools=tools,
         instructions=instructions,
         noise_reduction=NoiseReduction.NEAR_FIELD,
+        
     )
     await jarvis.prepare()
     await jarvis.run()

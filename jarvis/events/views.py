@@ -1,23 +1,23 @@
 from pydantic import BaseModel
 
-class WakeWordDetected(BaseModel):
+class WakeWordDetectedEvent(BaseModel):
     pass
 
-class AgentStarted(BaseModel):
+class AgentStartedEvent(BaseModel):
     pass
 
-class AgentStopped(BaseModel):
+class AgentStoppedEvent(BaseModel):
     pass
 
-class AgentInterrupted(BaseModel):
+class AgentInterruptedEvent(BaseModel):
     pass
 
-class AgentError(BaseModel):
+class AgentErrorEvent(BaseModel):
     type: str
     message: str
     code: str | None = None
     param: str | None = None
 
-class SubagentCalled(BaseModel):
+class SubagentCalledEvent(BaseModel):
     agent_name: str
     task: str
