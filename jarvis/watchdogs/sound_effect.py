@@ -48,13 +48,12 @@ class SoundEffectWatchdog:
         logger.warning(
             "AgentError received – type=%s message=%s", event.type, event.message
         )
+        # most of the time it is not critical if an error occurs (see whether we need audio feedback here)
         """ asyncio.create_task(self._play(self._error_data)) """
 
     async def _on_subagent_called(self, _: SubagentCalled) -> None:
         logger.info("SubagentCalled received – playing subagent sound")
         asyncio.create_task(self._play(self._subagent_data))
-
-
 
     async def _play(self, data) -> None:
         logger.debug("Playing sound effect (%d frames)", len(data))

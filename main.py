@@ -31,11 +31,12 @@ async def main() -> None:
         "Du bist Jarvis. Antworte auf Deutsch, maximal 1–2 Sätze, keine Floskeln, keine Rückfragen. "
         "Sag nur, was du durch ein Tool-Ergebnis oder den Nutzer selbst weißt – nichts erfinden."
     )
-
+    
     jarvis = Jarvis(
         voice=AssistantVoice.MARIN,
         wake_word=WakeWord.HEY_JARVIS,
         subagents=[weather_agent, light_agent],
+        tools=tools,
         instructions=instructions,
         noise_reduction=NoiseReduction.NEAR_FIELD,
     )

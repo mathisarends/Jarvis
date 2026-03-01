@@ -48,6 +48,7 @@ class Jarvis:
         self._agent: RealtimeAgent | None = None
         self._next_agent: RealtimeAgent | None = None
         self._prepared: bool = False
+        self._background_tasks: set[asyncio.Task] = set()
 
         self._wake_word_listener = WakeWordListener(
             wake_word=wake_word,
@@ -71,10 +72,14 @@ class Jarvis:
         )
 
     async def _prepare_next_agent(self) -> None:
-        agent = self._create_agent()
-        await agent.prepare()
-        self._next_agent = agent
-        logger.debug("Next agent pre-prepared and ready")
+        try:
+            agent = self._create_agent()
+            await agent.prepare()
+            self._next_agent = agent
+            logger.debug("Next agent pre-prepared and ready")
+        except Exception:
+            logger.exception("Failed to pre-prepare next agent – will create on demand")
+            self._next_agent = None
 
     async def _on_wake_word_detected(self) -> None:
         logger.info("Wake word detected – dispatching event...")
@@ -83,10 +88,15 @@ class Jarvis:
         self._agent = self._next_agent or self._create_agent()
         self._next_agent = None
 
-        await self._agent.run()
-
-        self._agent = None
-        asyncio.create_task(self._prepare_next_agent())
+        try:
+            await self._agent.run()
+        except Exception:
+            logger.exception("Agent session raised an unexpected error")
+        finally:
+            self._agent = None
+            task = asyncio.create_task(self._prepare_next_agent())
+            self._background_tasks.add(task)
+            task.add_done_callback(self._background_tasks.discard)
 
     async def prepare(self) -> None:
         """Pre-warms the agent and starts background services.
@@ -113,7 +123,13 @@ class Jarvis:
         await self.prepare()
 
         while True:
-            await self._wake_word_listener.listen()
+            try:
+                await self._wake_word_listener.listen()
+            except asyncio.CancelledError:
+                logger.info("Jarvis run loop cancelled – shutting down")
+                raise
+            except Exception:
+                logger.exception("Wake word listener error – restarting listener")
 
     async def stop(self) -> None:
         if self._is_running():
