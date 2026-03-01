@@ -17,7 +17,6 @@ from rtvoice import (
     Tools,
 )
 from rtvoice.views import NoiseReduction
-from rtvoice.audio import AudioOutputDevice
 from rtvoice.mcp import MCPServer
 
 logger = logging.getLogger(__name__)
@@ -67,7 +66,7 @@ class Jarvis:
         self._register_core_tools()
         
     def _register_core_tools(self) -> None:
-        @self._tools.action("Stop the current assistant run")
+        @self._tools.action("Stop the current assistant run", suppress_response=True)
         async def stop_current_run(context: JarvisContext) -> None:
             await context.event_bus.dispatch(AgentStopCommand())
 

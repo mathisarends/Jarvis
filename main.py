@@ -33,7 +33,7 @@ async def main() -> None:
         subagents=[weather_agent, light_agent],
         tools=tools,
         instructions=instructions,
-        noise_reduction=NoiseReduction.NEAR_FIELD,
+        noise_reduction=NoiseReduction.FAR_FIELD,
     )
     await jarvis.prepare()
     await jarvis.run()
