@@ -1,6 +1,8 @@
 import asyncio
+from datetime import datetime
 import logging
 
+from jarvis.audio import VolumeSpeakerOutput
 from jarvis.events import EventBus, AgentEventAdapter
 from jarvis.events.views import WakeWordDetectedEvent, AgentStopCommand, AgentStoppedEvent
 from jarvis.views import JarvisContext
@@ -32,19 +34,21 @@ class Jarvis:
         wake_word: WakeWord = WakeWord.HEY_JARVIS,
         wake_word_sensitivity: float = 0.8,
         noise_reduction: NoiseReduction = NoiseReduction.FAR_FIELD,
-        audio_output_device: AudioOutputDevice | None = None,
     ) -> None:
         self._realtime_model = realtime_model
         self._voice = voice
         self._instructions = instructions
-        self._tools = tools
+        self._tools = tools or Tools()
         self._subagents = subagents or []
         self._mcp_servers = mcp_servers or []
         self._noise_reduction = noise_reduction
-        self._audio_output_device = audio_output_device
 
+        self._speaker = VolumeSpeakerOutput()
         self._event_bus = EventBus()
-        self._context = JarvisContext(event_bus=self._event_bus)
+        self._context = JarvisContext(
+            event_bus=self._event_bus,
+            speaker=self._speaker,
+        )
         self._agent_listener = AgentEventAdapter(event_bus=self._event_bus)
         self._agent: RealtimeAgent | None = None
         self._next_agent: RealtimeAgent | None = None
@@ -60,6 +64,25 @@ class Jarvis:
         self._lights_watchdog = LightsWatchdog(event_bus=self._event_bus)
 
         self._event_bus.subscribe(AgentStopCommand, self._on_stop_command)
+        self._register_core_tools()
+        
+    def _register_core_tools(self) -> None:
+        @self._tools.action("Stop the current assistant run")
+        async def stop_current_run(context: JarvisContext) -> None:
+            await context.event_bus.dispatch(AgentStopCommand())
+
+        @self._tools.action("Get the current local date and time.")
+        def get_current_time() -> str:
+            return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        @self._tools.action("Set the speaker volume (0-100)")
+        def set_volume(context: JarvisContext, percent: int) -> str:
+            context.speaker.volume = percent
+            return f"Volume set to {percent}%"
+
+        @self._tools.action("Get the current speaker volume")
+        def get_volume(context: JarvisContext) -> str:
+            return f"Current volume: {context.speaker.volume}%"
 
     def _create_agent(self) -> RealtimeAgent:
         return RealtimeAgent(
@@ -70,7 +93,7 @@ class Jarvis:
             subagents=self._subagents,
             mcp_servers=self._mcp_servers,
             noise_reduction=self._noise_reduction,
-            audio_output=self._audio_output_device,
+            audio_output=self._speaker,
             agent_listener=self._agent_listener,
             context=self._context,
         )

@@ -1,12 +1,10 @@
 import asyncio
-from datetime import datetime
 import logging
 
 from llmify import ChatOpenAI
 from rtvoice import AssistantVoice, Tools
 from rtvoice.views import NoiseReduction
-from jarvis import Jarvis, WakeWord, configure_logging, JarvisContext
-from jarvis.events.views import AgentStopCommand
+from jarvis import Jarvis, WakeWord, configure_logging
 from jarvis.subagents import create_light_agent, create_weather_agent
 
 configure_logging()
@@ -24,15 +22,6 @@ async def main() -> None:
 
     tools = Tools()
 
-    @tools.action("Stop the current assistant run")
-    async def stop_current_run(context: JarvisContext) -> None:
-        event_bus = context.event_bus
-        await event_bus.dispatch(AgentStopCommand())
-
-    @tools.action("Get the current local date and time.")
-    def get_current_time() -> str:
-        return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
     instructions = (
         "Du bist Jarvis. Antworte auf Deutsch, maximal 1–2 Sätze, keine Floskeln, keine Rückfragen. "
         "Sag nur, was du durch ein Tool-Ergebnis oder den Nutzer selbst weißt – nichts erfinden."
@@ -45,7 +34,6 @@ async def main() -> None:
         tools=tools,
         instructions=instructions,
         noise_reduction=NoiseReduction.NEAR_FIELD,
-        
     )
     await jarvis.prepare()
     await jarvis.run()
