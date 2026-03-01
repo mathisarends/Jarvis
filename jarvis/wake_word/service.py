@@ -1,6 +1,7 @@
 import asyncio
 import functools
 import logging
+import signal
 import sys
 from collections.abc import Awaitable, Callable
 from pathlib import Path
@@ -49,7 +50,10 @@ class WakeWordListener:
         logger.info('Listening for "%s"...', self._wake_word)
 
         loop = asyncio.get_running_loop()
-        loop.add_signal_handler(asyncio.unix_events.signal.SIGINT, self._shutdown)
+        if sys.platform != "win32":
+            loop.add_signal_handler(signal.SIGINT, self._shutdown)
+        else:
+            signal.signal(signal.SIGINT, lambda *_: self._shutdown())
 
         while True:
             pcm = await loop.run_in_executor(

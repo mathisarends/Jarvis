@@ -6,6 +6,7 @@ from hueify import Hueify, Light
 from jarvis.events import EventBus
 from jarvis.events.views import (
     WakeWordDetected,
+    AgentStarted,
     AgentError,
     AgentInterrupted,
     AgentStopped,
@@ -22,12 +23,14 @@ class LightsWatchdog:
     def __init__(self, event_bus: EventBus) -> None:
         self._event_bus = event_bus
         self._event_bus.subscribe(WakeWordDetected, self._on_wake_word_detected)
+        self._event_bus.subscribe(AgentStarted, self._on_agent_started)
         self._event_bus.subscribe(AgentError, self._on_agent_error)
         self._event_bus.subscribe(AgentInterrupted, self._on_agent_interrupted)
         self._event_bus.subscribe(AgentStopped, self._on_agent_stopped)
 
         self._light: Light | None = None
         self._hueify: Hueify | None = None
+        self._agent_started_event: asyncio.Event | None = None
 
     @property
     def is_connected(self) -> bool:
@@ -51,11 +54,17 @@ class LightsWatchdog:
     async def _on_wake_word_detected(self, _: WakeWordDetected) -> None:
         if not self._is_ready:
             return
+        self._agent_started_event = asyncio.Event()
         asyncio.create_task(self._flash())
+
+    async def _on_agent_started(self, _: AgentStarted) -> None:
+        if self._agent_started_event is not None:
+            self._agent_started_event.set()
 
     async def _flash(self) -> None:
         await self._light.increase_brightness(20)
-        await asyncio.sleep(self._FLASH_DURATION)
+        if self._agent_started_event is not None:
+            await self._agent_started_event.wait()
         await self._light.decrease_brightness(20)
 
     async def _on_agent_error(self, event: AgentError) -> None:

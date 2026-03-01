@@ -18,7 +18,7 @@ logging.getLogger("hueify").setLevel(logging.WARNING)
 
 async def main() -> None:
     llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.2)
-    weather_agent = create_weather_agent()
+    weather_agent = await create_weather_agent()
     light_agent = await create_light_agent(llm=llm)
 
     tools = Tools()
