@@ -1,5 +1,8 @@
 from pydantic import BaseModel
 
+class ApplicationStartedEvent(BaseModel):
+    pass
+
 class WakeWordDetectedEvent(BaseModel):
     pass
 
@@ -13,6 +16,18 @@ class AgentStopCommand(BaseModel):
     pass
 
 class AgentInterruptedEvent(BaseModel):
+    pass
+
+class UserStartedSpeakingEvent(BaseModel):
+    pass
+
+class UserStoppedSpeakingEvent(BaseModel):
+    pass
+
+class AssistantStartedRespondingEvent(BaseModel):
+    pass
+
+class AssistantStoppedRespondingEvent(BaseModel):
     pass
 
 class AgentErrorEvent(BaseModel):

@@ -4,7 +4,7 @@ import logging
 
 from jarvis.audio import VolumeSpeakerOutput
 from jarvis.events import EventBus, AgentEventAdapter
-from jarvis.events.views import WakeWordDetectedEvent, AgentStopCommand, AgentStoppedEvent
+from jarvis.events.views import ApplicationStartedEvent, WakeWordDetectedEvent, AgentStopCommand
 from jarvis.views import JarvisContext
 from jarvis.wake_word import WakeWord, WakeWordListener
 from jarvis.watchdogs import SoundEffectWatchdog, LightsWatchdog
@@ -18,6 +18,8 @@ from rtvoice import (
 )
 from rtvoice.views import NoiseReduction
 from rtvoice.mcp import MCPServer
+
+from jarvis.tools import Timer
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +49,7 @@ class Jarvis:
         self._context = JarvisContext(
             event_bus=self._event_bus,
             speaker=self._speaker,
+            timer=Timer(),
         )
         self._agent_listener = AgentEventAdapter(event_bus=self._event_bus)
         self._agent: RealtimeAgent | None = None
@@ -64,9 +67,11 @@ class Jarvis:
 
         self._event_bus.subscribe(AgentStopCommand, self._on_stop_command)
         self._register_core_tools()
+
+        asyncio.create_task(self._event_bus.dispatch(ApplicationStartedEvent()))
         
     def _register_core_tools(self) -> None:
-        @self._tools.action("Stop the current assistant run", suppress_response=True)
+        @self._tools.action("Stop the current assistant run")
         async def stop_current_run(context: JarvisContext) -> None:
             await context.event_bus.dispatch(AgentStopCommand())
 
@@ -93,7 +98,7 @@ class Jarvis:
             mcp_servers=self._mcp_servers,
             noise_reduction=self._noise_reduction,
             audio_output=self._speaker,
-            agent_listener=self._agent_listener,
+            listener=self._agent_listener,
             context=self._context,
         )
 
@@ -168,7 +173,6 @@ class Jarvis:
     async def stop(self) -> None:
         if self._is_running():
             await self._agent.stop()
-            await self._event_bus.dispatch(AgentStoppedEvent())
 
     def _is_running(self) -> bool:
         return self._agent is not None
