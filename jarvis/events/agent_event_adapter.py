@@ -1,7 +1,7 @@
 from rtvoice import AgentListener
 
 from rtvoice.events.bus import EventBus
-from jarvis.events.views import AgentErrorEvent, AgentInterruptedEvent, AgentStartedEvent, AgentStoppedEvent, SubagentCalledEvent
+from jarvis.events.views import AgentErrorEvent, AgentInterruptedEvent, AgentStartedEvent, SubagentCalledEvent
 
 
 class AgentEventAdapter(AgentListener):
@@ -10,9 +10,6 @@ class AgentEventAdapter(AgentListener):
 
     async def on_agent_started(self) -> None:
         await self._event_bus.dispatch(AgentStartedEvent())
-
-    async def on_agent_stopped(self) -> None:
-        await self._event_bus.dispatch(AgentStoppedEvent())
 
     async def on_agent_interrupted(self) -> None:
         await self._event_bus.dispatch(AgentInterruptedEvent())

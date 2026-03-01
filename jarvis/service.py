@@ -1,9 +1,8 @@
 import asyncio
 import logging
-from typing import Generic, TypeVar
 
 from jarvis.events import EventBus, AgentEventAdapter
-from jarvis.events.views import WakeWordDetectedEvent
+from jarvis.events.views import WakeWordDetectedEvent, AgentStopCommand, AgentStoppedEvent
 from jarvis.views import JarvisContext
 from jarvis.wake_word import WakeWord, WakeWordListener
 from jarvis.watchdogs import SoundEffectWatchdog, LightsWatchdog
@@ -59,6 +58,8 @@ class Jarvis:
         )
         self._sound_effect_watchdog = SoundEffectWatchdog(event_bus=self._event_bus)
         self._lights_watchdog = LightsWatchdog(event_bus=self._event_bus)
+
+        self._event_bus.subscribe(AgentStopCommand, self._on_stop_command)
 
     def _create_agent(self) -> RealtimeAgent:
         return RealtimeAgent(
@@ -134,9 +135,18 @@ class Jarvis:
             except Exception:
                 logger.exception("Wake word listener error – restarting listener")
 
+    async def _on_stop_command(self, _: AgentStopCommand) -> None:
+        logger.info("Stop requested via command – stopping agent...")
+        # Use ensure_future instead of await: stopping the agent cancels all running
+        # tasks, including the tool-call task that triggered this handler. Awaiting
+        # directly causes a recursive cancel loop. ensure_future defers the stop to
+        # the next event loop tick, letting the tool call finish cleanly first.
+        asyncio.ensure_future(self.stop())
+
     async def stop(self) -> None:
         if self._is_running():
             await self._agent.stop()
+            await self._event_bus.dispatch(AgentStoppedEvent())
 
     def _is_running(self) -> bool:
         return self._agent is not None

@@ -6,7 +6,7 @@ from llmify import ChatOpenAI
 from rtvoice import AssistantVoice, Tools
 from rtvoice.views import NoiseReduction
 from jarvis import Jarvis, WakeWord, configure_logging, JarvisContext
-from jarvis.events.views import AgentStoppedEvent
+from jarvis.events.views import AgentStopCommand
 from jarvis.subagents import create_light_agent, create_weather_agent
 
 configure_logging()
@@ -26,7 +26,8 @@ async def main() -> None:
 
     @tools.action("Stop the current assistant run")
     async def stop_current_run(context: JarvisContext) -> None:
-        context.event_bus.dispatch(AgentStoppedEvent())
+        event_bus = context.event_bus
+        await event_bus.dispatch(AgentStopCommand())
 
     @tools.action("Get the current local date and time.")
     def get_current_time() -> str:

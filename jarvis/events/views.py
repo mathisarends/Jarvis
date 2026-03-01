@@ -9,6 +9,9 @@ class AgentStartedEvent(BaseModel):
 class AgentStoppedEvent(BaseModel):
     pass
 
+class AgentStopCommand(BaseModel):
+    pass
+
 class AgentInterruptedEvent(BaseModel):
     pass
 
