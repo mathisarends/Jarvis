@@ -5,8 +5,7 @@ from llmify import ChatOpenAI
 from rtvoice import AssistantVoice, Tools
 from rtvoice.views import NoiseReduction
 from jarvis import Jarvis, WakeWord, configure_logging
-from jarvis.subagents import create_light_agent, create_weather_agent
-from jarvis.tools import Timer
+from jarvis.subagents import create_supervisor_agent
 
 configure_logging()
 
@@ -18,8 +17,7 @@ logging.getLogger("hueify").setLevel(logging.WARNING)
 
 async def main() -> None:
     llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.2)
-    weather_agent = await create_weather_agent()
-    light_agent = await create_light_agent(llm=llm)
+    supervisor_agent = await create_supervisor_agent(llm=llm)
 
     tools = Tools()
 
@@ -31,7 +29,7 @@ async def main() -> None:
     jarvis = Jarvis(
         voice=AssistantVoice.MARIN,
         wake_word=WakeWord.HEY_JARVIS,
-        subagents=[weather_agent, light_agent],
+        supervisor_agent=supervisor_agent,
         tools=tools,
         instructions=instructions,
         noise_reduction=NoiseReduction.FAR_FIELD,

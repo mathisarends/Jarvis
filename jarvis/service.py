@@ -12,12 +12,12 @@ from jarvis.watchdogs import SoundEffectWatchdog, LightsWatchdog
 from rtvoice import (
     RealtimeAgent,
     RealtimeModel,
-    SubAgent,
     AssistantVoice,
     Tools,
 )
 from rtvoice.views import NoiseReduction
 from rtvoice.mcp import MCPServer
+from rtvoice.supervisor import SupervisorAgent
 
 from jarvis.tools import Timer
 
@@ -30,7 +30,7 @@ class Jarvis:
         voice: AssistantVoice = AssistantVoice.MARIN,
         instructions: str = "",
         tools: Tools | None = None,
-        subagents: list[SubAgent] | None = None,
+        supervisor_agent: SupervisorAgent | None = None,
         mcp_servers: list[MCPServer] | None = None,
         wake_word: WakeWord = WakeWord.HEY_JARVIS,
         wake_word_sensitivity: float = 0.8,
@@ -40,7 +40,7 @@ class Jarvis:
         self._voice = voice
         self._instructions = instructions
         self._tools = tools or Tools()
-        self._subagents = subagents or []
+        self._supervisor_agent = supervisor_agent
         self._mcp_servers = mcp_servers or []
         self._noise_reduction = noise_reduction
 
@@ -94,7 +94,7 @@ class Jarvis:
             model=self._realtime_model,
             voice=self._voice,
             tools=self._tools,
-            subagents=self._subagents,
+            supervisor_agent=self._supervisor_agent,
             mcp_servers=self._mcp_servers,
             noise_reduction=self._noise_reduction,
             audio_output=self._speaker,
@@ -105,7 +105,7 @@ class Jarvis:
     async def _prepare_next_agent(self) -> None:
         try:
             agent = self._create_agent()
-            await agent.prepare()
+            await agent.prewarm()
             self._next_agent = agent
             logger.debug("Next agent pre-prepared and ready")
         except Exception:

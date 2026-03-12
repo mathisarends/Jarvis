@@ -36,6 +36,15 @@ class AgentErrorEvent(BaseModel):
     code: str | None = None
     param: str | None = None
 
+class UserInactivityCountdownEvent(BaseModel):
+    remaining_seconds: int
+
+class SupervisorStartedEvent(BaseModel):
+    pass
+
+class SupervisorFinishedEvent(BaseModel):
+    pass
+
 class SubagentCalledEvent(BaseModel):
     agent_name: str
     task: str

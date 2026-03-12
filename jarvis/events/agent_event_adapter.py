@@ -11,6 +11,9 @@ from jarvis.events.views import (
     UserStoppedSpeakingEvent,
     AssistantStartedRespondingEvent,
     AssistantStoppedRespondingEvent,
+    UserInactivityCountdownEvent,
+    SupervisorStartedEvent,
+    SupervisorFinishedEvent,
 )
 
 
@@ -43,3 +46,14 @@ class AgentEventAdapter(AgentListener):
 
     async def on_assistant_stopped_responding(self) -> None:
         await self._event_bus.dispatch(AssistantStoppedRespondingEvent())
+
+    async def on_user_inactivity_countdown(self, remaining_seconds: int) -> None:
+        await self._event_bus.dispatch(
+            UserInactivityCountdownEvent(remaining_seconds=remaining_seconds)
+        )
+
+    async def on_supervisor_started(self) -> None:
+        await self._event_bus.dispatch(SupervisorStartedEvent())
+
+    async def on_supervisor_finished(self) -> None:
+        await self._event_bus.dispatch(SupervisorFinishedEvent())
